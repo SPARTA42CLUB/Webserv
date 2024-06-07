@@ -1,9 +1,7 @@
 # Webserv
-
 HTTP 서버를 작성하는 과제
 
 ## Introduction
-
 HTTP(Hypertext Transfer Protocol)는 WWW(World Wide Web)의 데이터 통신을 위한 기반이며, 하이퍼텍스트 문서에는 사용자가 쉽게 액세스할 수 있는 다른 리소스에 대한 하이퍼링크가 포함됩니다.
 
 Hypertext 문서에는 사용자가 쉽게 액세스할 수 있는 다른 리소스에 대한 하이퍼링크가 포함됩니다.
@@ -80,7 +78,6 @@ HTTP를 사용하여 특정 리소스를 요청하면 서버는 해당 리소스
 > 따라서 `poll()`(또는 이와 동등한 함수)를 사용하지 않고 파일 디스크립터에서 `read/recv`  또는 `write/send`을 시도하면 등급이 0이 됩니다.
 
 #### For MacOS only
-
 > MacOS는 다른 유닉스 OS와 같은 방식으로 `write()`를 구현하지 않으므로 `fcntl()`을 사용할 수 있습니다.\
 > 다른 유닉스 OS와 유사한 동작을 얻으려면 non-blocking 모드에서 file descriptor을 사용해야 합니다.
 
