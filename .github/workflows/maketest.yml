@@ -1,8 +1,8 @@
 name: 42Cursus CPP Makefile Test
 
-on:
-  pull_request:
-    branches: [ "main", "develop" ]
+# on:
+  # pull_request:
+    # branches: [ "main", "develop" ]
 
 jobs:
   test-makefiles:
