@@ -1,6 +1,7 @@
 #include "Config.hpp"
 #include "error.hpp"
 #include <fstream>
+#include <stdlib.h>
 #include <sstream>
 #include <iostream>
 
@@ -45,7 +46,7 @@ void Config::parseServer(std::ifstream &file) {
 		} else if (key == "client_max_body_size") {
 			std::string size;
 			iss >> size;
-			serverConfig.client_max_body_size = std::strtoul(size.c_str(), NULL, 10);
+			serverConfig.client_max_body_size = strtoul(size.c_str(), NULL, 10);
 		} else if (key == "location") {
 			std::string location;
 			iss >> location;
