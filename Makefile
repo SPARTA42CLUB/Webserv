@@ -38,8 +38,7 @@ RESET 			:= \033[0m
 SRC_DIR			:= ./src
 INCLUDE			:= -I./inc
 
-SRC				:= \
-				*.cpp
+SRC				:= Config.cpp error.cpp main.cpp Server.cpp
 OBJ				:= $(addprefix $(SRC_DIR)/, $(SRC:.cpp=.o))
 
 all: $(NAME)
