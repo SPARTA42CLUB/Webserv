@@ -1,5 +1,6 @@
 #include "Server.hpp"
 #include "error.hpp"
+#include "HttpResponse.hpp"
 #include <iostream>
 #include <cstring>
 #include <cerrno>
@@ -169,17 +170,22 @@ void Server::handleClient(int clientSocket) {
 
 	// 클라이언트 요청 처리
 	// Handle request and generate response
-	std::string response = "HTTP/1.1 200 OK\r\nContent-Length: 13\r\n\r\nHello, World!";
+	HttpResponse response;
+	response.setStatusCode(200, "OK");
+    response.setHeader("Content-Type", "text/plain");
+    response.setBody("Hello, World!");
+
 	sendResponse(clientSocket, response);
 }
 
 // 응답 전송
-void Server::sendResponse(int clientSocket, const std::string& response) {
-	ssize_t bytesSent = send(clientSocket, response.c_str(), response.length(), 0);
-	if (bytesSent == -1) {
-		std::cerr << "send error: " << strerror(errno) << std::endl;
-		closeConnection(clientSocket);
-	}
+void Server::sendResponse(int clientSocket, const HttpResponse& response) {
+    std::string responseStr = response.toString();
+    ssize_t bytesSent = send(clientSocket, responseStr.c_str(), responseStr.length(), 0);
+    if (bytesSent == -1) {
+        std::cerr << "send error: " << strerror(errno) << std::endl;
+        closeConnection(clientSocket);
+    }
 }
 
 // 클라이언트 소켓 종료

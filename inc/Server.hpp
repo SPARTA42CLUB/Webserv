@@ -10,6 +10,7 @@
 #include <fcntl.h>
 #include <sys/event.h>
 #include "Config.hpp"
+#include "HttpResponse.hpp"
 
 class Server {
 public:
@@ -25,6 +26,6 @@ private:
 	void setNonBlocking(int fd);
 	void handleEvents();
 	void handleClient(int clientSocket);
-	void sendResponse(int clientSocket, const std::string& response);
+	void sendResponse(int clientSocket, const HttpResponse& response);
 	void closeConnection(int clientSocket);
 };
