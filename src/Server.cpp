@@ -15,6 +15,12 @@ Server::Server(const std::vector<ServerConfig>& serverConfigs) : serverConfigs(s
 	if (kq == -1)
 		exit_with_error("Failed to create kqueue");
 
+	/*
+	 * 다중 서버 소켓을 관리하는 이유 : 하나의 서버 소켓이 하나의 port에 대한 연결 요청을 처리한다.
+	 * 예시로 443(https)포트와 8080(http)포트를 동시에 사용하는 경우, 서버 소켓을 2개 생성하여 각각의 포트에 대한 연결 요청을 처리한다.
+	 * 또한 서버는 여러개의 IP를 가질 수 있으므로, 서버 소켓을 여러개 생성하여 각각의 IP에 대한 연결 요청을 처리할 수 있다.
+	 * 서버가 여러개의 IP를 가지는 경우는 서버가 여러개의 네트워크 인터페이스를 가지는 경우이다.
+	*/
 	for (size_t i = 0; i < serverSockets.size(); ++i) {
 
 		struct kevent event;
