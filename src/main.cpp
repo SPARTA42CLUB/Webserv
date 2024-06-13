@@ -4,7 +4,7 @@
 
 int main(int argc, char* argv[]) {
 	// Config 기본 경로 설정
-	std::string configPath = "config/default.conf";
+	std::string configPath = "default.conf";
 
 	// Config 파일 경로 설정
 	if (argc > 1) {

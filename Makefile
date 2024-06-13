@@ -36,10 +36,11 @@ BG_DEFAULT		:= \033[49m
 RESET 			:= \033[0m
 
 SRC_DIR			:= ./src
-INCLUDE			:= -I./inc
+OBJ_DIR			:= ./obj
+INCLUDE			:= -I./src/config -I./src/error -I./src/http_response -I./src/server -I./src/client
 
-SRC				:= Config.cpp error.cpp main.cpp Server.cpp HttpResponse.cpp
-OBJ				:= $(addprefix $(SRC_DIR)/, $(SRC:.cpp=.o))
+SRC				:= $(shell find $(SRC_DIR) -name "*.cpp")
+OBJ				:= $(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(SRC))
 
 all: $(NAME)
 	@echo "$(FG_GREEN)$(NAME) created successfully$(RESET)"
@@ -48,7 +49,8 @@ $(NAME): $(OBJ)
 	@$(CXX) $(CFLAGS) $(OBJ) -o $(NAME)
 	@echo "$(FG_WHITE)Creating $@$(RESET)"
 
-%.o: %.cpp
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
+	@mkdir -p $(dir $@)
 	@$(CXX) $(CFLAGS) -c $< -o $@ $(INCLUDE)
 	@echo "$(FG_CYAN)Compiled:$(RESET) $< -> $@"
 

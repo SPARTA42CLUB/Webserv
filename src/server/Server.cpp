@@ -66,7 +66,7 @@ void Server::setupServerSockets() {
 }
 
 // 소켓 논블로킹 설정
-void Server::setNonBlocking(int fd) {
+void Server:: setNonBlocking(int fd) {
 	int flags = fcntl(fd, F_GETFL, 0); // 파일 디스크립터 플래그 가져오기
 	if (flags == -1) {
 		std::cerr << "Failed to get flags: " << strerror(errno) << std::endl;
@@ -133,7 +133,7 @@ void Server::handleEvents() {
 					std::cerr << "Failed to add event to kqueue: " << strerror(errno) << std::endl;
 					close(clientSocket);
 				}
-			} 
+			}
 			else {
 				// 클라이언트 소켓으로 읽기 이벤트가 발생했다는 것의 의미 : 클라이언트가 요청을 보냈다는 것
 				// 클라이언트 소켓인 경우 'handleClient'를 호출하여 클라이언트 요청 처리
@@ -173,7 +173,7 @@ void Server::handleClient(int clientSocket) {
 	HttpResponse response;
 	response.setStatusCode(200, "OK");
     response.setHeader("Content-Type", "text/plain");
-    response.setBody("Hello, World!");
+    response.setBody("It's response body test!");
 
 	sendResponse(clientSocket, response);
 }
