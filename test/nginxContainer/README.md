@@ -3,7 +3,7 @@ Nginx에 직접 HTTP Request를 보내서 Response를 받아보는 테스트
 
 ## Installation
 ```bash
-docker-compose up -d
+make
 ```
 
 ## Request Test
