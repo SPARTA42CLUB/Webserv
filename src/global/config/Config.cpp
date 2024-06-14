@@ -5,13 +5,15 @@
 #include <sstream>
 #include <iostream>
 
-Config::Config(const std::string &configFile) : configFile(configFile) {}
+Config::Config(const std::string& configFilePath) : configFilePath(configFilePath) {
+	parse();
+}
 
 // Config 파일 파싱
 void Config::parse() {
-	std::ifstream file(configFile.c_str());
+	std::ifstream file(configFilePath.c_str());
 	if (!file.is_open())
-		exit_with_error("Failed to open config file");
+		exit_with_error("Failed to open Config file");
 
 	// 파일 끝까지 반복
 	while (!file.eof()) {
@@ -61,7 +63,7 @@ void Config::parseServer(std::ifstream &file) {
 	}
 
 	// 서버 설정 벡터에 추가
-	servers.push_back(serverConfig);
+	serverConfigs.push_back(serverConfig);
 }
 
 // Location 설정 파싱
@@ -101,6 +103,16 @@ void Config::parseLocation(std::ifstream& file, ServerConfig& serverConfig, cons
 }
 
 // 서버 설정 벡터 반환
-std::vector<ServerConfig> Config::getServers() const {
-	return servers;
+std::vector<ServerConfig> Config::getServerConfigs() const {
+	return serverConfigs;
+}
+
+const ServerConfig& Config::getServerConfig(const std::string& serverName, int port) const {
+	for (size_t i = 0; i < serverConfigs.size(); ++i) {
+		const ServerConfig& serverConfig = serverConfigs[i];
+		if (serverConfig.port == port && serverConfig.server_name == serverName)
+			return serverConfig;
+	}
+
+	throw std::runtime_error("No server configuration found for host " + serverName + " and port " + std::to_string(port));
 }
