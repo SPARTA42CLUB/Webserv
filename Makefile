@@ -37,7 +37,9 @@ RESET 			:= \033[0m
 
 SRC_DIR			:= ./src
 OBJ_DIR			:= ./obj
-INCLUDE			:= -I./src/config -I./src/error -I./src/http_response -I./src/server -I./src/client
+
+INCLUDE_DIRS	:= $(shell find $(SRC_DIR) -type d)
+INCLUDE			:= $(addprefix -I, $(INCLUDE_DIRS))
 
 SRC				:= $(shell find $(SRC_DIR) -name "*.cpp")
 OBJ				:= $(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(SRC))

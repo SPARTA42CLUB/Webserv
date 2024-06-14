@@ -10,22 +10,33 @@
 #include <fcntl.h>
 #include <sys/event.h>
 #include "Config.hpp"
+#include "RequestHandler.hpp"
+#include "Client.hpp"
+#include "EventManager.hpp"
+#include "HttpRequest.hpp"
 #include "HttpResponse.hpp"
 
 class Server {
 public:
-	Server(const std::vector<ServerConfig>& serverConfigs);
+	Server(const Config& config);
+	~Server();
+
 	void run();
 
 private:
+	const Config& config;
+	EventManager eventManager;
+	RequestHandler requestHandler;
 	std::vector<int> serverSockets;
-	std::vector<ServerConfig> serverConfigs;
-	int kq;
+	std::map<int, ServerConfig> socketToConfigMap;
+	std::map<int, Client*> clients;
 
 	void setupServerSockets();
 	void setNonBlocking(int fd);
-	void handleEvents();
-	void handleClient(int clientSocket);
-	void sendResponse(int clientSocket, const HttpResponse& response);
-	void closeConnection(int clientSocket);
+
+	void acceptClient(int serverSocket);
+	void handleClientReadEvent(struct kevent& event);
+
+	void sendResponse(Client* client, const HttpResponse& response);
+	void closeConnection(Client* client);
 };

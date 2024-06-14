@@ -17,9 +17,9 @@ struct LocationConfig {
 };
 
 struct ServerConfig {
+	std::string server_name;
 	std::string host;
 	int port;
-	std::string server_name;
 	std::map<int, std::string> error_pages;
 	size_t client_max_body_size;
 	std::map<std::string, LocationConfig> locations;
@@ -29,13 +29,14 @@ struct ServerConfig {
 
 class Config {
 public:
-	Config(const std::string& configFile);
-	void parse();
-	std::vector<ServerConfig> getServers() const;
+	Config(const std::string& configFilePath);
+	std::vector<ServerConfig> getServerConfigs() const;
+	const ServerConfig& getServerConfig(const std::string& serverName, int port) const;
 
 private:
-	std::string configFile;
-	std::vector<ServerConfig> servers;
+	void parse();
+	std::string configFilePath;
+	std::vector<ServerConfig> serverConfigs;
 
 	void parseServer(std::ifstream &file);
 	void parseLocation(std::ifstream &file, ServerConfig &serverConfig, const std::string &locationPath);
