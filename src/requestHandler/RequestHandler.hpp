@@ -7,8 +7,8 @@
 
 class RequestHandler {
 public:
-	void handleRequest(const HttpRequest& request, HttpResponse response, const ServerConfig& serverConfig);
-	void badRequest(HttpResponse response, std::string body);
+	void handleRequest(const HttpRequest& request, HttpResponse& response, const ServerConfig& serverConfig);
+	void badRequest(HttpResponse& response, std::string body);
 
 private:
 };

@@ -178,13 +178,10 @@ void Server::sendResponse(Client* client, const HttpResponse& response) {
 
 	std::string responseStr = response.toString();
 	ssize_t bytesSent = send(client->getFd(), responseStr.c_str(), responseStr.length(), 0);
-	std::cout << responseStr << std::endl;
-	std::cout << client->getFd() << std::endl;
-	std::cout << bytesSent << std::endl;
-	// if (bytesSent == -1) {
-	// 	std::cerr << "send error: " << strerror(errno) << std::endl;
-	// 	closeConnection(client);
-	// }
+	if (bytesSent == -1) {
+		std::cerr << "send error: " << strerror(errno) << std::endl;
+		closeConnection(client);
+	}
 }
 
 // 클라이언트 소켓 종료
