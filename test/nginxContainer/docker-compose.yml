@@ -1,0 +1,12 @@
+services:
+  nginx:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: nginx:test
+    container_name: nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - ./conf:/etc/nginx/conf.d
+      - ./logs:/var/log/nginx
