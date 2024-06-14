@@ -36,3 +36,7 @@
 *.exe
 *.out
 *.app
+
+# tester
+logs/
+unexpected_response.txt
