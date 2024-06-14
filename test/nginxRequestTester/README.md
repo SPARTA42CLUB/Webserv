@@ -1,16 +1,22 @@
 # Nginx
 Nginx에 직접 HTTP Request를 보내서 Response를 받아보는 테스트
 
+## Run
+```bash
+./tester.sh
+```
+
 ## Installation
 ```bash
-make
+cd nginxContainer && docker-compose up -d
 ```
 
 ## Request Test
 
 ### Using curl
 ```bash
-curl http://localhost:8080
+curl -v http://localhost:8080 # Verbose mode
+curl -w "%{http_code}\n" -o /dev/null -s http://localhost:8080 # Only status code
 ```
 
 ### Using telnet
@@ -24,9 +30,8 @@ Host: localhost
 
 ### Using netcat
 ```bash
-echo -e "GET / HTTP/1.1\nHost: localhost\n" | nc localhost 8080
+echo -e "GET / HTTP/1.1\r\nHost: localhost\r\n" | nc localhost 8080
 ```
-
 
 ## Useful Commands
 ```bash
