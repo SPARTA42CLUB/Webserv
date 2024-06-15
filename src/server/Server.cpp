@@ -14,15 +14,6 @@ Server::Server(const Config& config) : config(config), eventManager() {
 
 	// Server 소켓 생성 및 설정
 	setupServerSockets();
-
-	/*
-	 * 다중 서버 소켓을 관리하는 이유 : 하나의 서버 소켓이 하나의 port에 대한 연결 요청을 처리한다.
-	 * 예시로 443(https)포트와 8080(http)포트를 동시에 사용하는 경우, 서버 소켓을 2개 생성하여 각각의 포트에 대한 연결 요청을 처리한다.
-	 * 또한 서버는 여러개의 IP를 가질 수 있으므로, 서버 소켓을 여러개 생성하여 각각의 IP에 대한 연결 요청을 처리할 수 있다.
-	 * 서버가 여러개의 IP를 가지는 경우는 서버가 여러개의 네트워크 인터페이스를 가지는 경우이다.
-	*/
-	for (size_t i = 0; i < serverSockets.size(); ++i)
-		eventManager.addEvent(serverSockets[i], EVFILT_READ, EV_ADD | EV_ENABLE);
 }
 
 Server::~Server() {
@@ -37,7 +28,12 @@ Server::~Server() {
 // Server 소켓 생성 및 설정
 void Server::setupServerSockets() {
 
-	// 서버 설정 개수만큼 반복
+	/*
+	 * 다중 서버 소켓을 관리하는 이유 : 하나의 서버 소켓이 하나의 port에 대한 연결 요청을 처리한다.
+	 * 예시로 443(https)포트와 8080(http)포트를 동시에 사용하는 경우, 서버 소켓을 2개 생성하여 각각의 포트에 대한 연결 요청을 처리한다.
+	 * 또한 서버는 여러개의 IP를 가질 수 있으므로, 서버 소켓을 여러개 생성하여 각각의 IP에 대한 연결 요청을 처리할 수 있다.
+	 * 서버가 여러개의 IP를 가지는 경우는 서버가 여러개의 네트워크 인터페이스를 가지는 경우이다.
+	*/
 	std::vector<ServerConfig> serverConfigs = config.getServerConfigs();
 	for (size_t i = 0; i < serverConfigs.size(); ++i) {
 		// 소켓 생성
@@ -66,6 +62,8 @@ void Server::setupServerSockets() {
 		// 서버 소켓 벡터에 추가
 		serverSockets.push_back(serverSocket);
 		socketToConfigMap[serverSocket] = serverConfigs[i];
+
+		eventManager.addEvent(serverSocket, EVFILT_READ, EV_ADD | EV_ENABLE);
 	}
 }
 
