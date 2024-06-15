@@ -17,6 +17,7 @@ cd nginxContainer && docker-compose up -d
 ```bash
 curl -v http://localhost:8080 # Verbose mode
 curl -w "%{http_code}\n" -o /dev/null -s http://localhost:8080 # Only status code
+curl -v -X GET http://localhost:8080/cgi-bin/
 ```
 
 ### Using telnet
