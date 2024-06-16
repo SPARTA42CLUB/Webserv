@@ -20,9 +20,6 @@ Server::~Server() {
 	for (size_t i = 0; i < serverSockets.size(); ++i) {
 		close(serverSockets[i]);
 	}
-
-	for (std::map<int, Client*>::iterator it = clients.begin(); it != clients.end(); ++it)
-		delete it->second;
 }
 
 // Server 소켓 생성 및 설정
@@ -39,7 +36,7 @@ void Server::setupServerSockets() {
 		// 소켓 생성
 		int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
 		if (serverSocket == -1)
-			exit_with_error("Failed to create socket");
+			throw ("Failed to create socket");
 
 		// 소켓 옵션 설정
 		setNonBlocking(serverSocket);
@@ -68,15 +65,15 @@ void Server::setupServerSockets() {
 }
 
 // 소켓 논블로킹 설정
-void Server:: setNonBlocking(int fd) {
+void Server:: setNonBlocking(int socket) {
 
 	// 파일 디스크립터 플래그 가져오기
-	int flags = fcntl(fd, F_GETFL, 0);
+	int flags = fcntl(socket, F_GETFL, 0);
 	if (flags == -1)
 		throw std::runtime_error("Failed to get flags");
 
 	// 논블로킹 설정
-	if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1)
+	if (fcntl(socket, F_SETFL, flags | O_NONBLOCK) == -1)
 		throw std::runtime_error("Failed to set non-blocking");
 }
 
@@ -125,21 +122,14 @@ void Server::acceptClient(int serverSocket) {
 		return ;
 	}
 
-	const ServerConfig& serverConfig = socketToConfigMap[serverSocket];;
-
-	clients[clientSocket] = new Client(clientSocket, clientAddr, serverConfig);
+	socketToConfigMap[clientSocket] = socketToConfigMap[serverSocket];
 }
 
 // 클라이언트 요청 처리
 void Server::handleClientReadEvent(struct kevent& event) {
 
-	std::map<int, Client*>::iterator it = clients.find(event.ident);
-	if (it == clients.end()) return ;
-
-	Client* client = it->second;
-
 	if (event.flags & EV_EOF) {
-		closeConnection(client);
+		closeConnection(event.ident);
 		return ;
 	}
 
@@ -148,7 +138,7 @@ void Server::handleClientReadEvent(struct kevent& event) {
 	ssize_t bytesRead;
 	std::string requestData;
 
-	if ((bytesRead = recv(client->getFd(), buffer, sizeof(buffer) - 1, 0)) > 0) {
+	if ((bytesRead = recv(event.ident, buffer, sizeof(buffer) - 1, 0)) > 0) {
 		buffer[bytesRead] = '\0';
 		requestData += buffer;
 	}
@@ -156,40 +146,37 @@ void Server::handleClientReadEvent(struct kevent& event) {
 	if (bytesRead <= 0) {
 		if (bytesRead < 0)
 			std::cerr << "recv error: " << strerror(errno) << std::endl;
-		closeConnection(client);
+		closeConnection(event.ident);
 		return ;
 	}
 
 	HttpResponse response;
 	try {
 		HttpRequest request(requestData);
-		requestHandler.handleRequest(request, response, client->getServerConfig());
+		requestHandler.handleRequest(request, response, socketToConfigMap[event.ident]);
 	} catch (const std::invalid_argument& e) {
 		requestHandler.badRequest(response, std::string(e.what()));
 	}
 
-	sendResponse(client, response);
+	sendResponse(event.ident, response);
 }
 
 // 응답 전송
-void Server::sendResponse(Client* client, const HttpResponse& response) {
+void Server::sendResponse(int socket, const HttpResponse& response) {
 
 	std::string responseStr = response.toString();
-	ssize_t bytesSent = send(client->getFd(), responseStr.c_str(), responseStr.length(), 0);
+	ssize_t bytesSent = send(socket, responseStr.c_str(), responseStr.length(), 0);
 	if (bytesSent == -1) {
 		std::cerr << "send error: " << strerror(errno) << std::endl;
-		closeConnection(client);
+		closeConnection(socket);
 	}
 }
 
 // 클라이언트 소켓 종료
-void Server::closeConnection(Client* client) {
-	close(client->getFd());
+void Server::closeConnection(int socket) {
+	close(socket);
 
 	struct kevent event;
-	EV_SET(&event, client->getFd(), EVFILT_READ, EV_DELETE, 0, 0, NULL);
+	EV_SET(&event, socket, EVFILT_READ, EV_DELETE, 0, 0, NULL);
 	kevent(eventManager.getKqueue(), &event, 1, NULL, 0, NULL);
-
-	clients.erase(client->getFd());
-	delete(client);
 }

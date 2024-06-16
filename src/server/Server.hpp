@@ -29,14 +29,13 @@ private:
 	RequestHandler requestHandler;
 	std::vector<int> serverSockets;
 	std::map<int, ServerConfig> socketToConfigMap;
-	std::map<int, Client*> clients;
 
 	void setupServerSockets();
-	void setNonBlocking(int fd);
+	void setNonBlocking(int socket);
 
 	void acceptClient(int serverSocket);
 	void handleClientReadEvent(struct kevent& event);
 
-	void sendResponse(Client* client, const HttpResponse& response);
-	void closeConnection(Client* client);
+	void sendResponse(int socket, const HttpResponse& response);
+	void closeConnection(int socket);
 };
