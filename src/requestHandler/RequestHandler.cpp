@@ -1,6 +1,6 @@
 #include "RequestHandler.hpp"
 
-void RequestHandler::handleRequest(const HttpRequest& request, HttpResponse& response, const ServerConfig& serverConfig) {
+void RequestHandler::handleRequest(const RequestMessage& req, ResponseMessage& res, const ServerConfig& serverConfig) {
 
 	// std::map<std::string, LocationConfig>::const_iterator it = serverConfig.locations.find(request.getPath());
 	// if (it != serverConfig.locations.end()) {
@@ -20,18 +20,24 @@ void RequestHandler::handleRequest(const HttpRequest& request, HttpResponse& res
 
 	// 	return ;
 	// }
-	(void)request;
+	(void)req;
 	(void)serverConfig;
 
-	response.setStatusCode(200, "OK");
-	response.setHeader("Content-Type", "text/plain");
-	response.setBody("OK");
+    res.setStatusLine("HTTP/1.1", "200", "OK");
+    res.addResponseHeaderField("Content-Type", "text/plain");
+    res.addMessageBody("OK");
+	// res.setStatusCode(200, "OK");
+	// res.setHeader("Content-Type", "text/plain");
+	// res.setBody("OK");
 }
 
-void RequestHandler::badRequest(HttpResponse& response, std::string body) {
+void RequestHandler::badRequest(ResponseMessage& res, std::string body) {
 
-	response.setStatusCode(400, "NO");
-	response.setHeader("Content-Type", "text/plain");
-	response.setBody("Bad Request: " + body);
+    res.setStatusLine("HTTP/1.1", "400", "NO");
+    res.addResponseHeaderField("Content-Type", "text/plain");
+    res.addMessageBody("Bad Request: " + body);
+	// response.setStatusCode(400, "NO");
+	// response.setHeader("Content-Type", "text/plain");
+	// response.setBody("Bad Request: " + body);
 }
 
