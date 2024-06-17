@@ -10,6 +10,11 @@ requests=(
 "GET / HTTP/1.1" 0
 "GET / HTTP/1.1
 " 400
+"GET /cgi-bin/ HTTP/1.1
+Host: localhost
+Accept: */*
+
+" 200
 )
 
 # ----------------------------------------------
@@ -28,6 +33,7 @@ NC='\033[0m'
 clear && \
 echo -e "$WHITE Nginx 컨테이너 생성 중...$NC" && \
 make -C nginxContainer > /dev/null 2>&1 && \
+sleep 0.5 && \
 echo -e "$WHITE Nginx 컨테이너 생성 완료$NC"
 
 # 응답을 저장할 파일을 생성 (기존 파일이 있으면 내용을 지우고 새로 생성)
@@ -42,8 +48,8 @@ for ((i=0; i<${#requests[@]}; i+=2)); do
     declare -i status_code
 
     # 요청을 파일로 저장 (-e 옵션으로 이스케이프 문자 처리)
-    response=$(echo -e "${request}" | nc -w 1 localhost 8080)
-    status_code=$(echo "${response}" | awk 'NR==1 {print $2}')
+    response=$(echo -e "${request}" | nc -w 1 localhost 8080) # nc -w 1 옵션으로 1초 대기 후 응답 없으면 종료, nc 명령어의 출력을 없애기 위함
+    status_code=$(echo "${response}" | awk 'NR==1 {print $2}') # Response의 Status Line에서 HTTP 상태 코드 추출
 
     # 요청을 보내고 응답 코드 확인
     if [ "$status_code" -eq "$expected_status_code" ]; then
@@ -60,7 +66,7 @@ for ((i=0; i<${#requests[@]}; i+=2)); do
 done
 
 echo -e "$WHITE 도커 컨테이너를 삭제 하시겠습니까? (y/n) $NC"
-read -t 2 response
+read -t 3 response
 
 if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
     make -C nginxContainer fclean > /dev/null 2>&1

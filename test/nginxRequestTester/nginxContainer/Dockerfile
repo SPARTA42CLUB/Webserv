@@ -1,8 +1,12 @@
-# 기본 nginx 이미지를 사용합니다
 FROM nginx:1.27.0-alpine
 
-# 로그 파일을 저장할 디렉토리를 생성합니다
-RUN mkdir -p /var/log/nginx
+# entrypoint and services
+COPY entrypoint.sh .
+COPY www/ /usr/lib/cgi-bin/
 
-# nginx 실행
-CMD ["nginx", "-g", "daemon off;"]
+RUN apk add --no-cache python3 py3-pip fcgiwrap && \
+    mkdir -p /var/log/nginx && \
+    chmod 755 /usr/lib/cgi-bin/index.py && \
+    chmod 755 entrypoint.sh
+
+ENTRYPOINT ["sh", "./entrypoint.sh"]
