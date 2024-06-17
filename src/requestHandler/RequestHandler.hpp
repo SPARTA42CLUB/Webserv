@@ -1,14 +1,14 @@
 #pragma once
 
 #include <string>
-#include "HttpRequest.hpp"
-#include "HttpResponse.hpp"
+#include "RequestMessage.hpp"
+#include "ResponseMessage.hpp"
 #include "Config.hpp"
 
 class RequestHandler {
 public:
-	void handleRequest(const HttpRequest& request, HttpResponse& response, const ServerConfig& serverConfig);
-	void badRequest(HttpResponse& response, std::string body);
+	void handleRequest(const RequestMessage& req, ResponseMessage& res, const ServerConfig& serverConfig);
+	void badRequest(ResponseMessage& res, std::string body);
 
 private:
 };

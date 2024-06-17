@@ -1,6 +1,7 @@
 #include "Server.hpp"
 #include "error.hpp"
-#include "HttpResponse.hpp"
+#include "RequestMessage.hpp"
+#include "ResponseMessage.hpp"
 #include <iostream>
 #include <cstring>
 #include <cerrno>
@@ -154,21 +155,21 @@ void Server::handleClientReadEvent(struct kevent& event) {
 		return ;
 	}
 
-	HttpResponse response;
+	ResponseMessage res_msg;
 	try {
-		HttpRequest request(requestData);
-		requestHandler.handleRequest(request, response, socketToConfigMap[event.ident]);
+        RequestMessage req_msg(requestData);
+		requestHandler.handleRequest(req_msg, res_msg, socketToConfigMap[event.ident]);
 	} catch (const std::invalid_argument& e) {
-		requestHandler.badRequest(response, std::string(e.what()));
+		requestHandler.badRequest(res_msg, std::string(e.what()));
 	}
 
-	sendResponse(event.ident, response);
+	sendResponse(event.ident, res_msg);
 }
 
 // 응답 전송
-void Server::sendResponse(int socket, const HttpResponse& response) {
+void Server::sendResponse(int socket, const ResponseMessage& res) {
 
-	std::string responseStr = response.toString();
+	std::string responseStr = res.toString();
 	ssize_t bytesSent = send(socket, responseStr.c_str(), responseStr.length(), 0);
 	if (bytesSent == -1) {
 		std::cerr << "send error: " << strerror(errno) << std::endl;

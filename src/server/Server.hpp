@@ -12,8 +12,8 @@
 #include "Config.hpp"
 #include "RequestHandler.hpp"
 #include "EventManager.hpp"
-#include "HttpRequest.hpp"
-#include "HttpResponse.hpp"
+#include "RequestMessage.hpp"
+#include "ResponseMessage.hpp"
 
 class Server {
 public:
@@ -36,6 +36,6 @@ private:
 	void acceptClient(int serverSocket);
 	void handleClientReadEvent(struct kevent& event);
 
-	void sendResponse(int socket, const HttpResponse& response);
+	void sendResponse(int socket, const ResponseMessage& res);
 	void closeConnection(int socket);
 };
