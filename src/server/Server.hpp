@@ -11,7 +11,6 @@
 #include <sys/event.h>
 #include "Config.hpp"
 #include "RequestHandler.hpp"
-#include "Client.hpp"
 #include "EventManager.hpp"
 #include "HttpRequest.hpp"
 #include "HttpResponse.hpp"
@@ -28,6 +27,7 @@ private:
 	EventManager eventManager;
 	RequestHandler requestHandler;
 	std::vector<int> serverSockets;
+	std::vector<int> clientSockets;
 	std::map<int, ServerConfig> socketToConfigMap;
 
 	void setupServerSockets();

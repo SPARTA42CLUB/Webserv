@@ -1,7 +1,6 @@
 #include "Server.hpp"
 #include "error.hpp"
 #include "HttpResponse.hpp"
-#include "Client.hpp"
 #include <iostream>
 #include <cstring>
 #include <cerrno>
@@ -20,6 +19,9 @@ Server::~Server() {
 	for (size_t i = 0; i < serverSockets.size(); ++i) {
 		close(serverSockets[i]);
 	}
+
+	for (size_t i = 0; i < clientSockets.size(); ++i)
+		close(clientSockets[i]);
 }
 
 // Server 소켓 생성 및 설정
@@ -32,11 +34,12 @@ void Server::setupServerSockets() {
 	 * 서버가 여러개의 IP를 가지는 경우는 서버가 여러개의 네트워크 인터페이스를 가지는 경우이다.
 	*/
 	std::vector<ServerConfig> serverConfigs = config.getServerConfigs();
+
 	for (size_t i = 0; i < serverConfigs.size(); ++i) {
 		// 소켓 생성
 		int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
 		if (serverSocket == -1)
-			throw ("Failed to create socket");
+			throw std::runtime_error("Failed to create socket");
 
 		// 소켓 옵션 설정
 		setNonBlocking(serverSocket);
@@ -122,6 +125,7 @@ void Server::acceptClient(int serverSocket) {
 		return ;
 	}
 
+	clientSockets.push_back(clientSocket);
 	socketToConfigMap[clientSocket] = socketToConfigMap[serverSocket];
 }
 
