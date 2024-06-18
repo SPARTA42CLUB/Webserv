@@ -48,6 +48,7 @@ void RequestHandler::verifyRequestLine(const RequestLine& reqLine)
         throw HTTPException(NOT_FOUND, "Not Found");
     }
 }
+
 void RequestHandler::verifyRequestHeaderFields(
     const HeaderFields& reqHeaderFields)
 {
@@ -56,6 +57,7 @@ void RequestHandler::verifyRequestHeaderFields(
         throw HTTPException(BAD_REQUEST, "Bad Request");
     }
 }
+
 void RequestHandler::verifyRequest(const RequestMessage& req, const ServerConfig& serverConfig)
 {
     try
