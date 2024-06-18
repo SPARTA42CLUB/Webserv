@@ -42,9 +42,3 @@ void RequestHandler::badRequest(ResponseMessage& res, std::string body) {
 	// response.setBody("Bad Request: " + body);
 }
 
-bool RequestHandler::shouldKeepAlive(const RequestMessage& req) {
-	if (req.getRequestHeaderFields().getField("Connection") == "close")
-		return false;
-	return true;
-}
-

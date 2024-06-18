@@ -11,5 +11,4 @@ public:
 	void badRequest(ResponseMessage& res, std::string body);
 
 private:
-	bool shouldKeepAlive(const RequestMessage& req);
 };

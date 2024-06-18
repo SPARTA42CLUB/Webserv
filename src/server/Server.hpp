@@ -42,4 +42,6 @@ private:
 
 	void update_last_activity(int socket);
 	void checkTimeout();
+
+	bool shouldKeepAlive(const RequestMessage& req);
 };

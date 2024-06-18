@@ -187,11 +187,13 @@ void Server::handleClientReadEvent(struct kevent& event) {
 	try {
 		RequestMessage req_msg(requestData);
 		requestHandler.handleRequest(req_msg, res_msg, socketToConfigMap[event.ident]);
+		sendResponse(event.ident, res_msg);
+
+		if (!shouldKeepAlive(req_msg))
+			closeConnection(event.ident);
 	} catch (const std::invalid_argument& e) {
 		requestHandler.badRequest(res_msg, std::string(e.what()));
 	}
-
-	sendResponse(event.ident, res_msg);
 }
 
 // 응답 전송
@@ -203,6 +205,12 @@ void Server::sendResponse(int socket, ResponseMessage& res) {
 		std::cerr << "send error: " << strerror(errno) << std::endl;
 		closeConnection(socket);
 	}
+}
+
+bool Server::shouldKeepAlive(const RequestMessage& req) {
+	if (req.getRequestHeaderFields().getField("Connection") == "close")
+		return false;
+	return true;
 }
 
 // 클라이언트 소켓 종료
