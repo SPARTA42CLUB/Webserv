@@ -29,6 +29,10 @@ void StatusLine::setStatusCode(const std::string& statusCode)
 {
     mStatusCode = statusCode;
 }
+void StatusLine::setStatusCode(const int statusCode)
+{
+    mStatusCode = std::to_string(statusCode);
+}
 void StatusLine::setReasonPhrase(const std::string& reasonPhrase)
 {
     mReasonPhrase = reasonPhrase;

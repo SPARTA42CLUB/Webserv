@@ -37,6 +37,7 @@ private:
 	void acceptClient(int serverSocket);
 	void handleClientReadEvent(struct kevent& event);
 
+    void logHTTPMessage(int socket, ResponseMessage& res, const std::string& reqData);
 	void sendResponse(int socket, ResponseMessage& res);
 	void closeConnection(int socket);
 

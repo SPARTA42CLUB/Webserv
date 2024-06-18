@@ -4,6 +4,10 @@
 #include <exception>
 #include <string>
 
+// https://www.rfc-editor.org/rfc/rfc9110.html#name-status-codes
+// https://www.iana.org/assignments/http-status-codes/http-status-codes.xhtml
+// https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
+
 enum eInformational
 {
     CONTINUE = 100,
@@ -84,13 +88,11 @@ class HTTPException : public std::exception
 {
 private:
     int mStatusCode;
-    std::string mReasonPhrase;
 
 public:
-    HTTPException(int statusCode, const std::string& reasonPhrase);
+    HTTPException(const int statusCode);
     virtual ~HTTPException() _NOEXCEPT;
-    const std::string getStatusCode() const;
-    const std::string& getReasonPhrase() const;
+    int getStatusCode() const;
 };
 
 #endif

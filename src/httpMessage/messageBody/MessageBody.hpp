@@ -17,6 +17,7 @@ public:
     void addBody(const std::string& body);
     const std::string& toString() const;
     size_t size() const;
+    void clear();
 };
 
 #endif

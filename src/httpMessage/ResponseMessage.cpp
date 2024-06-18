@@ -15,7 +15,17 @@ void ResponseMessage::setStatusLine(const std::string& httpVersion, const std::s
     mStatusLine.setStatusCode(statusCode);
     mStatusLine.setReasonPhrase(reasonPhrase);
 }
+void ResponseMessage::setStatusLine(const std::string& httpVersion, const int statusCode, const std::string& reasonPhrase)
+{
+    mStatusLine.setHTTPVersion(httpVersion);
+    mStatusLine.setStatusCode(statusCode);
+    mStatusLine.setReasonPhrase(reasonPhrase);
+}
 void ResponseMessage::addResponseHeaderField(const std::string& key, const std::string& value)
+{
+    mResponseHeaderFields.addField(key, value);
+}
+void ResponseMessage::addResponseHeaderField(const std::string& key, int value)
 {
     mResponseHeaderFields.addField(key, value);
 }
@@ -23,10 +33,17 @@ void ResponseMessage::addMessageBody(const std::string& body)
 {
     mMessageBody.addBody(body);
 }
-std::string ResponseMessage::toString(void)
+std::string ResponseMessage::toString(void) const
 {
-    mResponseHeaderFields.addField("Content-Length", std::to_string(mMessageBody.size()));
     std::ostringstream oss;
     oss << mStatusLine.toString() << mResponseHeaderFields.toString() << "\r\n" << mMessageBody.toString();
     return oss.str();
+}
+size_t ResponseMessage::getMessageBodySize() const
+{
+    return mMessageBody.size();
+}
+void ResponseMessage::clearMessageBody()
+{
+    mMessageBody.clear();
 }

@@ -3,7 +3,7 @@
 
 RequestLine::RequestLine()
 : mMethod("")
-, mRequestURL("")
+, mRequestTarget("")
 , mHTTPVersion("")
 {
 }
@@ -13,10 +13,10 @@ RequestLine::~RequestLine()
 void RequestLine::parseRequestLine(const std::string& requestLine)
 {
     // TODO: parse request line
-    // request-line = <method> SP <request-URL> SP <HTTP-version> CRLF
+    // request-line = <method> SP <request-target> SP <HTTP-version> CRLF
 
     std::istringstream iss(requestLine);
-    if (iss >> mMethod >> mRequestURL >> mHTTPVersion)
+    if (iss >> mMethod >> mRequestTarget >> mHTTPVersion)
     {
         // success
     }
@@ -24,7 +24,7 @@ void RequestLine::parseRequestLine(const std::string& requestLine)
     {
         // fail
         mMethod = "";
-        mRequestURL = "";
+        mRequestTarget = "";
         mHTTPVersion = "";
         throw std::exception();
     }
@@ -34,9 +34,9 @@ std::string RequestLine::getMethod(void) const
 {
     return mMethod;
 }
-std::string RequestLine::getRequestURL(void) const
+std::string RequestLine::getRequestTarget(void) const
 {
-    return mRequestURL;
+    return mRequestTarget;
 }
 std::string RequestLine::getHTTPVersion(void) const
 {

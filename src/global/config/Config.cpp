@@ -81,9 +81,21 @@ void Config::parseLocation(std::ifstream& file, ServerConfig& serverConfig, cons
 
 		// key에 따라 설정 값 파싱
 		if (key == "root")
+        {
 			iss >> locationConfig.root;
+            if (locationConfig.root[locationConfig.root.size() - 1] == ';')
+            {
+                locationConfig.root.pop_back();
+            }
+        }
 		else if (key == "index")
-			iss >> locationConfig.index;
+        {
+            iss >> locationConfig.index;
+            if (locationConfig.index[locationConfig.index.size() - 1] == ';')
+            {
+                locationConfig.index.pop_back();
+            }
+        }
 		else if (key == "allow_methods") {
 			std::string method;
 			while (iss >> method)

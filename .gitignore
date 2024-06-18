@@ -40,3 +40,6 @@
 # tester
 logs/
 unexpected_response.txt
+
+# log
+access.log
