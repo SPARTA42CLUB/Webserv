@@ -14,10 +14,11 @@ private:
     void verifyRequestHeaderFields(const HeaderFields& reqHeaderFields);
 
     // Response (Success)
-    void getRequest(const RequestMessage& req, ResponseMessage& res, const ServerConfig& serverConfig);
-    void headRequest(const RequestMessage& req, ResponseMessage& res, const ServerConfig& serverConfig);
-    void postRequest(const RequestMessage& req, ResponseMessage& res, const ServerConfig& serverConfig);
-    void deleteRequest(const RequestMessage& req, ResponseMessage& res, const ServerConfig& serverConfig);
+    void getRequest(const RequestMessage& req, ResponseMessage& res, const ServerConfig& serverConfig, const std::string& path);
+    void headRequest(const RequestMessage& req, ResponseMessage& res, const ServerConfig& serverConfig, const std::string& path);
+    void postRequest(const RequestMessage& req, ResponseMessage& res, const ServerConfig& serverConfig, const std::string& path);
+    void deleteRequest(const RequestMessage& req, ResponseMessage& res, const ServerConfig& serverConfig, const std::string& path);
+    void addContentType(ResponseMessage& res, const std::string& path);
 
     // Response (Exception)
     void badRequest(ResponseMessage& res);
