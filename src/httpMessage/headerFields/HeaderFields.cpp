@@ -29,6 +29,8 @@ bool HeaderFields::hasField(const std::string& key) const
 {
     return mFields.find(key) != mFields.end();
 }
+
+// 해당 필드가 없을시 "" 반환
 std::string HeaderFields::getField(const std::string& key) const
 {
     std::map<std::string, std::string>::const_iterator it = mFields.find(key);

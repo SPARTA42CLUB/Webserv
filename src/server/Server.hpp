@@ -29,6 +29,7 @@ private:
 	std::vector<int> serverSockets;
 	std::vector<int> clientSockets;
 	std::map<int, ServerConfig> socketToConfigMap;
+	std::map<int, time_t> last_activity_map;
 
 	void setupServerSockets();
 	void setNonBlocking(int socket);
@@ -38,4 +39,9 @@ private:
 
 	void sendResponse(int socket, ResponseMessage& res);
 	void closeConnection(int socket);
+
+	void update_last_activity(int socket);
+	void checkTimeout();
+
+	bool shouldKeepAlive(const RequestMessage& req);
 };

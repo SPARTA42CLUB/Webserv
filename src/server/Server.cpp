@@ -42,6 +42,12 @@ void Server::setupServerSockets() {
 		if (serverSocket == -1)
 			throw std::runtime_error("Failed to create socket");
 
+		{
+			// 개발 편의용 세팅. 서버 소켓이 이미 사용중이더라도 실행되게끔 설정
+			int optval = 1;
+			setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
+		}
+
 		// 소켓 옵션 설정
 		setNonBlocking(serverSocket);
 
@@ -69,7 +75,7 @@ void Server::setupServerSockets() {
 }
 
 // 소켓 논블로킹 설정
-void Server:: setNonBlocking(int socket) {
+void Server::setNonBlocking(int socket) {
 
 	// 파일 디스크립터 플래그 가져오기
 	int flags = fcntl(socket, F_GETFL, 0);
@@ -102,10 +108,30 @@ void Server::run() {
 					handleClientReadEvent(event);
 			}
 		}
+		checkTimeout();
 	}
 }
 
+void Server::checkTimeout() {
+	time_t now = time(NULL);
+
+	for (size_t i = 0; i < clientSockets.size(); ++i) {
+		int clientSocket = clientSockets[i];
+		int timeout = socketToConfigMap[clientSocket].keepalive_timeout;
+
+		if (difftime(now, last_activity_map[clientSocket]) > timeout) {
+			std::cout << "Timeout. Connection closed: " << clientSocket << std::endl;
+			closeConnection(clientSocket);
+		}
+	}
+}
+
+void Server::update_last_activity(int socket) {
+	last_activity_map[socket] = time(NULL);
+}
+
 void Server::acceptClient(int serverSocket) {
+
 	// 서버 소켓으로 읽기 이벤트가 발생했다는 것의 의미 : 새로운 클라이언트가 연결 요청을 보냈다는 것
 	// 서버 소켓인 경우 'accept'를 이용하여 클라이언트의 연결 수락
 	struct sockaddr_in clientAddr;
@@ -118,6 +144,8 @@ void Server::acceptClient(int serverSocket) {
 	}
 
 	setNonBlocking(clientSocket);
+	update_last_activity(clientSocket);
+
 	try {
 		eventManager.addEvent(clientSocket, EVFILT_READ, EV_ADD | EV_ENABLE);
 	} catch (const std::runtime_error& e) {
@@ -138,32 +166,34 @@ void Server::handleClientReadEvent(struct kevent& event) {
 		return ;
 	}
 
+	update_last_activity(event.ident);
+
 	// 클라이언트 요청 수신
 	char buffer[4096];
 	ssize_t bytesRead;
 	std::string requestData;
 
-	if ((bytesRead = recv(event.ident, buffer, sizeof(buffer) - 1, 0)) > 0) {
-		buffer[bytesRead] = '\0';
-		requestData += buffer;
-	}
-
-	if (bytesRead <= 0) {
-		if (bytesRead < 0)
-			std::cerr << "recv error: " << strerror(errno) << std::endl;
+	if ((bytesRead = recv(event.ident, buffer, sizeof(buffer) - 1, 0)) < 0) {
+		std::cerr << "recv error" << std::endl;
 		closeConnection(event.ident);
 		return ;
 	}
 
+	buffer[bytesRead] = '\0';
+	requestData += buffer;
+
+
 	ResponseMessage res_msg;
 	try {
-        RequestMessage req_msg(requestData);
+		RequestMessage req_msg(requestData);
 		requestHandler.handleRequest(req_msg, res_msg, socketToConfigMap[event.ident]);
+		sendResponse(event.ident, res_msg);
+
+		if (!shouldKeepAlive(req_msg))
+			closeConnection(event.ident);
 	} catch (const std::invalid_argument& e) {
 		requestHandler.badRequest(res_msg, std::string(e.what()));
 	}
-
-	sendResponse(event.ident, res_msg);
 }
 
 // 응답 전송
@@ -177,6 +207,12 @@ void Server::sendResponse(int socket, ResponseMessage& res) {
 	}
 }
 
+bool Server::shouldKeepAlive(const RequestMessage& req) {
+	if (req.getRequestHeaderFields().getField("Connection") == "close")
+		return false;
+	return true;
+}
+
 // 클라이언트 소켓 종료
 void Server::closeConnection(int socket) {
 	close(socket);
@@ -184,4 +220,12 @@ void Server::closeConnection(int socket) {
 	struct kevent event;
 	EV_SET(&event, socket, EVFILT_READ, EV_DELETE, 0, 0, NULL);
 	kevent(eventManager.getKqueue(), &event, 1, NULL, 0, NULL);
+
+	std::vector<int>::iterator it = std::find(clientSockets.begin(), clientSockets.end(), socket);
+	if (it != clientSockets.end())
+		clientSockets.erase(it);
+
+	socketToConfigMap.erase(socket);
+	last_activity_map.erase(socket);
+
 }

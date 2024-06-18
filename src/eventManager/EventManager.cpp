@@ -23,15 +23,17 @@ void EventManager::addEvent(int fd, int16_t filter, uint16_t flags) {
 
 std::vector<struct kevent> EventManager::getCurrentEvents() {
 
-	// 이벤트 배열 생성
-	struct kevent events[1024];
+	struct timespec timeout;
+	timeout.tv_sec = 1;
+	timeout.tv_nsec = 0;
 
 	/*
 	 * !!수신이 감지된 이벤트를 가져온다!!
 	 * events 이벤트 배열에 현재 변경이 감지된 이벤트를 저장한다.
 	 * numEvents에는 배열에 담긴 이벤트의 수가 담긴다.
 	 */
-	int numEvents = kevent(kq, NULL, 0, events, 1024, NULL);
+	struct kevent events[1024];
+	int numEvents = kevent(kq, NULL, 0, events, 1024, &timeout);
 	if (numEvents == -1)
 		throw std::runtime_error("Failed to add event to kqueue");
 
