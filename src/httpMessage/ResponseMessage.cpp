@@ -21,9 +21,6 @@ void ResponseMessage::addResponseHeaderField(const std::string& key, const std::
 }
 void ResponseMessage::addMessageBody(const std::string& body)
 {
-    std::stringstream ss;
-    ss << body.length();
-    ResponseMessage::addResponseHeaderField("Content-Length", ss.str());
     mMessageBody.addBody(body);
 }
 std::string ResponseMessage::toString(void)
