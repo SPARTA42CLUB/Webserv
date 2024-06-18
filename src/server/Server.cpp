@@ -195,7 +195,7 @@ void Server::handleClientReadEvent(struct kevent& event) {
 }
 
 // 응답 전송
-void Server::sendResponse(int socket, const ResponseMessage& res) {
+void Server::sendResponse(int socket, ResponseMessage& res) {
 
 	std::string responseStr = res.toString();
 	ssize_t bytesSent = send(socket, responseStr.c_str(), responseStr.length(), 0);

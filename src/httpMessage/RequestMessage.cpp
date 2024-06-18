@@ -16,6 +16,18 @@ RequestMessage::RequestMessage(const std::string& request)
 RequestMessage::~RequestMessage()
 {
 }
+const RequestLine& RequestMessage::getRequestLine() const
+{
+    return mRequestLine;
+}
+const HeaderFields& RequestMessage::getRequestHeaderFields() const
+{
+    return mRequestHeaderFields;
+}
+const MessageBody& RequestMessage::getMessageBody() const
+{
+    return mMessageBody;
+}
 void RequestMessage::parseRequestMessage(const std::string& request)
 {
     std::istringstream reqStream(request);

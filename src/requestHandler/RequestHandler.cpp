@@ -25,6 +25,7 @@ void RequestHandler::handleRequest(const RequestMessage& req, ResponseMessage& r
 
     res.setStatusLine("HTTP/1.1", "200", "OK");
     res.addResponseHeaderField("Content-Type", "text/plain");
+    res.addResponseHeaderField("Content-Length", "2");
     res.addMessageBody("OK");
 	// res.setStatusCode(200, "OK");
 	// res.setHeader("Content-Type", "text/plain");
@@ -42,7 +43,7 @@ void RequestHandler::badRequest(ResponseMessage& res, std::string body) {
 }
 
 bool RequestHandler::shouldKeepAlive(const RequestMessage& req) {
-	if (req.getHeaderFields().getField("Connection") == "close")
+	if (req.getRequestHeaderFields().getField("Connection") == "close")
 		return false;
 	return true;
 }

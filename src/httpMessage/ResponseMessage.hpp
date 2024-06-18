@@ -21,7 +21,7 @@ public:
     void setStatusLine(const std::string& httpVersion, const std::string& statusCode, const std::string& reasonPhrase);
     void addResponseHeaderField(const std::string& key, const std::string& value);
     void addMessageBody(const std::string& body);
-    std::string toString(void) const;
+    std::string toString(void);
 };
 
 #endif

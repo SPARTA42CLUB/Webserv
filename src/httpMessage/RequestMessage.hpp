@@ -23,7 +23,9 @@ public:
     RequestMessage();
     RequestMessage(const std::string& request);
     ~RequestMessage();
-    const HeaderFields& getHeaderFields() const;
+    const RequestLine& getRequestLine() const;
+    const HeaderFields& getRequestHeaderFields() const;
+    const MessageBody& getMessageBody() const;
 };
 
 #endif
