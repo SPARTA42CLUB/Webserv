@@ -25,6 +25,10 @@ void HeaderFields::addField(const std::string& key, const std::string& value)
 {
     mFields[key] = value;
 }
+void HeaderFields::addField(const std::string& key, int value)
+{
+    mFields[key] = std::to_string(value);
+}
 bool HeaderFields::hasField(const std::string& key) const
 {
     return mFields.find(key) != mFields.end();

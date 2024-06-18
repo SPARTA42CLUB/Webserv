@@ -17,6 +17,7 @@ public:
     ~HeaderFields();
     void parseHeaderFields(std::istringstream& headerFields);
     void addField(const std::string& key, const std::string& value);
+    void addField(const std::string& key, int value);
     bool hasField(const std::string& key) const;
     std::string getField(const std::string& key) const;
     std::string toString() const;

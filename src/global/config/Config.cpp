@@ -89,7 +89,13 @@ void Config::parseLocation(std::ifstream& file, ServerConfig& serverConfig, cons
             }
         }
 		else if (key == "index")
-			iss >> locationConfig.index;
+        {
+            iss >> locationConfig.index;
+            if (locationConfig.index[locationConfig.index.size() - 1] == ';')
+            {
+                locationConfig.index.pop_back();
+            }
+        }
 		else if (key == "allow_methods") {
 			std::string method;
 			while (iss >> method)

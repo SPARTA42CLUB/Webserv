@@ -26,6 +26,7 @@ private:
     void methodNotAllowed(ResponseMessage& res);
     void httpVersionNotSupported(ResponseMessage& res);
     void uriTooLong(ResponseMessage& res);
+    void forbidden(ResponseMessage& res);
 
 public:
     void verifyRequest(const RequestMessage& req, const ServerConfig& serverConfig);

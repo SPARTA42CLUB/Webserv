@@ -20,6 +20,7 @@ public:
     const std::string& getReasonPhrase() const;
     void setHTTPVersion(const std::string& httpVersion);
     void setStatusCode(const std::string& statusCode);
+    void setStatusCode(const int statusCode);
     void setReasonPhrase(const std::string& reasonPhrase);
     const std::string toString() const;
 };
