@@ -1,6 +1,5 @@
 #include "HeaderFields.hpp"
 #include <sstream>
-#include <iostream>
 
 HeaderFields::HeaderFields()
 : mFields()
