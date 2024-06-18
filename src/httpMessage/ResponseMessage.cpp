@@ -23,8 +23,9 @@ void ResponseMessage::addMessageBody(const std::string& body)
 {
     mMessageBody.addBody(body);
 }
-std::string ResponseMessage::toString(void) const
+std::string ResponseMessage::toString(void)
 {
+    mResponseHeaderFields.addField("Content-Length", std::to_string(mMessageBody.size()));
     std::ostringstream oss;
     oss << mStatusLine.toString() << mResponseHeaderFields.toString() << "\r\n" << mMessageBody.toString();
     return oss.str();

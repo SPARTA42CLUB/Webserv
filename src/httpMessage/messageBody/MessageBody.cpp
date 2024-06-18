@@ -23,3 +23,7 @@ const std::string& MessageBody::toString() const
 {
     return mContent;
 }
+size_t MessageBody::size() const
+{
+    return mContent.size();
+}
