@@ -36,6 +36,6 @@ private:
 	void acceptClient(int serverSocket);
 	void handleClientReadEvent(struct kevent& event);
 
-	void sendResponse(int socket, const ResponseMessage& res);
+	void sendResponse(int socket, ResponseMessage& res);
 	void closeConnection(int socket);
 };

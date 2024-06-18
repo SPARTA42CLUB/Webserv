@@ -25,6 +25,7 @@ void RequestHandler::handleRequest(const RequestMessage& req, ResponseMessage& r
 
     res.setStatusLine("HTTP/1.1", "200", "OK");
     res.addResponseHeaderField("Content-Type", "text/plain");
+    res.addResponseHeaderField("Content-Length", "2");
     res.addMessageBody("OK");
 	// res.setStatusCode(200, "OK");
 	// res.setHeader("Content-Type", "text/plain");

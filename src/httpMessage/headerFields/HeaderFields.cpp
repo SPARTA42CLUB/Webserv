@@ -1,5 +1,6 @@
 #include "HeaderFields.hpp"
 #include <sstream>
+#include <iostream>
 
 HeaderFields::HeaderFields()
 : mFields()
@@ -11,7 +12,7 @@ HeaderFields::~HeaderFields()
 void HeaderFields::parseHeaderFields(std::istringstream& headerFields)
 {
     std::string line;
-    while (std::getline(headerFields, line) && line != "")
+    while (std::getline(headerFields, line) && line != "" && line != "\r") // "\r\n" 혹은 "\n"이 나올 때까지 읽음
     {
         std::string key;
         std::string value;
