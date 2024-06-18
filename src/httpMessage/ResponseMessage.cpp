@@ -31,3 +31,7 @@ std::string ResponseMessage::toString(void)
     oss << mStatusLine.toString() << mResponseHeaderFields.toString() << "\r\n" << mMessageBody.toString();
     return oss.str();
 }
+void ResponseMessage::clearMessageBody()
+{
+    mMessageBody.clear();
+}

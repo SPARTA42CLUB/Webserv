@@ -9,7 +9,7 @@ requests=(
 "GET / HTTP/1.1\nHost: localhost:8080\n\n\n" 200
 "GET / HTTP/1.1" 0
 "GET / HTTP/1.1
-" 400
+" 0
 "GET /cgi-bin/ HTTP/1.1\nHost:  localhost:8080\nAccept: */*\n\n" 200
 "GET / HTTP/1.1
 Host: seunan:8081

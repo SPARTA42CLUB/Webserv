@@ -86,6 +86,14 @@ void RequestHandler::addContentType(ResponseMessage& res, const std::string& pat
     {
         res.addResponseHeaderField("Content-Type", "text/html");
     }
+    else if (ext == "css")
+    {
+        res.addResponseHeaderField("Content-Type", "text/css");
+    }
+    else if (ext == "js")
+    {
+        res.addResponseHeaderField("Content-Type", "text/javascript");
+    }
     else if (ext == "jpg" || ext == "jpeg")
     {
         res.addResponseHeaderField("Content-Type", "image/jpeg");
@@ -118,13 +126,8 @@ void RequestHandler::getRequest(const RequestMessage& req, ResponseMessage& res,
 }
 void RequestHandler::headRequest(const RequestMessage& req, ResponseMessage& res, const ServerConfig& serverConfig, const std::string& path)
 {
-    (void)req;
-    (void)res;
-    (void)serverConfig;
-    (void)path;
-    res.setStatusLine(req.getRequestLine().getHTTPVersion(), std::to_string(OK), "OK");
-    res.addResponseHeaderField("Content-Type", "text/html");
-    res.addMessageBody("<html><body><h1>HEAD Request</h1></body></html>");
+    getRequest(req, res, serverConfig, path);
+    res.clearMessageBody();
 }
 void RequestHandler::postRequest(const RequestMessage& req, ResponseMessage& res, const ServerConfig& serverConfig, const std::string& path)
 {

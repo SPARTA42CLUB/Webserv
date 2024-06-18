@@ -22,6 +22,7 @@ public:
     void addResponseHeaderField(const std::string& key, const std::string& value);
     void addMessageBody(const std::string& body);
     std::string toString(void);
+    void clearMessageBody();
 };
 
 #endif
