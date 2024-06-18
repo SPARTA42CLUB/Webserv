@@ -15,6 +15,10 @@ requests=(
 Host: seunan:8081
 
 " 400
+"GET /forbidden.html HTTP/1.1
+Host: localhost:8080
+
+" 403
 )
 
 # ----------------------------------------------

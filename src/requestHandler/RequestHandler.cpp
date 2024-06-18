@@ -105,7 +105,6 @@ void RequestHandler::getRequest(const RequestMessage& req, ResponseMessage& res,
     std::ifstream file(path);
     if (file.is_open() == false)
     {
-        // NOTE: 파일 권한이 없을 경우, 403 Forbidden인지 확인 필요
         throw HTTPException(FORBIDDEN);
     }
     res.setStatusLine(req.getRequestLine().getHTTPVersion(), std::to_string(OK), "OK");
