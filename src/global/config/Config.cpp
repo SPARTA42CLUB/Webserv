@@ -55,6 +55,8 @@ void Config::parseServer(std::ifstream &file) {
 			std::string size;
 			iss >> size;
 			serverConfig.client_max_body_size = strtoul(size.c_str(), NULL, 10);
+		} else if (key == "keepalive_timeout") {
+			iss >> serverConfig.keepalive_timeout;
 		} else if (key == "location") {
 			std::string location;
 			iss >> location;

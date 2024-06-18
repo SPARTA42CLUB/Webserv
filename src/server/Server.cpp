@@ -69,7 +69,7 @@ void Server::setupServerSockets() {
 }
 
 // 소켓 논블로킹 설정
-void Server:: setNonBlocking(int socket) {
+void Server::setNonBlocking(int socket) {
 
 	// 파일 디스크립터 플래그 가져오기
 	int flags = fcntl(socket, F_GETFL, 0);
@@ -102,10 +102,32 @@ void Server::run() {
 					handleClientReadEvent(event);
 			}
 		}
+
+		checkTimeout();
 	}
 }
 
+void Server::checkTimeout() {
+	time_t now = time(NULL);
+
+	for (size_t i = 0; i < clientSockets.size(); ++i) {
+		int clientSocket = clientSockets[i];
+		int timeout = socketToConfigMap[clientSocket].keepalive_timeout;
+
+		if (difftime(now, last_activity_map[clientSocket]) > timeout) {
+			std::cout << "Timeout: " << clientSocket << std::endl;
+			close(clientSocket);
+			last_activity_map.erase(clientSocket);
+		}
+	}
+}
+
+void Server::update_last_activity(int socket) {
+	last_activity_map[socket] = time(NULL);
+}
+
 void Server::acceptClient(int serverSocket) {
+
 	// 서버 소켓으로 읽기 이벤트가 발생했다는 것의 의미 : 새로운 클라이언트가 연결 요청을 보냈다는 것
 	// 서버 소켓인 경우 'accept'를 이용하여 클라이언트의 연결 수락
 	struct sockaddr_in clientAddr;
@@ -118,6 +140,8 @@ void Server::acceptClient(int serverSocket) {
 	}
 
 	setNonBlocking(clientSocket);
+	update_last_activity(clientSocket);
+
 	try {
 		eventManager.addEvent(clientSocket, EVFILT_READ, EV_ADD | EV_ENABLE);
 	} catch (const std::runtime_error& e) {
@@ -138,21 +162,25 @@ void Server::handleClientReadEvent(struct kevent& event) {
 		return ;
 	}
 
+	update_last_activity(event.ident);
+
 	// 클라이언트 요청 수신
 	char buffer[4096];
-	ssize_t bytesRead;
 	std::string requestData;
 
-	if ((bytesRead = recv(event.ident, buffer, sizeof(buffer) - 1, 0)) > 0) {
+	while (true) {
+		ssize_t bytesRead = recv(event.ident, buffer, sizeof(buffer) - 1, 0);
+		if (bytesRead < 0) {
+			std::cerr << "recv error" << std::endl;
+			closeConnection(event.ident);
+			return ;
+		}
+
+		if (bytesRead == 0)
+			break ;
+
 		buffer[bytesRead] = '\0';
 		requestData += buffer;
-	}
-
-	if (bytesRead <= 0) {
-		if (bytesRead < 0)
-			std::cerr << "recv error: " << strerror(errno) << std::endl;
-		closeConnection(event.ident);
-		return ;
 	}
 
 	ResponseMessage res_msg;

@@ -51,3 +51,7 @@ void RequestMessage::parseMessageBody(std::istringstream& reqStream)
 {
     mMessageBody.parseMessageBody(reqStream);
 }
+
+const HeaderFields& RequestMessage::getHeaderFields() const {
+    return mRequestHeaderFields;
+}

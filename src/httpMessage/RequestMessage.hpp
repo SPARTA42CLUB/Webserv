@@ -23,6 +23,7 @@ public:
     RequestMessage();
     RequestMessage(const std::string& request);
     ~RequestMessage();
+    const HeaderFields& getHeaderFields() const;
 };
 
 #endif
