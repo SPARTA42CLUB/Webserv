@@ -42,6 +42,12 @@ void Server::setupServerSockets() {
 		if (serverSocket == -1)
 			throw std::runtime_error("Failed to create socket");
 
+		{
+			// 개발 편의용 세팅. 서버 소켓이 이미 사용중이더라도 실행되게끔 설정
+			int optval = 1;
+			setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
+		}
+
 		// 소켓 옵션 설정
 		setNonBlocking(serverSocket);
 
@@ -102,7 +108,6 @@ void Server::run() {
 					handleClientReadEvent(event);
 			}
 		}
-
 		checkTimeout();
 	}
 }
@@ -115,9 +120,8 @@ void Server::checkTimeout() {
 		int timeout = socketToConfigMap[clientSocket].keepalive_timeout;
 
 		if (difftime(now, last_activity_map[clientSocket]) > timeout) {
-			std::cout << "Timeout: " << clientSocket << std::endl;
-			close(clientSocket);
-			last_activity_map.erase(clientSocket);
+			std::cout << "Timeout. Connection closed: " << clientSocket << std::endl;
+			closeConnection(clientSocket);
 		}
 	}
 }
@@ -166,26 +170,22 @@ void Server::handleClientReadEvent(struct kevent& event) {
 
 	// 클라이언트 요청 수신
 	char buffer[4096];
+	ssize_t bytesRead;
 	std::string requestData;
 
-	while (true) {
-		ssize_t bytesRead = recv(event.ident, buffer, sizeof(buffer) - 1, 0);
-		if (bytesRead < 0) {
-			std::cerr << "recv error" << std::endl;
-			closeConnection(event.ident);
-			return ;
-		}
-
-		if (bytesRead == 0)
-			break ;
-
-		buffer[bytesRead] = '\0';
-		requestData += buffer;
+	if ((bytesRead = recv(event.ident, buffer, sizeof(buffer) - 1, 0)) < 0) {
+		std::cerr << "recv error" << std::endl;
+		closeConnection(event.ident);
+		return ;
 	}
+
+	buffer[bytesRead] = '\0';
+	requestData += buffer;
+
 
 	ResponseMessage res_msg;
 	try {
-        RequestMessage req_msg(requestData);
+		RequestMessage req_msg(requestData);
 		requestHandler.handleRequest(req_msg, res_msg, socketToConfigMap[event.ident]);
 	} catch (const std::invalid_argument& e) {
 		requestHandler.badRequest(res_msg, std::string(e.what()));
@@ -212,4 +212,12 @@ void Server::closeConnection(int socket) {
 	struct kevent event;
 	EV_SET(&event, socket, EVFILT_READ, EV_DELETE, 0, 0, NULL);
 	kevent(eventManager.getKqueue(), &event, 1, NULL, 0, NULL);
+
+	std::vector<int>::iterator it = std::find(clientSockets.begin(), clientSockets.end(), socket);
+	if (it != clientSockets.end())
+		clientSockets.erase(it);
+
+	socketToConfigMap.erase(socket);
+	last_activity_map.erase(socket);
+
 }
