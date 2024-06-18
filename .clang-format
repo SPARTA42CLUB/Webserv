@@ -4,7 +4,7 @@ BasedOnStyle: Google
 # Base
 IndentWidth: 4
 UseTab: Never
-ColumnLimit: "80"
+ColumnLimit: "120"
 MaxEmptyLinesToKeep: "1"
 BreakBeforeBraces: Allman
 
