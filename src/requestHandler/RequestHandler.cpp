@@ -1,41 +1,82 @@
 #include "RequestHandler.hpp"
 
-void RequestHandler::handleRequest(const RequestMessage& req, ResponseMessage& res, const ServerConfig& serverConfig) {
+void RequestHandler::handleRequest(const RequestMessage& req, ResponseMessage& res, const ServerConfig& serverConfig)
+{
+    std::string reqTarget = req.getRequestLine().getRequestTarget();
+    std::string method = req.getRequestLine().getMethod();
+    std::map<std::string, LocationConfig>::const_iterator it = serverConfig.locations.find(reqTarget);
+    if (it == serverConfig.locations.end())
+    {
+        throw HTTPException(NOT_FOUND);
+    }
 
-	std::string url = req.getRequestLine().getRequestURL();
-	std::string method = req.getRequestLine().getMethod();
+    // NOTE: allow_methods 블록이 없을 경우 모든 메소드 허용?
+    const LocationConfig& locConfig = it->second;
+    if (std::find(locConfig.allow_methods.begin(), locConfig.allow_methods.end(), method) == locConfig.allow_methods.end())
+    {
+        throw HTTPException(METHOD_NOT_ALLOWED);
+    }
 
-	std::map<std::string, LocationConfig>::const_iterator it = serverConfig.locations.find(url);
-	if (it == serverConfig.locations.end()) {
-		res.setStatusLine("HTTP/1.1", "404", "NO");
-		res.addResponseHeaderField("Content-Type", "text/plain");
-		res.addMessageBody("Not Found");
-
-		return ;
-	}
-
-	const LocationConfig& locConfig = it->second;
-
-	if (std::find(locConfig.allow_methods.begin(), locConfig.allow_methods.end(), method) == locConfig.allow_methods.end()) {
-		res.setStatusLine("HTTP/1.1", "405", "NO");
-		res.addResponseHeaderField("Content-Type", "text/plain");
-		res.addMessageBody("Method Not Allowed");
-
-		return ;
-	}
-
-    res.setStatusLine(
-        req.getRequestLine().getHTTPVersion(), std::to_string(OK), "OK");
-    res.addResponseHeaderField("Content-Type", "text/html");
-    res.addMessageBody("<html><body><h1>Request Received</h1></body></html>");
+    // Method에 따른 처리
+    if (req.getRequestLine().getMethod() == "GET")
+    {
+        getRequest(req, res, serverConfig);
+    }
+    else if (req.getRequestLine().getMethod() == "HEAD")
+    {
+        headRequest(req, res, serverConfig);
+    }
+    else if (req.getRequestLine().getMethod() == "POST")
+    {
+        postRequest(req, res, serverConfig);
+    }
+    else if (req.getRequestLine().getMethod() == "DELETE")
+    {
+        deleteRequest(req, res, serverConfig);
+    }
 }
-
+void RequestHandler::getRequest(const RequestMessage& req, ResponseMessage& res, const ServerConfig& serverConfig)
+{
+    (void)req;
+    (void)res;
+    (void)serverConfig;
+    res.setStatusLine(req.getRequestLine().getHTTPVersion(), std::to_string(OK), "OK");
+    res.addResponseHeaderField("Content-Type", "text/html");
+    res.addMessageBody("<html><body><h1>GET Request</h1></body></html>");
+}
+void RequestHandler::headRequest(const RequestMessage& req, ResponseMessage& res, const ServerConfig& serverConfig)
+{
+    (void)req;
+    (void)res;
+    (void)serverConfig;
+    res.setStatusLine(req.getRequestLine().getHTTPVersion(), std::to_string(OK), "OK");
+    res.addResponseHeaderField("Content-Type", "text/html");
+    res.addMessageBody("<html><body><h1>HEAD Request</h1></body></html>");
+}
+void RequestHandler::postRequest(const RequestMessage& req, ResponseMessage& res, const ServerConfig& serverConfig)
+{
+    (void)req;
+    (void)res;
+    (void)serverConfig;
+    res.setStatusLine(req.getRequestLine().getHTTPVersion(), std::to_string(OK), "OK");
+    res.addResponseHeaderField("Content-Type", "text/html");
+    res.addMessageBody("<html><body><h1>POST Request</h1></body></html>");
+}
+void RequestHandler::deleteRequest(const RequestMessage& req, ResponseMessage& res, const ServerConfig& serverConfig)
+{
+    (void)req;
+    (void)res;
+    (void)serverConfig;
+    res.setStatusLine(req.getRequestLine().getHTTPVersion(), std::to_string(OK), "OK");
+    res.addResponseHeaderField("Content-Type", "text/html");
+    res.addMessageBody("<html><body><h1>DELETE Request</h1></body></html>");
+}
 void RequestHandler::verifyRequestLine(const RequestLine& reqLine)
 {
     const std::string method = reqLine.getMethod();
-    const std::string req_tg = reqLine.getRequestTarget();
+    const std::string reqTarget = reqLine.getRequestTarget();
     const std::string ver = reqLine.getHTTPVersion();
-    if (method != "GET" && method != "POST" && method != "DELETE" && method != "PUT")
+    if (method != "GET" && method != "HEAD" && method != "POST" && method != "DELETE")
     {
         throw HTTPException(METHOD_NOT_ALLOWED);
     }
@@ -43,11 +84,11 @@ void RequestHandler::verifyRequestLine(const RequestLine& reqLine)
     {
         throw HTTPException(HTTP_VERSION_NOT_SUPPORTED);
     }
-    if (req_tg[0] != '/')
+    if (reqTarget[0] != '/')
     {
         throw HTTPException(NOT_FOUND);
     }
-    if (req_tg.size() >= 8200) // nginx max uri length
+    if (reqTarget.size() >= 8200)  // nginx max uri length
     {
         throw HTTPException(URI_TOO_LONG);
     }
@@ -59,9 +100,9 @@ void RequestHandler::verifyRequestHeaderFields(const HeaderFields& reqHeaderFiel
         throw HTTPException(BAD_REQUEST);
     }
 }
-
 void RequestHandler::verifyRequest(const RequestMessage& req, const ServerConfig& serverConfig)
 {
+    (void)serverConfig;
     try
     {
         verifyRequestLine(req.getRequestLine());
@@ -71,39 +112,7 @@ void RequestHandler::verifyRequest(const RequestMessage& req, const ServerConfig
     {
         throw e;
     }
-
-    (void)serverConfig;
 }
-void RequestHandler::handleRequest(const RequestMessage& req, ResponseMessage& res, const ServerConfig& serverConfig)
-{
-    // std::map<std::string, LocationConfig>::const_iterator it =
-    // serverConfig.locations.find(request.getPath()); if (it !=
-    // serverConfig.locations.end()) { 	response.setStatusCode(404, "OK");
-    // 	response.setHeader("Content-Type", "text/plain");
-    // 	response.setBody("Not Found");
-
-    // 	return ;
-    // }
-
-    // const LocationConfig& locConfig = it->second;
-
-    // if (std::find(locConfig.allow_methods.begin(),
-    // locConfig.allow_methods.end(), request.getMethod()) ==
-    // locConfig.allow_methods.end()) { 	response.setStatusCode(405, "test");
-    // 	response.setHeader("Content-Type", "text/plain");
-    // 	response.setBody("Method Not Allowed");
-
-    // 	return ;
-    // }
-    (void)req;
-    (void)serverConfig;
-
-    res.setStatusLine(
-        req.getRequestLine().getHTTPVersion(), std::to_string(OK), "OK");
-    res.addResponseHeaderField("Content-Type", "text/html");
-    res.addMessageBody("<html><body><h1>Request Received</h1></body></html>");
-}
-
 void RequestHandler::handleException(const HTTPException& e, ResponseMessage& res)
 {
     if (e.getStatusCode() == BAD_REQUEST)
@@ -124,9 +133,7 @@ void RequestHandler::handleException(const HTTPException& e, ResponseMessage& re
     }
     else if (e.getStatusCode() == URI_TOO_LONG)
     {
-        res.setStatusLine("HTTP/1.1", std::to_string(URI_TOO_LONG), "Request-URI Too Long");
-        res.addResponseHeaderField("Content-Type", "text/html");
-        res.addMessageBody("<html><head><title>414 Request-URI Too Long</title></head><body><h1>414 Request-URI Too Long</h1></body></html>");
+        uriTooLong(res);
     }
 }
 void RequestHandler::badRequest(ResponseMessage& res)
@@ -145,11 +152,18 @@ void RequestHandler::methodNotAllowed(ResponseMessage& res)
 {
     res.setStatusLine("HTTP/1.1", std::to_string(METHOD_NOT_ALLOWED), "Method Not Allowed");
     res.addResponseHeaderField("Content-Type", "text/html");
-    res.addMessageBody("<html><head><title>405 Method Not Allowed</title></head><body><h1>405 Method Not Allowed</h1></body></html>");
+    res.addMessageBody(
+        "<html><head><title>405 Method Not Allowed</title></head><body><h1>405 Method Not Allowed</h1></body></html>");
 }
 void RequestHandler::httpVersionNotSupported(ResponseMessage& res)
 {
     res.setStatusLine("HTTP/1.1", std::to_string(HTTP_VERSION_NOT_SUPPORTED), "HTTP Version Not Supported");
     res.addResponseHeaderField("Content-Type", "text/html");
     res.addMessageBody("<html><head><title>505 HTTP Version Not Supported</title></head><body><h1>505 HTTP Version Not Supported</h1></body></html>");
+}
+void RequestHandler::uriTooLong(ResponseMessage& res)
+{
+    res.setStatusLine("HTTP/1.1", std::to_string(URI_TOO_LONG), "Request-URI Too Long");
+    res.addResponseHeaderField("Content-Type", "text/html");
+    res.addMessageBody("<html><head><title>414 Request-URI Too Long</title></head><body><h1>414 Request-URI Too Long</h1></body></html>");
 }

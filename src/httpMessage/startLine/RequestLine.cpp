@@ -13,7 +13,7 @@ RequestLine::~RequestLine()
 void RequestLine::parseRequestLine(const std::string& requestLine)
 {
     // TODO: parse request line
-    // request-line = <method> SP <request-URL> SP <HTTP-version> CRLF
+    // request-line = <method> SP <request-target> SP <HTTP-version> CRLF
 
     std::istringstream iss(requestLine);
     if (iss >> mMethod >> mRequestTarget >> mHTTPVersion)

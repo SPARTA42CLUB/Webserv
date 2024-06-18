@@ -4,7 +4,9 @@
 #include "ResponseMessage.hpp"
 #include "HTTPException.hpp"
 #include <iostream>
+#include <fstream>
 #include <cstring>
+#include <ctime>
 #include <cerrno>
 #include <cstdlib>
 #include <arpa/inet.h>
@@ -133,10 +135,10 @@ void Server::update_last_activity(int socket) {
 
 void Server::acceptClient(int serverSocket) {
 
-	// 서버 소켓으로 읽기 이벤트가 발생했다는 것의 의미 : 새로운 클라이언트가 연결 요청을 보냈다는 것
-	// 서버 소켓인 경우 'accept'를 이용하여 클라이언트의 연결 수락
-	struct sockaddr_in clientAddr;
-	socklen_t addrLen = sizeof(clientAddr);
+    // 서버 소켓으로 읽기 이벤트가 발생했다는 것의 의미 : 새로운 클라이언트가 연결 요청을 보냈다는 것
+    // 서버 소켓인 경우 'accept'를 이용하여 클라이언트의 연결 수락
+    struct sockaddr_in clientAddr;
+    socklen_t addrLen = sizeof(clientAddr);
 
 	int clientSocket = accept(serverSocket, (struct sockaddr*)&clientAddr, &addrLen);
 	if (clientSocket == -1) {
@@ -183,23 +185,37 @@ void Server::handleClientReadEvent(struct kevent& event) {
 	buffer[bytesRead] = '\0';
 	requestData += buffer;
 
-
 	RequestMessage req_msg(requestData);
-	ResponseMessage res_msg;
+	ResponseMessage resMsg;
 	try {
         requestHandler.verifyRequest(RequestMessage(requestData), socketToConfigMap[event.ident]);
-		requestHandler.handleRequest(req_msg, res_msg, socketToConfigMap[event.ident]);
+		requestHandler.handleRequest(req_msg, resMsg, socketToConfigMap[event.ident]);
 	} catch (const HTTPException& e) {
-		requestHandler.handleException(e, res_msg);
+		requestHandler.handleException(e, resMsg);
 	}
     if (!shouldKeepAlive(req_msg))
 		closeConnection(event.ident);
-    sendResponse(event.ident, res_msg);
+    logHTTPMessage(event.ident, resMsg, requestData);
+    sendResponse(event.ident, resMsg);
 }
 
-// 응답 전송
-void Server::sendResponse(int socket, ResponseMessage& res) {
+void Server::logHTTPMessage(int socket, ResponseMessage& res, const std::string& reqData) 
+{
+    std::ofstream logFile("access.log", std::ios::app);
 
+    time_t now = time(0);
+    struct tm* timeinfo = localtime(&now);
+
+    logFile << asctime(timeinfo)
+    << "Client IP: " << socketToConfigMap[socket].host << '\n'
+    << "Request:\n" << reqData
+    << "Response:\n" << res.toString() 
+    << "\n----------------------------------------------------------------------------------------\n" << std::endl;
+    logFile.close();
+}
+
+void Server::sendResponse(int socket, ResponseMessage& res)
+{
 	std::string responseStr = res.toString();
 	ssize_t bytesSent = send(socket, responseStr.c_str(), responseStr.length(), 0);
 	if (bytesSent == -1) {
