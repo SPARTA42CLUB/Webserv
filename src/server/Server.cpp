@@ -2,6 +2,7 @@
 #include "error.hpp"
 #include "RequestMessage.hpp"
 #include "ResponseMessage.hpp"
+#include "HTTPException.hpp"
 #include <iostream>
 #include <cstring>
 #include <cerrno>
@@ -183,17 +184,17 @@ void Server::handleClientReadEvent(struct kevent& event) {
 	requestData += buffer;
 
 
+	RequestMessage req_msg(requestData);
 	ResponseMessage res_msg;
 	try {
-		RequestMessage req_msg(requestData);
+        requestHandler.verifyRequest(RequestMessage(requestData), socketToConfigMap[event.ident]);
 		requestHandler.handleRequest(req_msg, res_msg, socketToConfigMap[event.ident]);
-		sendResponse(event.ident, res_msg);
-
-		if (!shouldKeepAlive(req_msg))
-			closeConnection(event.ident);
-	} catch (const std::invalid_argument& e) {
-		requestHandler.badRequest(res_msg, std::string(e.what()));
+	} catch (const HTTPException& e) {
+		requestHandler.handleException(e, res_msg);
 	}
+    if (!shouldKeepAlive(req_msg))
+		closeConnection(event.ident);
+    sendResponse(event.ident, res_msg);
 }
 
 // 응답 전송

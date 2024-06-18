@@ -24,17 +24,54 @@ void RequestHandler::handleRequest(const RequestMessage& req, ResponseMessage& r
 		return ;
 	}
 
-
-    res.setStatusLine("HTTP/1.1", "200", "OK");
-    res.addResponseHeaderField("Content-Type", "text/plain");
-    res.addMessageBody("OK");
-
+    res.setStatusLine(
+        req.getRequestLine().getHTTPVersion(), std::to_string(OK), "OK");
+    res.addResponseHeaderField("Content-Type", "text/html");
+    res.addMessageBody("<html><body><h1>Request Received</h1></body></html>");
 }
 
-void RequestHandler::badRequest(ResponseMessage& res, std::string body) {
+void RequestHandler::verifyRequestLine(const RequestLine& reqLine)
+{
+    const std::string method = reqLine.getMethod();
+    const std::string req_url = reqLine.getRequestURL();
+    const std::string ver = reqLine.getHTTPVersion();
+    if (method != "GET" && method != "POST" && method != "DELETE" && method != "PUT")
+    {
+        throw HTTPException(METHOD_NOT_ALLOWED, "Method Not Allowed");
+    }
+    if (ver != "HTTP/1.1")
+    {
+        throw HTTPException(HTTP_VERSION_NOT_SUPPORTED, "HTTP Version Not Supported");
+    }
+    if (req_url[0] != '/')
+    {
+        throw HTTPException(NOT_FOUND, "Not Found");
+    }
+}
+void RequestHandler::verifyRequestHeaderFields(
+    const HeaderFields& reqHeaderFields)
+{
+    if (reqHeaderFields.hasField("Host") == false)
+    {
+        throw HTTPException(BAD_REQUEST, "Bad Request");
+    }
+}
+void RequestHandler::verifyRequest(const RequestMessage& req, const ServerConfig& serverConfig)
+{
+    try
+    {
+        verifyRequestLine(req.getRequestLine());
+        verifyRequestHeaderFields(req.getRequestHeaderFields());
+    }
+    catch (const HTTPException& e)
+    {
+        throw e;
+    }
 
-    res.setStatusLine("HTTP/1.1", "400", "NO");
-    res.addResponseHeaderField("Content-Type", "text/plain");
-    res.addMessageBody("Bad Request: " + body);
+    (void)serverConfig;
 }
 
+void RequestHandler::handleException(const HTTPException& e, ResponseMessage& res)
+{
+    res.setStatusLine("HTTP/1.1", e.getStatusCode(), e.getReasonPhrase());
+}
