@@ -1,5 +1,35 @@
 #include "RequestHandler.hpp"
 
+void RequestHandler::handleRequest(const RequestMessage& req, ResponseMessage& res, const ServerConfig& serverConfig) {
+
+	std::string url = req.getRequestLine().getRequestURL();
+	std::string method = req.getRequestLine().getMethod();
+
+	std::map<std::string, LocationConfig>::const_iterator it = serverConfig.locations.find(url);
+	if (it == serverConfig.locations.end()) {
+		res.setStatusLine("HTTP/1.1", "404", "NO");
+		res.addResponseHeaderField("Content-Type", "text/plain");
+		res.addMessageBody("Not Found");
+
+		return ;
+	}
+
+	const LocationConfig& locConfig = it->second;
+
+	if (std::find(locConfig.allow_methods.begin(), locConfig.allow_methods.end(), method) == locConfig.allow_methods.end()) {
+		res.setStatusLine("HTTP/1.1", "405", "NO");
+		res.addResponseHeaderField("Content-Type", "text/plain");
+		res.addMessageBody("Method Not Allowed");
+
+		return ;
+	}
+
+    res.setStatusLine(
+        req.getRequestLine().getHTTPVersion(), std::to_string(OK), "OK");
+    res.addResponseHeaderField("Content-Type", "text/html");
+    res.addMessageBody("<html><body><h1>Request Received</h1></body></html>");
+}
+
 void RequestHandler::verifyRequestLine(const RequestLine& reqLine)
 {
     const std::string method = reqLine.getMethod();
@@ -18,6 +48,7 @@ void RequestHandler::verifyRequestLine(const RequestLine& reqLine)
         throw HTTPException(NOT_FOUND, "Not Found");
     }
 }
+
 void RequestHandler::verifyRequestHeaderFields(
     const HeaderFields& reqHeaderFields)
 {
@@ -26,6 +57,7 @@ void RequestHandler::verifyRequestHeaderFields(
         throw HTTPException(BAD_REQUEST, "Bad Request");
     }
 }
+
 void RequestHandler::verifyRequest(const RequestMessage& req, const ServerConfig& serverConfig)
 {
     try
@@ -39,35 +71,6 @@ void RequestHandler::verifyRequest(const RequestMessage& req, const ServerConfig
     }
 
     (void)serverConfig;
-}
-void RequestHandler::handleRequest(const RequestMessage& req, ResponseMessage& res, const ServerConfig& serverConfig)
-{
-    // std::map<std::string, LocationConfig>::const_iterator it =
-    // serverConfig.locations.find(request.getPath()); if (it !=
-    // serverConfig.locations.end()) { 	response.setStatusCode(404, "OK");
-    // 	response.setHeader("Content-Type", "text/plain");
-    // 	response.setBody("Not Found");
-
-    // 	return ;
-    // }
-
-    // const LocationConfig& locConfig = it->second;
-
-    // if (std::find(locConfig.allow_methods.begin(),
-    // locConfig.allow_methods.end(), request.getMethod()) ==
-    // locConfig.allow_methods.end()) { 	response.setStatusCode(405, "test");
-    // 	response.setHeader("Content-Type", "text/plain");
-    // 	response.setBody("Method Not Allowed");
-
-    // 	return ;
-    // }
-    (void)req;
-    (void)serverConfig;
-
-    res.setStatusLine(
-        req.getRequestLine().getHTTPVersion(), std::to_string(OK), "OK");
-    res.addResponseHeaderField("Content-Type", "text/html");
-    res.addMessageBody("<html><body><h1>Request Received</h1></body></html>");
 }
 
 void RequestHandler::handleException(const HTTPException& e, ResponseMessage& res)
