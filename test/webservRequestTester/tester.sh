@@ -6,49 +6,16 @@ requests=(
 "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n" 200
 "GET /error HTTP/1.1\r\nHost: localhost\r\n\r\n" 404
 "POST / HTTP/1.1\r\nHost: localhost\r\n\r\n" 200
-"GET / HTTP/1.1\nHost: localhost:8080\n\n" 200
+"GET / HTTP/1.1\r\nHost: localhost:8080\r\n\r\n" 200
 "GET / HTTP/1.1\r\n\r\n" 400
-"GET / HTTP/1.1
-Host: seunan:8081
-
-" 200
-"GET /forbidden.html HTTP/1.1
-Host: localhost:8080
-
-" 403
-"GET / HTTP/1.1
-Host: localhost:8080
-Connection: close
-
-" 200
-"GET / HTTP/1.1
-Host: localhost:8080
-Connection: keep-alive
-
-" 200
-"GET / HTTP/1.1
-Host: localhost:8080
-Date: Sun Nov 6 08:49:37 1994
-
-" 200
-"GET / HTTP/1.1       a
-Host: localhost:8080
-Connection: keep-alive
-
-" 400
-"GET / HTTP/1.1
-Host: localhost:8080
-
-Connection: close
-Content-Type: text/html
-
-bodybody" 201
-"GET / HTTP/1.1
-Host: localhost:8080
-Connection: close
-Content-Type: text/html
-
-bodybody" 200
+"GET / HTTP/1.1\r\nHost: seunan:8081\r\n\r\n" 200
+"GET /forbidden.html HTTP/1.1\r\nHost: localhost:8080\r\n\r\n" 403
+"GET / HTTP/1.1\r\nHost: localhost:8080\r\nConnection: close\r\n\r\n" 200
+"GET / HTTP/1.1\r\nHost: localhost:8080\r\nConnection: keep-alive\r\n\r\n" 200
+"GET / HTTP/1.1\r\nHost: localhost:8080\r\nDate: Sun Nov 6 08:49:37 1994\r\n\r\n" 200
+"GET / HTTP/1.1       a\r\nHost: localhost:8080\r\nConnection: keep-alive\r\n\r\n" 400
+"GET / HTTP/1.1\r\nHost: localhost:8080\r\n\r\nConnection: close\r\nContent-Type: text/html\r\n\r\nbodybody" 201
+"GET / HTTP/1.1\r\nHost: localhost:8080\r\nConnection: close\r\nContent-Type: text/html\r\n\r\nbodybody" 200
 )
 
 # ----------------------------------------------
@@ -78,10 +45,10 @@ clear && echo -e "$WHITE webser tester$NC"
 
 ../../webserv test.conf & WEBSERV_PID=$!
 
-sleep $WEBSERVER_CREATE_TIME
-
 # 응답을 저장할 파일을 생성 (기존 파일이 있으면 내용을 지우고 새로 생성)
 echo -n > unexpected_response.txt
+
+RESPONSE_WAIT_TIME=0.1
 
 # 요청을 반복하면서 테스트
 for ((i=0; i<${#requests[@]}; i+=2)); do

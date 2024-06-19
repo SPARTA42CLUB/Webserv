@@ -116,7 +116,7 @@ void RequestHandler::handleRequest(const RequestMessage& req)
     }
     else
     {
-        mResponseMessage.addResponseHeaderField("Connection", "close");
+        mResponseMessage.addResponseHeaderField("Connection", "keep-alive");
     }
 
     // Method에 따른 처리

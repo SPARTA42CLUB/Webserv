@@ -11,6 +11,10 @@
 #define LF "\n"
 #endif
 
+#ifndef CRLF
+#define CRLF "\r\n"
+#endif
+
 #ifndef KEY
 #define KEY first
 #endif
