@@ -3,9 +3,14 @@
 #include <ctime>
 #include <fstream>
 
-void RequestHandler::verifyRequest(const RequestMessage& req, const ServerConfig& serverConfig)
+RequestHandler::RequestHandler(ResponseMessage& mResponseMessage, const ServerConfig& serverConfig)
+: mResponseMessage(mResponseMessage)
+, mServerConfig(serverConfig)
+, mPath("")
 {
-    (void)serverConfig;
+}
+void RequestHandler::verifyRequest(const RequestMessage& req)
+{
     try
     {
         verifyRequestLine(req.getRequestLine());
@@ -45,36 +50,34 @@ void RequestHandler::verifyRequestHeaderFields(const HeaderFields& reqHeaderFiel
         throw HTTPException(BAD_REQUEST);
     }
 }
-void RequestHandler::handleRequest(const RequestMessage& req, ResponseMessage& res, const ServerConfig& serverConfig)
+void RequestHandler::handleRequest(const RequestMessage& req)
 {
     std::string reqTarget = req.getRequestLine().getRequestTarget();
     std::string method = req.getRequestLine().getMethod();
-    std::string path = "";
-
     // NOTE: 요청한 URI에 해당하는 LocationConfig 찾기
-    std::map<std::string, LocationConfig>::const_iterator targetFindIter = serverConfig.locations.find(reqTarget);
-    if (targetFindIter == serverConfig.locations.end())
+    std::map<std::string, LocationConfig>::const_iterator targetFindIter = mServerConfig.locations.find(reqTarget);
+    if (targetFindIter == mServerConfig.locations.end())
     {
-        for (std::map<std::string, LocationConfig>::const_iterator it = serverConfig.locations.begin(); it != serverConfig.locations.end(); it++)
+        for (std::map<std::string, LocationConfig>::const_iterator it = mServerConfig.locations.begin(); it != mServerConfig.locations.end(); it++)
         {
             if (it->first.back() == '/')
             {
                 std::string tmp = it->second.root + req.getRequestLine().getRequestTarget();
                 if (access(tmp.c_str(), F_OK) == 0)
                 {
-                    path = tmp;
+                    mPath = tmp;
                     break;
                 }
             }
         }
-        if (path == "")
+        if (mPath == "")
         {
             throw HTTPException(NOT_FOUND);
         }
     }
     else
     {
-        path = targetFindIter->second.root + req.getRequestLine().getRequestTarget() + targetFindIter->second.index;
+        mPath = targetFindIter->second.root + req.getRequestLine().getRequestTarget() + targetFindIter->second.index;
     }
 
     // NOTE: allow_methods 블록이 없을 경우 모든 메소드 허용
@@ -109,11 +112,11 @@ void RequestHandler::handleRequest(const RequestMessage& req, ResponseMessage& r
     // Connection 헤더 필드 추가
     if (req.getRequestHeaderFields().hasField("Connection") == true)
     {
-        res.addResponseHeaderField("Connection", req.getRequestHeaderFields().getField("Connection"));
+        mResponseMessage.addResponseHeaderField("Connection", req.getRequestHeaderFields().getField("Connection"));
     }
     else
     {
-        res.addResponseHeaderField("Connection", "close");
+        mResponseMessage.addResponseHeaderField("Connection", "close");
     }
 
     // Method에 따른 처리
@@ -121,19 +124,19 @@ void RequestHandler::handleRequest(const RequestMessage& req, ResponseMessage& r
     {
         if (method == "GET")
         {
-            getRequest(req, res, serverConfig, path);
+            getRequest(req);
         }
         else if (method == "HEAD")
         {
-            headRequest(req, res, serverConfig, path);
+            headRequest(req);
         }
         else if (method == "POST")
         {
-            postRequest(req, res, serverConfig, path);
+            postRequest(req);
         }
         else if (method == "DELETE")
         {
-            deleteRequest(req, res, serverConfig, path);
+            deleteRequest(req);
         }
     }
     catch (const HTTPException& e)
@@ -141,53 +144,50 @@ void RequestHandler::handleRequest(const RequestMessage& req, ResponseMessage& r
         throw e;
     }
 }
-void RequestHandler::getRequest(const RequestMessage& req, ResponseMessage& res, const ServerConfig& serverConfig, const std::string& path)
+void RequestHandler::getRequest(const RequestMessage& req)
 {
-    (void)serverConfig;
-    std::ifstream file(path);
+    std::ifstream file(mPath);
     if (file.is_open() == false)
     {
         throw HTTPException(FORBIDDEN);
     }
-    res.setStatusLine(req.getRequestLine().getHTTPVersion(), OK, "OK");
+    mResponseMessage.setStatusLine(req.getRequestLine().getHTTPVersion(), OK, "OK");
     std::string line;
     while (std::getline(file, line))
     {
         // TODO: 파일 마지막에 개행이 없는 경우 개행이 추가로 들어가는 문제
-        res.addMessageBody(line + "\n");
+        mResponseMessage.addMessageBody(line + "\n");
     }
     file.close();
-    addSemanticHeaderFields(res);
-    addContentType(res, path);
+    addSemanticHeaderFields(mResponseMessage);
+    addContentType(mResponseMessage);
 }
-void RequestHandler::headRequest(const RequestMessage& req, ResponseMessage& res, const ServerConfig& serverConfig, const std::string& path)
+void RequestHandler::headRequest(const RequestMessage& req)
 {
-    getRequest(req, res, serverConfig, path);
-    res.clearMessageBody();
+    getRequest(req);
+    mResponseMessage.clearMessageBody();
 }
-void RequestHandler::postRequest(const RequestMessage& req, ResponseMessage& res, const ServerConfig& serverConfig, const std::string& path)
-{
-    (void)req;
-    (void)res;
-    (void)serverConfig;
-    (void)path;
-    res.setStatusLine(req.getRequestLine().getHTTPVersion(), OK, "OK");
-    res.addResponseHeaderField("Content-Type", "text/html");
-    res.addMessageBody("<html><body><h1>POST Request</h1></body></html>");
-    addSemanticHeaderFields(res);
-}
-void RequestHandler::deleteRequest(const RequestMessage& req, ResponseMessage& res, const ServerConfig& serverConfig, const std::string& path)
+void RequestHandler::postRequest(const RequestMessage& req)
 {
     (void)req;
-    (void)res;
-    (void)serverConfig;
-    (void)path;
-    res.setStatusLine(req.getRequestLine().getHTTPVersion(), OK, "OK");
-    res.addResponseHeaderField("Content-Type", "text/html");
-    res.addMessageBody("<html><body><h1>DELETE Request</h1></body></html>");
-    addSemanticHeaderFields(res);
+    (void)mResponseMessage;
+    (void)mPath;
+    mResponseMessage.setStatusLine(req.getRequestLine().getHTTPVersion(), OK, "OK");
+    mResponseMessage.addResponseHeaderField("Content-Type", "text/html");
+    mResponseMessage.addMessageBody("<html><body><h1>POST Request</h1></body></html>");
+    addSemanticHeaderFields(mResponseMessage);
 }
-void RequestHandler::addSemanticHeaderFields(ResponseMessage& res)
+void RequestHandler::deleteRequest(const RequestMessage& req)
+{
+    (void)req;
+    (void)mResponseMessage;
+    (void)mPath;
+    mResponseMessage.setStatusLine(req.getRequestLine().getHTTPVersion(), OK, "OK");
+    mResponseMessage.addResponseHeaderField("Content-Type", "text/html");
+    mResponseMessage.addMessageBody("<html><body><h1>DELETE Request</h1></body></html>");
+    addSemanticHeaderFields(mResponseMessage);
+}
+void RequestHandler::addSemanticHeaderFields(ResponseMessage& mResponseMessage)
 {
     time_t now = time(0);
     struct tm* timeinfo = localtime(&now);
@@ -197,105 +197,105 @@ void RequestHandler::addSemanticHeaderFields(ResponseMessage& res)
     std::strftime(buffer, sizeof(buffer), "%a, %d %b %Y %H:%M:%S GMT", timeinfo);
     std::string date = buffer;
 
-    res.addResponseHeaderField("Content-Length", res.getMessageBodySize());
-    res.addResponseHeaderField("Server", "webserv");
-    res.addResponseHeaderField("Date", date);
+    mResponseMessage.addResponseHeaderField("Content-Length", mResponseMessage.getMessageBodySize());
+    mResponseMessage.addResponseHeaderField("Server", "webserv");
+    mResponseMessage.addResponseHeaderField("Date", date);
 }
-void RequestHandler::addContentType(ResponseMessage& res, const std::string& path)
+void RequestHandler::addContentType(ResponseMessage& mResponseMessage)
 {
     // NOTE: Config에 MIME 타입 추가
-    std::string ext = path.substr(path.find_last_of('.') + 1);
+    std::string ext = mPath.substr(mPath.find_last_of('.') + 1);
     if (ext == "html")
     {
-        res.addResponseHeaderField("Content-Type", "text/html");
+        mResponseMessage.addResponseHeaderField("Content-Type", "text/html");
     }
     else if (ext == "css")
     {
-        res.addResponseHeaderField("Content-Type", "text/css");
+        mResponseMessage.addResponseHeaderField("Content-Type", "text/css");
     }
     else if (ext == "js")
     {
-        res.addResponseHeaderField("Content-Type", "text/javascript");
+        mResponseMessage.addResponseHeaderField("Content-Type", "text/javascript");
     }
     else if (ext == "jpg" || ext == "jpeg")
     {
-        res.addResponseHeaderField("Content-Type", "image/jpeg");
+        mResponseMessage.addResponseHeaderField("Content-Type", "image/jpeg");
     }
     else if (ext == "png")
     {
-        res.addResponseHeaderField("Content-Type", "image/png");
+        mResponseMessage.addResponseHeaderField("Content-Type", "image/png");
     }
     else
     {
-        res.addResponseHeaderField("Content-Type", "application/octet-stream");
+        mResponseMessage.addResponseHeaderField("Content-Type", "application/octet-stream");
     }
 }
-void RequestHandler::handleException(const HTTPException& e, ResponseMessage& res)
+void RequestHandler::handleException(const HTTPException& e)
 {
     if (e.getStatusCode() == BAD_REQUEST)
     {
-        badRequest(res);
+        badRequest();
     }
     else if (e.getStatusCode() == NOT_FOUND)
     {
-        notFound(res);
+        notFound();
     }
     else if (e.getStatusCode() == METHOD_NOT_ALLOWED)
     {
-        methodNotAllowed(res);
+        methodNotAllowed();
     }
     else if (e.getStatusCode() == HTTP_VERSION_NOT_SUPPORTED)
     {
-        httpVersionNotSupported(res);
+        httpVersionNotSupported();
     }
     else if (e.getStatusCode() == URI_TOO_LONG)
     {
-        uriTooLong(res);
+        uriTooLong();
     }
     else if (e.getStatusCode() == FORBIDDEN)
     {
-        forbidden(res);
+        forbidden();
     }
 }
-void RequestHandler::badRequest(ResponseMessage& res)
+void RequestHandler::badRequest(void)
 {
-    res.setStatusLine("HTTP/1.1", BAD_REQUEST, "Bad Request");
-    res.addMessageBody("<html><head><title>400 Bad Request</title></head><body><h1>400 Bad Request</h1></body></html>");
-    res.addResponseHeaderField("Content-Type", "text/html");
-    addSemanticHeaderFields(res);
+    mResponseMessage.setStatusLine("HTTP/1.1", BAD_REQUEST, "Bad Request");
+    mResponseMessage.addMessageBody("<html><head><title>400 Bad Request</title></head><body><h1>400 Bad Request</h1></body></html>");
+    mResponseMessage.addResponseHeaderField("Content-Type", "text/html");
+    addSemanticHeaderFields(mResponseMessage);
 }
-void RequestHandler::notFound(ResponseMessage& res)
+void RequestHandler::notFound(void)
 {
-    res.setStatusLine("HTTP/1.1", NOT_FOUND, "Not Found");
-    res.addMessageBody("<html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1></body></html>");
-    res.addResponseHeaderField("Content-Type", "text/html");
-    addSemanticHeaderFields(res);
+    mResponseMessage.setStatusLine("HTTP/1.1", NOT_FOUND, "Not Found");
+    mResponseMessage.addMessageBody("<html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1></body></html>");
+    mResponseMessage.addResponseHeaderField("Content-Type", "text/html");
+    addSemanticHeaderFields(mResponseMessage);
 }
-void RequestHandler::methodNotAllowed(ResponseMessage& res)
+void RequestHandler::methodNotAllowed(void)
 {
-    res.setStatusLine("HTTP/1.1", METHOD_NOT_ALLOWED, "Method Not Allowed");
-    res.addMessageBody("<html><head><title>405 Method Not Allowed</title></head><body><h1>405 Method Not Allowed</h1></body></html>");
-    res.addResponseHeaderField("Content-Type", "text/html");
-    addSemanticHeaderFields(res);
+    mResponseMessage.setStatusLine("HTTP/1.1", METHOD_NOT_ALLOWED, "Method Not Allowed");
+    mResponseMessage.addMessageBody("<html><head><title>405 Method Not Allowed</title></head><body><h1>405 Method Not Allowed</h1></body></html>");
+    mResponseMessage.addResponseHeaderField("Content-Type", "text/html");
+    addSemanticHeaderFields(mResponseMessage);
 }
-void RequestHandler::httpVersionNotSupported(ResponseMessage& res)
+void RequestHandler::httpVersionNotSupported(void)
 {
-    res.setStatusLine("HTTP/1.1", HTTP_VERSION_NOT_SUPPORTED, "HTTP Version Not Supported");
-    res.addMessageBody("<html><head><title>505 HTTP Version Not Supported</title></head><body><h1>505 HTTP Version Not Supported</h1></body></html>");
-    res.addResponseHeaderField("Content-Type", "text/html");
-    addSemanticHeaderFields(res);
+    mResponseMessage.setStatusLine("HTTP/1.1", HTTP_VERSION_NOT_SUPPORTED, "HTTP Version Not Supported");
+    mResponseMessage.addMessageBody("<html><head><title>505 HTTP Version Not Supported</title></head><body><h1>505 HTTP Version Not Supported</h1></body></html>");
+    mResponseMessage.addResponseHeaderField("Content-Type", "text/html");
+    addSemanticHeaderFields(mResponseMessage);
 }
-void RequestHandler::uriTooLong(ResponseMessage& res)
+void RequestHandler::uriTooLong(void)
 {
-    res.setStatusLine("HTTP/1.1", URI_TOO_LONG, "Request-URI Too Long");
-    res.addMessageBody("<html><head><title>414 Request-URI Too Long</title></head><body><h1>414 Request-URI Too Long</h1></body></html>");
-    res.addResponseHeaderField("Content-Type", "text/html");
-    addSemanticHeaderFields(res);
+    mResponseMessage.setStatusLine("HTTP/1.1", URI_TOO_LONG, "Request-URI Too Long");
+    mResponseMessage.addMessageBody("<html><head><title>414 Request-URI Too Long</title></head><body><h1>414 Request-URI Too Long</h1></body></html>");
+    mResponseMessage.addResponseHeaderField("Content-Type", "text/html");
+    addSemanticHeaderFields(mResponseMessage);
 }
-void RequestHandler::forbidden(ResponseMessage& res)
+void RequestHandler::forbidden(void)
 {
-    res.setStatusLine("HTTP/1.1", FORBIDDEN, "Forbidden");
-    res.addMessageBody("<html><head><title>403 Forbidden</title></head><body><h1>403 Forbidden</h1></body></html>");
-    res.addResponseHeaderField("Content-Type", "text/html");
-    addSemanticHeaderFields(res);
+    mResponseMessage.setStatusLine("HTTP/1.1", FORBIDDEN, "Forbidden");
+    mResponseMessage.addMessageBody("<html><head><title>403 Forbidden</title></head><body><h1>403 Forbidden</h1></body></html>");
+    mResponseMessage.addResponseHeaderField("Content-Type", "text/html");
+    addSemanticHeaderFields(mResponseMessage);
 }

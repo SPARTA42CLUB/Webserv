@@ -9,6 +9,7 @@
 #include "HTTPException.hpp"
 #include "RequestMessage.hpp"
 #include "ResponseMessage.hpp"
+#include "RequestHandler.hpp"
 #include "error.hpp"
 
 // ServerConfig 클래스 생성자
@@ -212,16 +213,17 @@ void Server::handleClientReadEvent(struct kevent& event)
      */
     bool bKeepAlive = false;
     ResponseMessage resMsg;
+    RequestHandler requestHandler(resMsg, socketToConfigMap[event.ident]);
     try
     {
         RequestMessage reqMsg(requestData);
         bKeepAlive = shouldKeepAlive(reqMsg);
-        requestHandler.verifyRequest(reqMsg, socketToConfigMap[event.ident]);
-        requestHandler.handleRequest(reqMsg, resMsg, socketToConfigMap[event.ident]);
+        requestHandler.verifyRequest(reqMsg);
+        requestHandler.handleRequest(reqMsg);
     }
     catch (const HTTPException& e)
     {
-        requestHandler.handleException(e, resMsg);
+        requestHandler.handleException(e);
     }
 
     logHTTPMessage(event.ident, resMsg, requestData);

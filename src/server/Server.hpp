@@ -10,7 +10,6 @@
 #include <fcntl.h>
 #include <sys/event.h>
 #include "Config.hpp"
-#include "RequestHandler.hpp"
 #include "EventManager.hpp"
 #include "RequestMessage.hpp"
 #include "ResponseMessage.hpp"
@@ -25,7 +24,6 @@ public:
 private:
 	const Config& config;
 	EventManager eventManager;
-	RequestHandler requestHandler;
 	std::vector<int> serverSockets;
 	std::vector<int> clientSockets;
 	std::map<int, ServerConfig> socketToConfigMap;

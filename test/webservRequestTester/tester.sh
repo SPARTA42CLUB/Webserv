@@ -42,7 +42,7 @@ Host: localhost:8080
 Connection: close
 Content-Type: text/html
 
-bodybody" 200
+bodybody" 201
 "GET / HTTP/1.1
 Host: localhost:8080
 Connection: close
@@ -64,18 +64,24 @@ CYAN='\033[96m'
 WHITE='\033[97m'
 NC='\033[0m'
 
+# 웹서버 kqueue, Conpig 설정 시간 (초)
+WEBSERVER_CREATE_TIME=1
+
+# 서버 응답 대기 시간 (초)
+RESPONSE_WAIT_TIME=0.2
+
 touch ../../www/forbidden.html && chmod 000 ../../www/forbidden.html
 
 # webserv 프로그램을 백그라운드에서 실행
-make -C ../../ && \
+make -C ../../ mem && \
 clear && echo -e "$WHITE webser tester$NC"
 
 ../../webserv test.conf & WEBSERV_PID=$!
 
+sleep $WEBSERVER_CREATE_TIME
+
 # 응답을 저장할 파일을 생성 (기존 파일이 있으면 내용을 지우고 새로 생성)
 echo -n > unexpected_response.txt
-
-RESPONSE_WAIT_TIME=0.1
 
 # 요청을 반복하면서 테스트
 for ((i=0; i<${#requests[@]}; i+=2)); do
