@@ -48,7 +48,7 @@ void Server::setupServerSockets()
         int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
         if (serverSocket == -1)
             throw std::runtime_error("Failed to create socket");
-        
+
         /* 개발 편의용 세팅. 서버 소켓이 이미 사용중이더라도 실행되게끔 설정 */
         int optval = 1;
         setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
@@ -76,7 +76,7 @@ void Server::setupServerSockets()
         serverSockets.push_back(serverSocket);
         socketToConfigMap[serverSocket] = serverConfigs[i];
 
-        eventManager.addEvent(serverSocket, EVFILT_READ, EV_ADD | EV_ENABLE);
+        eventManager.addReadEvent(serverSocket);
     }
 }
 
@@ -164,7 +164,7 @@ void Server::acceptClient(int serverSocket)
 
     try
     {
-        eventManager.addEvent(clientSocket, EVFILT_READ, EV_ADD | EV_ENABLE);
+        eventManager.addReadEvent(clientSocket);
     }
     catch (const std::runtime_error& e)
     {
@@ -223,11 +223,13 @@ void Server::handleClientReadEvent(struct kevent& event)
     {
         requestHandler.handleException(e, resMsg);
     }
+
+    logHTTPMessage(event.ident, resMsg, requestData);
+    sendResponse(event.ident, resMsg);
+
     // 만약 reqMsg가 keep-alive여도 400 bad request가 떨어지면 keep-alive를 무시하고 연결을 끊는다.
     if (!bKeepAlive)
         closeConnection(event.ident);
-    logHTTPMessage(event.ident, resMsg, requestData);
-    sendResponse(event.ident, resMsg);
 }
 
 void Server::logHTTPMessage(int socket, ResponseMessage& res, const std::string& reqData)
@@ -248,12 +250,26 @@ void Server::logHTTPMessage(int socket, ResponseMessage& res, const std::string&
 void Server::sendResponse(int socket, ResponseMessage& res)
 {
     std::string responseStr = res.toString();
-    ssize_t bytesSent = send(socket, responseStr.c_str(), responseStr.length(), 0);
-    if (bytesSent == -1)
-    {
-        std::cerr << "send error: " << strerror(errno) << std::endl;
-        closeConnection(socket);
+    eventManager.addWriteEvent(socket);
+
+    std::vector<struct kevent> events = eventManager.getCurrentEvents();
+    for (std::vector<struct kevent>::iterator it = events.begin(); it != events.end(); ++it) {
+        struct kevent& event = *it;
+
+        if (event.ident != (uintptr_t)socket)
+            continue ;
+
+        if (event.filter == EVFILT_WRITE) {
+            if ((send(socket, responseStr.c_str(), responseStr.length(), 0)) < 0) {
+                std::cerr << "send error: " << strerror(errno) << std::endl;
+                eventManager.deleteWriteEvent(socket);
+                closeConnection(socket);
+                return ;
+            }
+        }
     }
+
+    eventManager.deleteWriteEvent(socket);
 }
 
 bool Server::shouldKeepAlive(const RequestMessage& req)
@@ -266,11 +282,9 @@ bool Server::shouldKeepAlive(const RequestMessage& req)
 // 클라이언트 소켓 종료
 void Server::closeConnection(int socket)
 {
-    close(socket);
+    eventManager.deleteReadEvent(socket);
 
-    struct kevent event;
-    EV_SET(&event, socket, EVFILT_READ, EV_DELETE, 0, 0, NULL);
-    kevent(eventManager.getKqueue(), &event, 1, NULL, 0, NULL);
+    close(socket);
 
     std::vector<int>::iterator it = std::find(clientSockets.begin(), clientSockets.end(), socket);
     if (it != clientSockets.end())
