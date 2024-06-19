@@ -262,8 +262,8 @@ void Server::handleClientWriteEvent(struct kevent& event) {
 
 void Server::handleRequest(int socket, const std::string& requestData) {
     ResponseMessage resMsg;
+    RequestHandler requestHandler(resMsg, socketToConfigMap[socket]);
     bool bKeepAlive = true; // reqMsg 생성자 혹은 bad request시 예외를 던져서 keepAlive여부를 판단하는게 더 좋을 거 같음
-
     try
     {
         RequestMessage reqMsg(requestData);
