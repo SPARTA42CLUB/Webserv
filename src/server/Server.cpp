@@ -48,12 +48,11 @@ void Server::setupServerSockets()
         int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
         if (serverSocket == -1)
             throw std::runtime_error("Failed to create socket");
-
-        {
-            // 개발 편의용 세팅. 서버 소켓이 이미 사용중이더라도 실행되게끔 설정
-            int optval = 1;
-            setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
-        }
+        
+        /* 개발 편의용 세팅. 서버 소켓이 이미 사용중이더라도 실행되게끔 설정 */
+        int optval = 1;
+        setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
+        /* ----------------------------------------------------------------- */
 
         // 소켓 옵션 설정
         setNonBlocking(serverSocket);
