@@ -110,6 +110,14 @@ void Config::parseLocation(std::ifstream& file, ServerConfig& serverConfig, cons
 			locationConfig.directory_listing = (value == "on");
 		} else if (key == "cgi")
 			iss >> locationConfig.cgi;
+        else if (key == "proxy_pass")
+        {
+            iss >> locationConfig.proxy_pass;
+            if (locationConfig.proxy_pass.back()== ';')
+            {
+                locationConfig.proxy_pass.pop_back();
+            }
+        }
 	}
 
 	// Location 설정 추가

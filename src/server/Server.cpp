@@ -216,7 +216,7 @@ void Server::handleClientReadEvent(struct kevent& event)
     {
         RequestMessage reqMsg(requestData);
         bKeepAlive = shouldKeepAlive(reqMsg);
-        requestHandler.verifyRequest(RequestMessage(requestData), socketToConfigMap[event.ident]);
+        requestHandler.verifyRequest(reqMsg, socketToConfigMap[event.ident]);
         requestHandler.handleRequest(reqMsg, resMsg, socketToConfigMap[event.ident]);
     }
     catch (const HTTPException& e)
