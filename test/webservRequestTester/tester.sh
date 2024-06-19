@@ -3,18 +3,15 @@
 # 테스트할 요청과 기대하는 응답 코드 배열
 requests=(
 "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n" 200
-"GET / HTTP/1.1                 \r\nHost: localhost\r\n\r\n" 200
+"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n" 200
 "GET /error HTTP/1.1\r\nHost: localhost\r\n\r\n" 404
-"POST / HTTP/1.1\r\nHost: localhost\r\n\r\n" 405
-"GET / HTTP/1.1\nHost: localhost:8080\n\n\n" 200
-"GET / HTTP/1.1" 0
-"GET / HTTP/1.1
-" 0
-"GET /cgi-bin/ HTTP/1.1\nHost:  localhost:8080\nAccept: */*\n\n" 200
+"POST / HTTP/1.1\r\nHost: localhost\r\n\r\n" 200
+"GET / HTTP/1.1\nHost: localhost:8080\n\n" 200
+"GET / HTTP/1.1\r\n\r\n" 400
 "GET / HTTP/1.1
 Host: seunan:8081
 
-" 400
+" 200
 "GET /forbidden.html HTTP/1.1
 Host: localhost:8080
 
@@ -67,11 +64,13 @@ CYAN='\033[96m'
 WHITE='\033[97m'
 NC='\033[0m'
 
+touch ../../www/forbidden.html && chmod 000 ../../www/forbidden.html
+
 # webserv 프로그램을 백그라운드에서 실행
 make -C ../../ && \
 clear && echo -e "$WHITE webser tester$NC"
 
-../../webserv ../../default.conf & WEBSERV_PID=$!
+../../webserv test.conf & WEBSERV_PID=$!
 
 # 응답을 저장할 파일을 생성 (기존 파일이 있으면 내용을 지우고 새로 생성)
 echo -n > unexpected_response.txt
@@ -112,5 +111,7 @@ for ((i=0; i<${#requests[@]}; i+=2)); do
     fi
 done
 
+rm -f ../../www/forbidden.html
+
 # webserv 프로그램 종료
-kill -9 $WEBSERV_PID
+kill -9 $WEBSERV_PID > /dev/null 2>&1

@@ -1,6 +1,7 @@
 #include "EventManager.hpp"
 #include "error.hpp"
 #include <unistd.h>
+#include <iostream>
 
 EventManager::EventManager() {
 
@@ -13,13 +14,32 @@ EventManager::~EventManager() {
 	close(kq);
 }
 
-void EventManager::addEvent(int fd, int16_t filter, uint16_t flags) {
-	struct kevent evSet;
-	EV_SET(&evSet, fd, filter, flags, 0, 0, NULL);
-
-	if (kevent(kq, &evSet, 1, NULL, 0, NULL) == -1)
-		throw std::runtime_error("Failed to add event to kqueue");
+void EventManager::addReadEvent(int socket) {
+	addEvent(socket, EVFILT_READ, EV_ADD | EV_ENABLE);
 }
+
+void EventManager::addWriteEvent(int socket) {
+	addEvent(socket, EVFILT_WRITE, EV_ADD | EV_ENABLE);
+}
+
+void EventManager::deleteReadEvent(int socket) {
+	addEvent(socket, EVFILT_READ, EV_DELETE);
+}
+
+void EventManager::deleteWriteEvent(int socket) {
+	addEvent(socket, EVFILT_WRITE, EV_DELETE);
+}
+
+void EventManager::addEvent(int socket, int16_t filter, uint16_t flags) {
+	struct kevent evSet;
+	EV_SET(&evSet, socket, filter, flags, 0, 0, NULL);
+
+	if (kevent(kq, &evSet, 1, NULL, 0, NULL) == -1) {
+		std::cerr << "kevent failed: " << strerror(errno) << std::endl;
+		throw std::runtime_error("Failed to add event to kqueue");
+	}
+}
+
 
 std::vector<struct kevent> EventManager::getCurrentEvents() {
 
@@ -35,7 +55,7 @@ std::vector<struct kevent> EventManager::getCurrentEvents() {
 	struct kevent events[1024];
 	int numEvents = kevent(kq, NULL, 0, events, 1024, &timeout);
 	if (numEvents == -1)
-		throw std::runtime_error("Failed to add event to kqueue");
+		throw std::runtime_error("Failed to get event from kqueue");
 
 	return std::vector<struct kevent>(events, events + numEvents);
 }
