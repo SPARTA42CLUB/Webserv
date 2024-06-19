@@ -3,8 +3,6 @@
 #include <ctime>
 #include <fstream>
 
-#include <iostream>
-
 void RequestHandler::verifyRequest(const RequestMessage& req, const ServerConfig& serverConfig)
 {
     (void)serverConfig;
@@ -74,26 +72,33 @@ void RequestHandler::handleRequest(const RequestMessage& req, ResponseMessage& r
             throw HTTPException(NOT_FOUND);
         }
     }
-    else 
+    else
     {
         path = targetFindIter->second.root + req.getRequestLine().getRequestTarget() + targetFindIter->second.index;
     }
 
     // NOTE: allow_methods 블록이 없을 경우 모든 메소드 허용
     // WARNING: segment fault 발생
-    /* 
+    /*
     ==12581==ERROR: AddressSanitizer: heap-buffer-overflow on address 0x000107b03567 at pc 0x0001043c3520 bp 0x00016ba486b0 sp 0x00016ba486a8
     READ of size 1 at 0x000107b03567 thread T0
     #0 0x1043c351c in std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>::__is_long[abi:ue170006]() const string:1734
     #1 0x1043ba13c in std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>::size[abi:ue170006]() const string:1168
-    #2 0x1043c87a0 in bool std::__1::operator==[abi:ue170006]<std::__1::allocator<char>>(std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const&, std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const&) string:3897
-    #3 0x1043c7ae4 in std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const* std::__1::__find_impl[abi:ue170006]<std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const*, std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const*, std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>, std::__1::__identity>(std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const*, std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const*, std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const&, std::__1::__identity&) find.h:34
-    #4 0x1043baadc in std::__1::__wrap_iter<std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const*> std::__1::find[abi:ue170006]<std::__1::__wrap_iter<std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const*>, std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>>(std::__1::__wrap_iter<std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const*>, std::__1::__wrap_iter<std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const*>, std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const&) find.h:81
-    #5 0x1043b8ffc in RequestHandler::handleRequest(RequestMessage const&, ResponseMessage&, ServerConfig const&) RequestHandler.cpp:35
-    #6 0x1043e2890 in Server::handleClientReadEvent(kevent&) Server.cpp:192
-    #7 0x1043e03f8 in Server::run() Server.cpp:111
-    #8 0x10440f528 in main main.cpp:18
-    #9 0x18351a0dc  (<unknown module>)
+    #2 0x1043c87a0 in bool std::__1::operator==[abi:ue170006]<std::__1::allocator<char>>(std::__1::basic_string<char, std::__1::char_traits<char>,
+    std::__1::allocator<char>> const&, std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const&) string:3897 #3 0x1043c7ae4
+    in std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const*
+    std::__1::__find_impl[abi:ue170006]<std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const*,
+    std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const*, std::__1::basic_string<char, std::__1::char_traits<char>,
+    std::__1::allocator<char>>, std::__1::__identity>(std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const*,
+    std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const*, std::__1::basic_string<char, std::__1::char_traits<char>,
+    std::__1::allocator<char>> const&, std::__1::__identity&) find.h:34 #4 0x1043baadc in std::__1::__wrap_iter<std::__1::basic_string<char,
+    std::__1::char_traits<char>, std::__1::allocator<char>> const*> std::__1::find[abi:ue170006]<std::__1::__wrap_iter<std::__1::basic_string<char,
+    std::__1::char_traits<char>, std::__1::allocator<char>> const*>, std::__1::basic_string<char, std::__1::char_traits<char>,
+    std::__1::allocator<char>>>(std::__1::__wrap_iter<std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const*>,
+    std::__1::__wrap_iter<std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const*>, std::__1::basic_string<char,
+    std::__1::char_traits<char>, std::__1::allocator<char>> const&) find.h:81 #5 0x1043b8ffc in RequestHandler::handleRequest(RequestMessage const&,
+    ResponseMessage&, ServerConfig const&) RequestHandler.cpp:35 #6 0x1043e2890 in Server::handleClientReadEvent(kevent&) Server.cpp:192 #7 0x1043e03f8 in
+    Server::run() Server.cpp:111 #8 0x10440f528 in main main.cpp:18 #9 0x18351a0dc  (<unknown module>)
      */
     // const LocationConfig& locConfig = targetFindIter->second;
     // if (std::find(locConfig.allow_methods.begin(), locConfig.allow_methods.end(), method) == locConfig.allow_methods.end())
@@ -135,11 +140,10 @@ void RequestHandler::handleRequest(const RequestMessage& req, ResponseMessage& r
     {
         throw e;
     }
-    
 }
 void RequestHandler::getRequest(const RequestMessage& req, ResponseMessage& res, const ServerConfig& serverConfig, const std::string& path)
 {
-    (void) serverConfig;
+    (void)serverConfig;
     std::ifstream file(path);
     if (file.is_open() == false)
     {
