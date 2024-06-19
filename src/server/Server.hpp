@@ -30,8 +30,8 @@ private:
 	std::vector<int> clientSockets;
 	std::map<int, ServerConfig> socketToConfigMap;
 	std::map<int, time_t> last_activity_map;
-	std::map<int, std::string> recvData;
-	std::map<int, std::vector<RequestMessage>> recvReqs;
+	std::map<int, std::string> recvDataMap;
+	std::map<int, std::vector<std::string>> recvReqsMap;
 
 	void setupServerSockets();
 	void setNonBlocking(int socket);
@@ -39,6 +39,8 @@ private:
 	void acceptClient(int serverSocket);
 	void handleClientReadEvent(struct kevent& event);
 	void handleClientWriteEvent(struct kevent& event);
+
+	void handleRequest(int socket, const std::string& requestData);
 
     void logHTTPMessage(int socket, ResponseMessage& res, const std::string& reqData);
 	void sendResponse(int socket, ResponseMessage& res);
