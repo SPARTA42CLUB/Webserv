@@ -2,8 +2,8 @@
 #define REQUEST_MESSAGE_HPP
 
 #include <sstream>
-#include "MessageBody.hpp"
 #include "HeaderFields.hpp"
+#include "MessageBody.hpp"
 #include "RequestLine.hpp"
 
 class RequestMessage

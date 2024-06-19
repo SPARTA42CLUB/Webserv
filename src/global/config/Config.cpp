@@ -83,7 +83,7 @@ void Config::parseLocation(std::ifstream& file, ServerConfig& serverConfig, cons
 		if (key == "root")
         {
 			iss >> locationConfig.root;
-            if (locationConfig.root[locationConfig.root.size() - 1] == ';')
+            if (locationConfig.root.back()== ';')
             {
                 locationConfig.root.pop_back();
             }
@@ -91,7 +91,7 @@ void Config::parseLocation(std::ifstream& file, ServerConfig& serverConfig, cons
 		else if (key == "index")
         {
             iss >> locationConfig.index;
-            if (locationConfig.index[locationConfig.index.size() - 1] == ';')
+            if (locationConfig.index.back()== ';')
             {
                 locationConfig.index.pop_back();
             }

@@ -7,7 +7,6 @@
 // https://www.rfc-editor.org/rfc/rfc9110.html#name-status-codes
 // https://www.iana.org/assignments/http-status-codes/http-status-codes.xhtml
 // https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
-
 enum eInformational
 {
     CONTINUE = 100,
