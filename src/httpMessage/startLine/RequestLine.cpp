@@ -1,5 +1,6 @@
 #include "RequestLine.hpp"
 #include <sstream>
+#include "HTTPException.hpp"
 
 RequestLine::RequestLine()
 : mMethod("")
@@ -26,7 +27,7 @@ void RequestLine::parseRequestLine(const std::string& requestLine)
         mMethod = "";
         mRequestTarget = "";
         mHTTPVersion = "";
-        throw std::exception();
+        throw HTTPException(BAD_REQUEST);
     }
     
 }

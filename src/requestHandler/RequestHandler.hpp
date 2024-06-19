@@ -18,6 +18,7 @@ private:
     void headRequest(const RequestMessage& req, ResponseMessage& res, const ServerConfig& serverConfig, const std::string& path);
     void postRequest(const RequestMessage& req, ResponseMessage& res, const ServerConfig& serverConfig, const std::string& path);
     void deleteRequest(const RequestMessage& req, ResponseMessage& res, const ServerConfig& serverConfig, const std::string& path);
+    void addSemanticHeaderFields(ResponseMessage& res);
     void addContentType(ResponseMessage& res, const std::string& path);
 
     // Response (Exception)

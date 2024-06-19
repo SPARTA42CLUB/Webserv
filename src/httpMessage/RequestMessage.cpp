@@ -1,4 +1,5 @@
 #include "RequestMessage.hpp"
+#include "HTTPException.hpp"
 
 RequestMessage::RequestMessage()
 : mRequestLine()
@@ -37,9 +38,9 @@ void RequestMessage::parseRequestMessage(const std::string& request)
         parseRequestHeaderFields(reqStream);
         parseMessageBody(reqStream);
     }
-    catch(const std::exception& e)
+    catch (const HTTPException& e)
     {
-        // TODO: handle exception
+        throw e;
     }
 }
 void RequestMessage::parseRequestLine(std::istringstream& reqStream)
@@ -50,7 +51,7 @@ void RequestMessage::parseRequestLine(std::istringstream& reqStream)
     {
         mRequestLine.parseRequestLine(requestLine);
     }
-    catch(const std::exception& e)
+    catch (const HTTPException& e)
     {
         throw e;
     }

@@ -25,7 +25,7 @@ void ResponseMessage::addResponseHeaderField(const std::string& key, const std::
 {
     mResponseHeaderFields.addField(key, value);
 }
-void ResponseMessage::addResponseHeaderField(const std::string& key, int value)
+void ResponseMessage::addResponseHeaderField(const std::string& key, const int value)
 {
     mResponseHeaderFields.addField(key, value);
 }

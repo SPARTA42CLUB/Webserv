@@ -1,5 +1,6 @@
 #include "HeaderFields.hpp"
 #include <sstream>
+#include "HTTPException.hpp"
 
 HeaderFields::HeaderFields()
 : mFields()
@@ -10,22 +11,37 @@ HeaderFields::~HeaderFields()
 }
 void HeaderFields::parseHeaderFields(std::istringstream& headerFields)
 {
+    /*
+    key: value\r\n
+    key: value\r\n
+     */
     std::string line;
-    while (std::getline(headerFields, line) && line != "" && line != "\r") // "\r\n" 혹은 "\n"이 나올 때까지 읽음
+    std::getline(headerFields, line);
+    if (line.empty() || line == CR)
+    {
+        throw HTTPException(BAD_REQUEST);
+    }
+    while (!line.empty() && line != CR) // "\r\n" 혹은 "\n"이 나올 때까지 읽음
     {
         std::string key;
         std::string value;
         std::istringstream lineStream(line);
         std::getline(lineStream, key, ':');
-        std::getline(lineStream, value);
+        lineStream >> std::ws; // Skip leading whitespace
+        std::getline(lineStream, value, *LF);
+        if (value.back() == *CR)
+        {
+            value.pop_back();
+        }
         addField(key, value);
+        std::getline(headerFields, line);
     }
 }
 void HeaderFields::addField(const std::string& key, const std::string& value)
 {
     mFields[key] = value;
 }
-void HeaderFields::addField(const std::string& key, int value)
+void HeaderFields::addField(const std::string& key, const int value)
 {
     mFields[key] = std::to_string(value);
 }
