@@ -211,18 +211,23 @@ void Server::handleClientReadEvent(struct kevent& event)
     std::string str = recvDataMap[socket];
     size_t requestLength = 0;
 
+    bool hasComplete = false;
+
     // 읽은 데이터가 하나의 Request 단위가 완성 됐을 때 처리
-    if (isCompleteRequest(recvDataMap[socket], requestLength)) {
+    while (isCompleteRequest(recvDataMap[socket], requestLength)) {
         std::string completeRequest = recvDataMap[socket].substr(0, requestLength);
-        recvReqsMap[socket].push_back(completeRequest);
+        completeDataMap[socket].push_back(completeRequest);
         recvDataMap[socket].erase(0, requestLength);
 
-        // 리소스 효율을 위해 요청이 하나 완료 되면 그 때 WRITE 이벤트 등록
-        eventManager.addWriteEvent(socket);
+        hasComplete = true;
     }
+
+    // 리소스 효율을 위해 요청이 하나 완료 되면 그 때 WRITE 이벤트 등록
+    if (hasComplete)
+        eventManager.addWriteEvent(socket);
 }
 
-bool isCompleteRequest(const std::string& data, size_t& requestLength) {
+bool Server::isCompleteRequest(const std::string& data, size_t& requestLength) {
     size_t headerEnd = data.find("\r\n\r\n");
     if (headerEnd == std::string::npos)
         return false;
@@ -242,21 +247,21 @@ bool isCompleteRequest(const std::string& data, size_t& requestLength) {
 
 void Server::handleClientWriteEvent(struct kevent& event) {
     uintptr_t socket = event.ident;
-    std::vector<std::string>& recvReqs = recvReqsMap[socket];
-    while (!recvReqs.empty()) {
+    std::vector<std::string>& completeData = completeDataMap[socket];
+    while (!completeData.empty()) {
 
-        std::string requestData = recvReqs.front();
+        std::string requestData = completeData.front();
         handleRequest(socket, requestData);
-        recvReqs.erase(recvReqs.begin());
+        completeData.erase(completeData.begin());
     }
 
-    if (recvReqs.empty())
+    if (completeData.empty())
         eventManager.deleteWriteEvent(socket);
 }
 
 void Server::handleRequest(int socket, const std::string& requestData) {
     ResponseMessage resMsg;
-    bool bKeepAlive = false; // reqMsg 생성자 혹은 bad request시 예외를 던져서 keepAlive여부를 판단하는게 더 좋을 거 같음
+    bool bKeepAlive = true; // reqMsg 생성자 혹은 bad request시 예외를 던져서 keepAlive여부를 판단하는게 더 좋을 거 같음
 
     try
     {
@@ -268,6 +273,7 @@ void Server::handleRequest(int socket, const std::string& requestData) {
     catch (const HTTPException& e)
     {
         requestHandler.handleException(e, resMsg);
+        bKeepAlive = false;
     }
 
     logHTTPMessage(socket, resMsg, requestData);
@@ -314,8 +320,6 @@ void Server::sendResponse(int socket, ResponseMessage& res)
             }
         }
     }
-
-    eventManager.deleteWriteEvent(socket);
 }
 
 bool Server::shouldKeepAlive(const RequestMessage& req)
@@ -338,6 +342,10 @@ void Server::closeConnection(int socket)
 
     socketToConfigMap.erase(socket);
     last_activity_map.erase(socket);
-    recvDataMap.erase(socket);
-    recvReqsMap.erase(socket);
+
+    if (!recvDataMap.empty())
+        recvDataMap.erase(socket);
+
+    if (!completeDataMap.empty())
+        completeDataMap.erase(socket);
 }
