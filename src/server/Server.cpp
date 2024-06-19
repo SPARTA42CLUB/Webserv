@@ -6,6 +6,8 @@
 #include <ctime>
 #include <fstream>
 #include <iostream>
+#include <sstream>
+#include <string>
 #include "HTTPException.hpp"
 #include "RequestMessage.hpp"
 #include "ResponseMessage.hpp"
@@ -201,8 +203,37 @@ void Server::handleClientReadEvent(struct kevent& event)
     }
 
     buffer[bytesRead] = '\0';
-    requestData += buffer;
+    recvData[event.ident] += buffer;
 
+    std::string str = recvData[event.ident];
+    size_t requestLength = 0;
+
+    if (isCompleteRequest(recvData[event.ident], requestLength)) {
+        std::string completeRequest = recvData[event.ident].substr(0, requestLength);
+        recvReqs[event.ident].push_back(RequestMessage(completeRequest));
+        recvData[event.ident].erase(0, requestLength);
+    }
+}
+
+bool isCompleteRequest(const std::string& data, size_t& requestLength) {
+    size_t headerEnd = data.find("\r\n\r\n");
+    if (headerEnd == std::string::npos)
+        return false;
+
+    requestLength = headerEnd + 4;
+
+    std::istringstream headerStream(data.substr(0, headerEnd + 4));
+    std::string headerLine;
+    while (std::getline(headerStream, headerLine) && headerLine != "\r") {
+        if (headerLine.find("Content-Length:") != std::string::npos) {
+            requestLength += std::stoul(headerLine.substr(16));
+        }
+    }
+
+    return data.size() >= requestLength;
+}
+
+void Server::handleClientWriteEvent(struct kevent& event) {
     /*
     // NOTE:
     지금 requestHandler는 서버에 종속되어있는데 데이터 멤버도 없어서 그냥 네임 스페이스처럼 사용이 되고 있음
@@ -292,4 +323,6 @@ void Server::closeConnection(int socket)
 
     socketToConfigMap.erase(socket);
     last_activity_map.erase(socket);
+    recvData.erase(socket);
+    recvReqs.erase(socket);
 }
