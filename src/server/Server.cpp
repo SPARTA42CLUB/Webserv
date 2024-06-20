@@ -8,11 +8,11 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include "Exception.hpp"
 #include "HTTPException.hpp"
+#include "RequestHandler.hpp"
 #include "RequestMessage.hpp"
 #include "ResponseMessage.hpp"
-#include "RequestHandler.hpp"
-#include "error.hpp"
 
 // ServerConfig 클래스 생성자
 Server::Server(const Config& config)
@@ -69,11 +69,17 @@ void Server::setupServerSockets()
 
         // 소켓 바인딩
         if (bind(serverSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) == -1)
-            exit_with_error_close("Failed to bind socket", serverSocket);
+        {
+            close(serverSocket);
+            throw Exception(FAILED_TO_BIND_SOCKET);
+        }
 
         // 소켓 리스닝
         if (listen(serverSocket, 10) == -1)
-            exit_with_error_close("Failed to listen on socket", serverSocket);
+        {
+            close(serverSocket);
+            throw Exception(FAILED_TO_LISTEN_SOCKET);
+        }
 
         // 서버 소켓 벡터에 추가
         serverSockets.push_back(serverSocket);
@@ -114,11 +120,16 @@ void Server::run()
                 continue;
             }
 
-            if (std::find(serverSockets.begin(), serverSockets.end(), event.ident) != serverSockets.end()) {
+            if (std::find(serverSockets.begin(), serverSockets.end(), event.ident) != serverSockets.end())
+            {
                 acceptClient(event.ident);
-            } else if (event.filter == EVFILT_READ) {
+            }
+            else if (event.filter == EVFILT_READ)
+            {
                 handleClientReadEvent(event);
-            } else if (event.filter == EVFILT_WRITE) {
+            }
+            else if (event.filter == EVFILT_WRITE)
+            {
                 handleClientWriteEvent(event);
             }
         }
@@ -215,7 +226,8 @@ void Server::handleClientReadEvent(struct kevent& event)
     bool hasComplete = false;
 
     // 읽은 데이터가 하나의 Request 단위가 완성 됐을 때 처리
-    while (isCompleteRequest(requestData, requestLength)) {
+    while (isCompleteRequest(requestData, requestLength))
+    {
         std::string completeRequest = requestData.substr(0, requestLength);
         completeDataMap[socket].push_back(completeRequest);
         requestData.erase(0, requestLength);
@@ -228,7 +240,8 @@ void Server::handleClientReadEvent(struct kevent& event)
         eventManager.addWriteEvent(socket);
 }
 
-bool Server::isCompleteRequest(const std::string& data, size_t& requestLength) {
+bool Server::isCompleteRequest(const std::string& data, size_t& requestLength)
+{
     size_t headerEnd = data.find("\r\n\r\n");
     if (headerEnd == std::string::npos)
         return false;
@@ -237,8 +250,10 @@ bool Server::isCompleteRequest(const std::string& data, size_t& requestLength) {
 
     std::istringstream headerStream(data.substr(0, headerEnd + 4));
     std::string headerLine;
-    while (std::getline(headerStream, headerLine) && headerLine != "\r") {
-        if (headerLine.find("Content-Length:") != std::string::npos) {
+    while (std::getline(headerStream, headerLine) && headerLine != "\r")
+    {
+        if (headerLine.find("Content-Length:") != std::string::npos)
+        {
             requestLength += std::stoul(headerLine.substr(16));
         }
     }
@@ -246,7 +261,8 @@ bool Server::isCompleteRequest(const std::string& data, size_t& requestLength) {
     return data.size() >= requestLength;
 }
 
-void Server::handleClientWriteEvent(struct kevent& event) {
+void Server::handleClientWriteEvent(struct kevent& event)
+{
     uintptr_t socket = event.ident;
     std::vector<std::string>& completeData = completeDataMap[socket];
     bool bKeepAlive = true;
@@ -257,7 +273,7 @@ void Server::handleClientWriteEvent(struct kevent& event) {
         bKeepAlive = handleRequest(socket, requestData);
     }
 
-    while (!completeData.empty()) 
+    while (!completeData.empty())
     {
         completeData.pop_back();
     }
@@ -267,7 +283,8 @@ void Server::handleClientWriteEvent(struct kevent& event) {
         closeConnection(socket);
 }
 
-bool Server::handleRequest(int socket, const std::string& requestData) {
+bool Server::handleRequest(int socket, const std::string& requestData)
+{
     ResponseMessage resMsg;
     RequestHandler requestHandler(resMsg, socketToConfigMap[socket]);
     try
@@ -310,18 +327,21 @@ void Server::sendResponse(int socket, ResponseMessage& res)
     eventManager.addWriteEvent(socket);
 
     std::vector<struct kevent> events = eventManager.getCurrentEvents();
-    for (std::vector<struct kevent>::iterator it = events.begin(); it != events.end(); ++it) {
+    for (std::vector<struct kevent>::iterator it = events.begin(); it != events.end(); ++it)
+    {
         struct kevent& event = *it;
 
         if (event.ident != (uintptr_t)socket)
-            continue ;
+            continue;
 
-        if (event.filter == EVFILT_WRITE) {
-            if ((send(socket, responseStr.c_str(), responseStr.length(), 0)) < 0) {
+        if (event.filter == EVFILT_WRITE)
+        {
+            if ((send(socket, responseStr.c_str(), responseStr.length(), 0)) < 0)
+            {
                 std::cerr << "send error: " << strerror(errno) << std::endl;
                 eventManager.deleteWriteEvent(socket);
                 closeConnection(socket);
-                return ;
+                return;
             }
         }
     }

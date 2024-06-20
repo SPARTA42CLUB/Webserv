@@ -1,13 +1,15 @@
 #include "EventManager.hpp"
-#include "error.hpp"
 #include <unistd.h>
+#include "Exception.hpp"
 #include <iostream>
 
 EventManager::EventManager() {
 
 	kq = kqueue();
 	if (kq == -1)
-		exit_with_error("Failed to create kqueue");
+    {
+        throw Exception(FAILED_TO_CREATE_KQUEUE);
+    }
 }
 
 EventManager::~EventManager() {

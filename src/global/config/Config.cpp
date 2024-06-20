@@ -1,5 +1,5 @@
 #include "Config.hpp"
-#include "error.hpp"
+#include "Exception.hpp"
 #include <fstream>
 #include <stdlib.h>
 #include <sstream>
@@ -13,7 +13,9 @@ Config::Config(const std::string& configFilePath) : configFilePath(configFilePat
 void Config::parse() {
 	std::ifstream file(configFilePath.c_str());
 	if (!file.is_open())
-		exit_with_error("Failed to open Config file");
+    {
+        throw Exception(FAILED_TO_OPEN_CONFIG_FILE);
+    }
 
 	// 파일 끝까지 반복
 	while (!file.eof()) {
