@@ -303,7 +303,7 @@ bool Server::handleRequest(int socket, const std::string& requestData)
 
     // 만약 reqMsg가 keep-alive여도 400 bad request가 떨어지면 keep-alive를 무시하고 연결을 끊는다.
     // ResponseMessage에서 keep-alive를 확인
-    return requestHandler.isKeepAlive();
+    return resMsg.isKeepAlive();
 }
 
 void Server::logHTTPMessage(int socket, ResponseMessage& res, const std::string& reqData)
@@ -345,13 +345,6 @@ void Server::sendResponse(int socket, ResponseMessage& res)
             }
         }
     }
-}
-
-bool Server::shouldKeepAlive(const RequestMessage& req)
-{
-    if (req.getRequestHeaderFields().getField("Connection") == "close")
-        return false;
-    return true;
 }
 
 // 클라이언트 소켓 종료

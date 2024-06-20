@@ -305,7 +305,3 @@ void RequestHandler::forbidden(void)
     mResponseMessage.addResponseHeaderField("Connection", "keep-alive");
     addSemanticHeaderFields(mResponseMessage);
 }
-bool RequestHandler::isKeepAlive(void) const
-{
-    return mResponseMessage.isKeepAlive();
-}
