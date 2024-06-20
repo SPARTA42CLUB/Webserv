@@ -36,6 +36,7 @@
 *.exe
 *.out
 *.app
+webserv
 
 # tester
 logs/

@@ -190,19 +190,15 @@ void Server::acceptClient(int serverSocket)
 
     clientSockets.push_back(clientSocket);
     socketToConfigMap[clientSocket] = socketToConfigMap[serverSocket];
+    isChunkedMap[clientSocket] = false;
 }
 
 // 클라이언트 요청 처리
-void Server::handleClientReadEvent(struct kevent& event)
-{
-    // 입력 스트림이 EOF인 경우 연결 종료
-    if (event.flags & EV_EOF)
-    {
-        closeConnection(event.ident);
-        return;
-    }
+void Server::handleClientReadEvent(struct kevent& event) {
+    // if (event.flags & EV_EOF)
+    //     return;
 
-    uintptr_t socket = event.ident;
+    int socket = event.ident;
 
     update_last_activity(socket);
 
@@ -211,37 +207,32 @@ void Server::handleClientReadEvent(struct kevent& event)
     ssize_t bytesRead;
     std::string& requestData = recvDataMap[socket];
 
-    if ((bytesRead = recv(socket, buffer, sizeof(buffer) - 1, 0)) < 0)
-    {
+    if ((bytesRead = recv(socket, buffer, sizeof(buffer) - 1, 0)) < 0) {
         std::cerr << "recv error" << std::endl;
         closeConnection(socket);
         return;
     }
 
+    if (bytesRead == 0) {
+        return ;
+    }
+
     buffer[bytesRead] = '\0';
     requestData += buffer;
 
-    size_t requestLength = 0;
-
-    bool hasComplete = false;
-
-    // 읽은 데이터가 하나의 Request 단위가 완성 됐을 때 처리
-    while (isCompleteRequest(requestData, requestLength))
-    {
-        std::string completeRequest = requestData.substr(0, requestLength);
-        completeDataMap[socket].push_back(completeRequest);
-        requestData.erase(0, requestLength);
-
-        hasComplete = true;
+    // 청크 인코딩 여부에 따라 청크 요청 처리
+    if (isChunkedMap[socket]) {
+        handleChunkedRequest(socket, requestData);
     }
 
-    // 리소스 효율을 위해 요청이 하나 완료 되면 그 때 WRITE 이벤트 등록
-    if (hasComplete)
-        eventManager.addWriteEvent(socket);
+    size_t requestLength = 0;
+    // 일반 요청 처리
+    while (isCompleteRequest(requestData, requestLength)) {
+        handleNormalRequest(socket, requestData, requestLength);
+    }
 }
 
-bool Server::isCompleteRequest(const std::string& data, size_t& requestLength)
-{
+bool Server::isCompleteRequest(const std::string& data, size_t& requestLength) {
     size_t headerEnd = data.find("\r\n\r\n");
     if (headerEnd == std::string::npos)
         return false;
@@ -250,46 +241,142 @@ bool Server::isCompleteRequest(const std::string& data, size_t& requestLength)
 
     std::istringstream headerStream(data.substr(0, headerEnd + 4));
     std::string headerLine;
-    while (std::getline(headerStream, headerLine) && headerLine != "\r")
-    {
-        if (headerLine.find("Content-Length:") != std::string::npos)
-        {
-            requestLength += std::stoul(headerLine.substr(16));
+    while (std::getline(headerStream, headerLine) && headerLine != "\r") {
+        if (headerLine.find("Content-Length:") != std::string::npos) {
+            requestLength += std::strtoul(headerLine.substr(16).c_str(), NULL, 10);
+            return data.size() >= requestLength;
         }
     }
 
     return data.size() >= requestLength;
 }
 
-void Server::handleClientWriteEvent(struct kevent& event)
-{
-    uintptr_t socket = event.ident;
-    std::vector<std::string>& completeData = completeDataMap[socket];
-    bool bKeepAlive = true;
+void Server::handleNormalRequest(int socket, std::string& requestData, size_t requestLength) {
+    std::string completeRequest = requestData.substr(0, requestLength);
 
-    for (size_t i = 0; i < completeData.size(); ++i)
-    {
-        std::string requestData = completeData[i];
-        bKeepAlive = handleRequest(socket, requestData);
-    }
-
-    while (!completeData.empty())
-    {
-        completeData.pop_back();
-    }
-
-    eventManager.deleteWriteEvent(socket);
-    if (!bKeepAlive)
-        closeConnection(socket);
-}
-
-bool Server::handleRequest(int socket, const std::string& requestData)
-{
-    ResponseMessage resMsg;
+    ResponseMessage* res = new ResponseMessage();
+    ResponseMessage& resMsg = *res;
     RequestHandler requestHandler(resMsg, socketToConfigMap[socket]);
+
     try
     {
-        RequestMessage reqMsg(requestData);
+        RequestMessage reqMsg(completeRequest);
+        requestHandler.verifyRequest(reqMsg);
+        requestHandler.handleRequest(reqMsg);
+
+        if (reqMsg.getRequestHeaderFields().getField("Transfer-Encoding") == "chunked") {
+            delete res;
+            requestData.erase(0, requestLength);
+            isChunkedMap[socket] = true;
+
+            handleChunkedRequest(socket, requestData);
+            return ;
+        }
+    }
+    catch (const HTTPException& e)
+    {
+        requestHandler.handleException(e);
+    }
+
+    responsesMap[socket].push_back(res);
+    logHTTPMessage(socket, *res, requestData);
+
+    requestData.erase(0, requestLength);
+
+    // 리소스 효율을 위해 요청이 하나 완료되면 그 때 WRITE 이벤트 등록
+    if (!responsesMap[socket].empty()) {
+        eventManager.addWriteEvent(socket);
+    }
+
+}
+
+void Server::handleChunkedRequest(int socket, std::string& chunkedData) {
+    size_t chunkLength = 0;
+    bool isLastChunk = false;
+
+    while (isCompleteChunk(chunkedData, chunkLength, isLastChunk)) {
+        std::string chunk = chunkedData.substr(0, chunkLength);
+
+        // 청크 데이터 처리 로직으로 변경해야 함
+        // ...
+        std::cout << chunk << std::endl;
+
+        chunkedData.erase(0, chunkLength);
+
+        if (isLastChunk) {
+            isChunkedMap[socket] = false; // 마지막 청크 후 청크 상태 해제
+            return ;
+        }
+    }
+}
+
+bool Server::isCompleteChunk(const std::string& data, size_t& chunkLength, bool& isLastChunk) {
+    size_t pos = 0;
+    size_t chunkSizeEnd = data.find("\r\n", pos);
+    if (chunkSizeEnd == std::string::npos)
+        return false; // 청크 크기가 아직 도착하지 않음
+
+    size_t chunkSize = std::strtoul(data.substr(pos, chunkSizeEnd - pos).c_str(), NULL, 16);
+    pos = chunkSizeEnd + 2; // 청크 크기 끝을 지나서 데이터 시작
+
+    if (chunkSize == 0) {
+        chunkLength = pos + 2; // 마지막 \r\n 포함
+        if (data.size() >= chunkLength)
+            isLastChunk = true; // 마지막 청크 처리
+        return data.size() >= chunkLength;
+    }
+
+    if (pos + chunkSize + 2 > data.size())
+        return false; // 청크 데이터가 아직 도착하지 않음
+    chunkLength = pos + chunkSize + 2;
+    return true;
+}
+
+void Server::handleClientWriteEvent(struct kevent& event)
+{
+    int socket = event.ident;
+    std::vector<ResponseMessage*>& responses = responsesMap[socket];
+
+    if (responses.empty()) {
+        eventManager.deleteWriteEvent(socket);
+        return ;
+    }
+
+    bool bKeepAlive = responses.back()->isKeepAlive();
+
+    for (size_t i = 0; i < responses.size(); ++i) {
+        sendResponse(socket, *responses[i]);
+        delete responses[i];
+    }
+    responses.clear();
+
+    eventManager.deleteWriteEvent(socket);
+
+    if (!bKeepAlive) {
+        closeConnection(socket);
+    }
+}
+
+void Server::sendResponse(int socket, ResponseMessage& res)
+{
+    std::string responseStr = res.toString();
+
+    if ((send(socket, responseStr.c_str(), responseStr.length(), 0)) < 0)
+    {
+        std::cerr << "send error: " << strerror(errno) << std::endl;
+        closeConnection(socket);
+        return;
+    }
+}
+
+ResponseMessage* Server::createResponse(RequestMessage& reqMsg, ServerConfig& config)
+{
+    ResponseMessage* res = new ResponseMessage();
+    ResponseMessage& resMsg = *res;
+    RequestHandler requestHandler(resMsg, config);
+
+    try
+    {
         requestHandler.verifyRequest(reqMsg);
         requestHandler.handleRequest(reqMsg);
     }
@@ -298,15 +385,11 @@ bool Server::handleRequest(int socket, const std::string& requestData)
         requestHandler.handleException(e);
     }
 
-    logHTTPMessage(socket, resMsg, requestData);
-    sendResponse(socket, resMsg);
-
-    // 만약 reqMsg가 keep-alive여도 400 bad request가 떨어지면 keep-alive를 무시하고 연결을 끊는다.
-    // ResponseMessage에서 keep-alive를 확인
-    return resMsg.isKeepAlive();
+    return res;
 }
 
-void Server::logHTTPMessage(int socket, ResponseMessage& res, const std::string& reqData)
+
+void Server::logHTTPMessage(int socket, const ResponseMessage& res, const std::string& reqData)
 {
     std::ofstream logFile("access.log", std::ios::app);
 
@@ -319,32 +402,6 @@ void Server::logHTTPMessage(int socket, ResponseMessage& res, const std::string&
             << res.toString() << "\n----------------------------------------------------------------------------------------\n"
             << std::endl;
     logFile.close();
-}
-
-void Server::sendResponse(int socket, ResponseMessage& res)
-{
-    std::string responseStr = res.toString();
-    eventManager.addWriteEvent(socket);
-
-    std::vector<struct kevent> events = eventManager.getCurrentEvents();
-    for (std::vector<struct kevent>::iterator it = events.begin(); it != events.end(); ++it)
-    {
-        struct kevent& event = *it;
-
-        if (event.ident != (uintptr_t)socket)
-            continue;
-
-        if (event.filter == EVFILT_WRITE)
-        {
-            if ((send(socket, responseStr.c_str(), responseStr.length(), 0)) < 0)
-            {
-                std::cerr << "send error: " << strerror(errno) << std::endl;
-                eventManager.deleteWriteEvent(socket);
-                closeConnection(socket);
-                return;
-            }
-        }
-    }
 }
 
 // 클라이언트 소켓 종료
@@ -360,10 +417,16 @@ void Server::closeConnection(int socket)
 
     socketToConfigMap.erase(socket);
     last_activity_map.erase(socket);
+    isChunkedMap.erase(socket);
 
     if (!recvDataMap.empty())
         recvDataMap.erase(socket);
 
-    if (!completeDataMap.empty())
-        completeDataMap.erase(socket);
+    if (!responsesMap.empty()) {
+        std::vector<ResponseMessage*>& responses = responsesMap[socket];
+        for (size_t i = 0; i < responses.size(); ++i) {
+            delete responses[i]; // 메모리 해제
+        }
+        responsesMap.erase(socket);
+    }
 }
