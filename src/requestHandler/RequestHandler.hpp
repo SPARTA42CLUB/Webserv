@@ -30,6 +30,9 @@ private:
     void forbidden(ResponseMessage& res);
 
 public:
+	RequestHandler();
+	bool processingChunkedRequest;
+
     void verifyRequest(const RequestMessage& req, const ServerConfig& serverConfig);
     void handleRequest(const RequestMessage& req, ResponseMessage& res, const ServerConfig& serverConfig);
     void handleException(const HTTPException& e, ResponseMessage& res);
