@@ -1,142 +1,400 @@
 #include "Config.hpp"
-#include "Exception.hpp"
-#include <fstream>
 #include <stdlib.h>
-#include <sstream>
+#include <fstream>
 #include <iostream>
+#include <sstream>
+#include "ConfigException.hpp"
 
-Config::Config(const std::string& configFilePath) : configFilePath(configFilePath) {
-	parse();
+Config::Config(const std::string& configFilePath)
+: configFilePath(configFilePath)
+{
+    try
+    {
+        parse();
+    }
+    catch(const ConfigException& e)
+    {
+        throw e;
+    }
+    
 }
 
 // Config 파일 파싱
-void Config::parse() {
-	std::ifstream file(configFilePath.c_str());
-	if (!file.is_open())
+void Config::parse()
+{
+    std::ifstream file(configFilePath.c_str());
+    if (!file.is_open())
     {
-        throw Exception(FAILED_TO_OPEN_CONFIG_FILE);
+        throw ConfigException(FAILED_TO_OPEN_CONFIG_FILE);
     }
 
-	// 파일 끝까지 반복
-	while (!file.eof()) {
-		std::string line;
-		std::getline(file, line);
-		// server { 문자열이 있으면 서버 설정 파싱
-		if (line.find("server {") != std::string::npos) {
-			parseServer(file);
-		}
-	}
+    // 파일 끝까지 반복
+    while (!file.eof())
+    {
+        std::string line;
+        std::getline(file, line);
+        // server { 문자열이 있으면 서버 설정 파싱
+        if (line.find("server {") != std::string::npos)
+        {
+            try
+            {
+                parseServer(file);
+            }
+            catch(const ConfigException& e)
+            {
+                throw e;
+            }
+        }
+    }
 
-	file.close();
+    file.close();
 }
 
 // 서버 설정 파싱
-void Config::parseServer(std::ifstream &file) {
-	ServerConfig serverConfig;
-	std::string line;
+void Config::parseServer(std::ifstream& file)
+{
+    ServerConfig serverConfig;
+    std::string line;
 
-	// 'server {' 문자열의 끝인 '}'가 나올 때까지 반복
-	while (std::getline(file, line) && line.find("}") == std::string::npos) {
-		std::istringstream iss(line);
-		std::string key;
-		iss >> key;
+    // 'server {' 문자열의 끝인 '}'가 나올 때까지 반복
+    while (std::getline(file, line) && line.find("}") == std::string::npos)
+    {
+        if (line.empty())
+        {
+            continue;
+        }
+        std::istringstream iss(line);
+        std::string key, value;
+        iss >> key;
+        getline(iss, value);
+        
+        // key에 따라 설정 값 파싱
+        try
+        {
+            if (key == "host") parseHost(serverConfig, value);
+            else if (key == "port") parsePort(serverConfig, value);
+            else if (key == "server_name") parseServerName(serverConfig, value);
+            else if (key == "keepalive_timeout") parseKeepAliveTimeout(serverConfig, value);
+            else if (key == "client_max_body_size") parseClientMaxBodySize(serverConfig, value);
+            else if (key == "error_page") parseErrorPage(serverConfig, value);
+            else if (key == "location") parseLocation(file, serverConfig, value);
+        }
+        catch(const ConfigException& e)
+        {
+            throw e;
+        }
+        
+    }
 
-		// key에 따라 설정 값 파싱
-		if (key == "host")
-			iss >> serverConfig.host;
-		else if (key == "port")
-			iss >> serverConfig.port;
-		else if (key == "server_name")
-			iss >> serverConfig.server_name;
-		else if (key == "error_page") {
-			int code;
-			std::string path;
-			iss >> code >> path;
-			serverConfig.error_pages[code] = path;
-		} else if (key == "client_max_body_size") {
-			std::string size;
-			iss >> size;
-			serverConfig.client_max_body_size = strtoul(size.c_str(), NULL, 10);
-		} else if (key == "keepalive_timeout") {
-			iss >> serverConfig.keepalive_timeout;
-		} else if (key == "location") {
-			std::string location;
-			iss >> location;
-			parseLocation(file, serverConfig, location);
-		}
-	}
-
-	// 서버 설정 벡터에 추가
-	serverConfigs.push_back(serverConfig);
+    // 서버 설정 벡터에 추가
+    serverConfigs.push_back(serverConfig);
 }
 
 // Location 설정 파싱
-void Config::parseLocation(std::ifstream& file, ServerConfig& serverConfig, const std::string &locationPath) {
-	LocationConfig locationConfig;
-	std::string line;
+void Config::parseLocation(std::ifstream& file, ServerConfig& serverConfig, std::string& locationPath)
+{
+    if (locationPath.back() == '{')
+    {
+        locationPath.pop_back();
+    }
+    // 앞 뒤 공백 제거
+    if (find(locationPath.begin(), locationPath.end(), ' ') == locationPath.begin())
+    {
+        locationPath.erase(locationPath.begin());
+    }
+    if (find(locationPath.begin(), locationPath.end(), ' ') == locationPath.end() - 1)
+    {
+        locationPath.pop_back();
+    }
+    if (!isValidLocationPath(locationPath))
+    {
+        throw ConfigException(INVALID_CONFIG_FILE);
+    }
+    // Remove trailing whitespace from locationPath
+    LocationConfig locationConfig;
+    std::string line;
 
-	// 'location {' 문자열의 끝인 '}'가 나올 때까지 반복
-	while (std::getline(file, line) && line.find("}") == std::string::npos) {
-		std::istringstream iss(line);
-		std::string key;
-		iss >> key;
+    // 'location {' 문자열의 끝인 '}'가 나올 때까지 반복
+    while (std::getline(file, line) && line.find("}") == std::string::npos)
+    {
+        if (line.empty())
+        {
+            continue;
+        }
+        std::istringstream iss(line);
+        std::string key, value;
+        iss >> key;
+        getline(iss, value);
 
-		// key에 따라 설정 값 파싱
-		if (key == "root")
-        {
-			iss >> locationConfig.root;
-            if (locationConfig.root.back()== ';')
-            {
-                locationConfig.root.pop_back();
-            }
-        }
-		else if (key == "index")
-        {
-            iss >> locationConfig.index;
-            if (locationConfig.index.back()== ';')
-            {
-                locationConfig.index.pop_back();
-            }
-        }
-		else if (key == "allow_methods") {
-			std::string method;
-			while (iss >> method)
-				locationConfig.allow_methods.push_back(method);
-		} else if (key == "upload_dir")
-			iss >> locationConfig.upload_dir;
-		else if (key == "redirect")
-			iss >> locationConfig.redirect;
-		else if (key == "directory_listing") {
-			std::string value;
-			iss >> value;
-			locationConfig.directory_listing = (value == "on");
-		} else if (key == "cgi")
-			iss >> locationConfig.cgi;
-        else if (key == "proxy_pass")
-        {
-            iss >> locationConfig.proxy_pass;
-            if (locationConfig.proxy_pass.back()== ';')
-            {
-                locationConfig.proxy_pass.pop_back();
-            }
-        }
-	}
+        // key에 따라 설정 값 파싱
+        if (key == "root") parseRoot(locationConfig, value);
+        else if (key == "index") parseIndex(locationConfig, value);
+        else if (key == "allow_methods") parseAllowMethods(locationConfig, value);
+        else if (key == "upload_dir") parseUploadDir(locationConfig, value);
+        else if (key == "directory_listing") parseDirectoryListing(locationConfig, value);
+        else if (key == "redirect") parseRedirect(locationConfig, value);
+        else if (key == "cgi") parseCgi(locationConfig, value);
+        // TODO: Recursive location block parsing
+        // else if (key == "location") parseLocation(file, serverConfig, value);
+    }
 
-	// Location 설정 추가
-	serverConfig.locations[locationPath] = locationConfig;
+    // Location 설정 추가
+    serverConfig.locations[locationPath] = locationConfig;
 }
-
 // 서버 설정 벡터 반환
-std::vector<ServerConfig> Config::getServerConfigs() const {
-	return serverConfigs;
+const std::vector<ServerConfig>& Config::getServerConfigs() const
+{
+    return serverConfigs;
+}
+bool Config::isValidValue(std::string& value)
+{
+    if (value.front() == ' ')
+    {
+        value.erase(value.begin());
+    }
+    if (value.back() == ';')
+    {
+        value.pop_back();
+    }
+    else 
+    {
+        return false;
+    }
+    if (value.empty())
+    {
+        return false;
+    }
+    if (std::find(value.begin(), value.end(), ' ') != value.end())
+    {
+        return false;
+    }
+    return true;
+}
+bool Config::isValidLocationPath(std::string& locationPath)
+{
+    if (locationPath.front() == ' ')
+    {
+        locationPath.erase(locationPath.begin());
+    }
+    if (locationPath.empty())
+    {
+        return false;
+    }
+    if (find(locationPath.begin(), locationPath.end(), ' ') != locationPath.end())
+    {
+        return false;
+    }
+    if (locationPath.back() != '/' && locationPath.front() != '/' && locationPath.front() != '.')
+    {
+        return false;
+    }
+    return true;
 }
 
-const ServerConfig& Config::getServerConfig(const std::string& serverName, int port) const {
-	for (size_t i = 0; i < serverConfigs.size(); ++i) {
-		const ServerConfig& serverConfig = serverConfigs[i];
-		if (serverConfig.port == port && serverConfig.server_name == serverName)
-			return serverConfig;
-	}
+void Config::parseHost(ServerConfig& serverConfig, std::string& value)
+{
+    if (!isValidValue(value))
+    {
+        throw ConfigException(INVALID_CONFIG_FILE);
+    }
+    serverConfig.host = value;
+}
+void Config::parsePort(ServerConfig& serverConfig, std::string& value)
+{
+    if (!isValidValue(value))
+    {
+        throw ConfigException(INVALID_CONFIG_FILE);
+    }
+    serverConfig.port = atoi(value.c_str());
+    if (serverConfig.port > 65535)
+    {
+        throw ConfigException(INVALID_CONFIG_FILE);
+    }
+}
+void Config::parseServerName(ServerConfig& serverConfig, std::string& value)
+{
+    if (!isValidValue(value))
+    {
+        throw ConfigException(INVALID_CONFIG_FILE);
+    }
+    serverConfig.server_name = value;
+}
+void Config::parseKeepAliveTimeout(ServerConfig& serverConfig, std::string& value)
+{
+    if (!isValidValue(value))
+    {
+        throw ConfigException(INVALID_CONFIG_FILE);
+    }
+    serverConfig.keepalive_timeout = atoi(value.c_str());
+    if (serverConfig.keepalive_timeout == 0)
+    {
+        throw ConfigException(INVALID_CONFIG_FILE);
+    }
+}
+void Config::parseClientMaxBodySize(ServerConfig& serverConfig, std::string& value)
+{
+    if (!isValidValue(value))
+    {
+        throw ConfigException(INVALID_CONFIG_FILE);
+    }
+    serverConfig.client_max_body_size = atoi(value.c_str());
+    if (serverConfig.client_max_body_size == 0)
+    {
+        throw ConfigException(INVALID_CONFIG_FILE);
+    }
+}
+void Config::parseErrorPage(ServerConfig& serverConfig, std::string& value)
+{
+    if (value.front() == ' ')
+    {
+        value.erase(value.begin());
+    }
+    std::istringstream iss(value);
+    std::vector<int> statuses;
+    std::string path;
+    while (getline(iss, path, ' '))
+    {
+        if (iss.eof())
+        {
+            break;
+        }
+        size_t status = atoi(path.c_str());
+        if (status < 100 || status > 599)
+        {
+            throw ConfigException(INVALID_CONFIG_FILE);
+        }
+        statuses.push_back(status);
+    }
+    if (!isValidValue(path))
+    {
+        throw ConfigException(INVALID_CONFIG_FILE);
+    }
+    for (std::vector<int>::iterator it = statuses.begin(); it != statuses.end(); ++it)
+    {
+        serverConfig.error_pages[*it] = path;
+    }
+}
+void Config::parseRoot(LocationConfig& locationConfig, std::string& value)
+{
+    if (!isValidValue(value))
+    {
+        throw ConfigException(INVALID_CONFIG_FILE);
+    }
+    locationConfig.root = value;
+}
+void Config::parseIndex(LocationConfig& locationConfig, std::string& value)
+{
+    if (!isValidValue(value))
+    {
+        throw ConfigException(INVALID_CONFIG_FILE);
+    }
+    locationConfig.index = value;
+}
+void Config::parseAllowMethods(LocationConfig& locationConfig, std::string& value)
+{
+    if (value.back() == ';')
+    {
+        value.pop_back();
+    }
+    if (value.front() == ' ')
+    {
+        value.erase(value.begin());
+    }
+    std::istringstream iss(value);
+    std::string method;
+    while (getline(iss, method, ' '))
+    {
+        if (iss.eof())
+        {
+            break;
+        }
+        if (method != "GET" && method != "HEAD" && method != "POST" && method != "DELETE")
+        {
+            throw ConfigException(INVALID_CONFIG_FILE);
+        }
+        locationConfig.allow_methods.push_back(method);
+    }
+}
 
-	throw std::runtime_error("No server configuration found for host " + serverName + " and port " + std::to_string(port));
+void Config::parseUploadDir(LocationConfig& locationConfig, std::string& value)
+{
+    if (!isValidValue(value))
+    {
+        throw ConfigException(INVALID_CONFIG_FILE);
+    }
+    locationConfig.upload_dir = value;
+}
+void Config::parseDirectoryListing(LocationConfig& locationConfig, std::string& value)
+{
+    if (!isValidValue(value))
+    {
+        throw ConfigException(INVALID_CONFIG_FILE);
+    }
+    if (value == "on")
+    {
+        locationConfig.directory_listing = true;
+    }
+    else if (value == "off")
+    {
+        locationConfig.directory_listing = false;
+    }
+    else
+    {
+        throw ConfigException(INVALID_CONFIG_FILE);
+    }
+}
+void Config::parseRedirect(LocationConfig& locationConfig, std::string& value)
+{
+    if (!isValidValue(value))
+    {
+        throw ConfigException(INVALID_CONFIG_FILE);
+    }
+    locationConfig.redirect = value;
+}
+void Config::parseCgi(LocationConfig& locationConfig, std::string& value)
+{
+    if (!isValidValue(value))
+    {
+        throw ConfigException(INVALID_CONFIG_FILE);
+    }
+    locationConfig.cgi = value;
+}
+
+// TEST: 파싱 결과 출력
+using namespace std;
+void Config::print()
+{
+    cout << "Config file path: " << configFilePath << endl;
+
+    for (size_t i = 0; i < serverConfigs.size(); i++)
+    {
+        cout << "Server " << i + 1 << ":" << endl;
+        cout << "host: " << serverConfigs[i].host << endl;
+        cout << "port: " << serverConfigs[i].port << endl;
+        cout << "server_name: " << serverConfigs[i].server_name << endl;
+        cout << "keepalive_timeout: " << serverConfigs[i].keepalive_timeout << endl;
+        cout << "client_max_body_size: " << serverConfigs[i].client_max_body_size << endl;
+        cout << "error_pages: " << endl;
+        for (std::map<size_t, std::string>::iterator it = serverConfigs[i].error_pages.begin(); it != serverConfigs[i].error_pages.end(); ++it)
+        {
+            cout << "    " << it->first << " " << it->second << endl;
+        }
+        for (std::map<std::string, LocationConfig>::iterator it = serverConfigs[i].locations.begin(); it != serverConfigs[i].locations.end(); ++it)
+        {
+            cout << "locations: " << it->first << ":" << endl;
+            cout << "    " << "root: " << it->second.root << endl;
+            cout << "    " << "index: " << it->second.index << endl;
+            cout << "    " << "allow_methods: ";
+            for (size_t j = 0; j < it->second.allow_methods.size(); j++)
+            {
+                cout << "    " << it->second.allow_methods[j] << " ";
+            }
+            cout << endl;
+            cout << "    " << "upload_dir: " << it->second.upload_dir << endl;
+            cout << "    " << "directory_listing: " << it->second.directory_listing << endl;
+            cout << "    " << "redirect: " << it->second.redirect << endl;
+            cout << "    " << "cgi: " << it->second.cgi << endl;
+        }
+    }
+    exit(0);
 }

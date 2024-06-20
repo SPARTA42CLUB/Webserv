@@ -62,6 +62,14 @@ Host: localhost:8080
 Transfer-Encoding: chunked
 
 " 405
+"GET /redirect HTTP/1.1
+Host: localhost:8080
+
+" 401
+"POST /redirect/ HTTP/1.1
+Host: localhost:8080
+
+" 401
 )
 
 # ----------------------------------------------
