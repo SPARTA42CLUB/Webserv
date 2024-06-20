@@ -29,7 +29,7 @@ private:
 	std::map<int, ServerConfig> socketToConfigMap;
 	std::map<int, time_t> last_activity_map;
 	std::map<int, std::string> recvDataMap;
-	std::map<int, std::vector<ResponseMessage> > responsesMap;
+	std::map<int, std::vector<ResponseMessage*> > responsesMap;
 	std::map<int, bool> isChunkedMap;
 
 	void setupServerSockets();
@@ -45,7 +45,7 @@ private:
 
 	void handleClientWriteEvent(struct kevent& event);
 
-	void setResponse(std::string& requestData, ResponseMessage& resMsg, ServerConfig& config);
+	ResponseMessage* createResponse(std::string& requestData, ServerConfig& config);
 
     void logHTTPMessage(int socket, const ResponseMessage& res, const std::string& reqData);
 	void sendResponse(int socket, ResponseMessage& res);

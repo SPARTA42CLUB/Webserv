@@ -230,8 +230,7 @@ void Server::handleClientReadEvent(struct kevent& event) {
 
 void Server::handleNormalRequest(int socket, std::string& requestData, size_t requestLength) {
     std::string completeRequest = requestData.substr(0, requestLength);
-    ResponseMessage res;
-    setResponse(completeRequest, res, socketToConfigMap[socket]);
+    ResponseMessage* res = createResponse(completeRequest, socketToConfigMap[socket]);
 
     responsesMap[socket].push_back(res);
     requestData.erase(0, requestLength);
@@ -241,7 +240,7 @@ void Server::handleNormalRequest(int socket, std::string& requestData, size_t re
         eventManager.addWriteEvent(socket);
     }
 
-    logHTTPMessage(socket, res, requestData);
+    logHTTPMessage(socket, *res, requestData);
 }
 
 void Server::handleChunkedRequest(int socket, std::string& requestData) {
@@ -318,11 +317,18 @@ bool Server::isCompleteChunk(const std::string& data, size_t& requestLength, boo
 void Server::handleClientWriteEvent(struct kevent& event)
 {
     int socket = event.ident;
-    std::vector<ResponseMessage>& responses = responsesMap[socket];
-    bool bKeepAlive = responses.back().isKeepAlive();
+    std::vector<ResponseMessage*>& responses = responsesMap[socket];
+
+    if (responses.empty()) {
+        eventManager.deleteWriteEvent(socket);
+        return ;
+    }
+
+    bool bKeepAlive = responses.back()->isKeepAlive();
 
     for (size_t i = 0; i < responses.size(); ++i) {
-        sendResponse(socket, responses[i]);
+        sendResponse(socket, *responses[i]);
+        delete responses[i];
     }
     responses.clear();
 
@@ -345,9 +351,12 @@ void Server::sendResponse(int socket, ResponseMessage& res)
     }
 }
 
-void Server::setResponse(std::string& requestData, ResponseMessage& resMsg, ServerConfig& config)
+ResponseMessage *Server::createResponse(std::string& requestData, ServerConfig& config)
 {
+    ResponseMessage* res = new ResponseMessage();
+    ResponseMessage& resMsg = *res;
     RequestHandler requestHandler(resMsg, config);
+
     try
     {
         RequestMessage reqMsg(requestData);
@@ -358,6 +367,8 @@ void Server::setResponse(std::string& requestData, ResponseMessage& resMsg, Serv
     {
         requestHandler.handleException(e);
     }
+
+    return res;
 }
 
 
@@ -394,6 +405,11 @@ void Server::closeConnection(int socket)
     if (!recvDataMap.empty())
         recvDataMap.erase(socket);
 
-    if (!responsesMap.empty())
+    if (!responsesMap.empty()) {
+        std::vector<ResponseMessage*>& responses = responsesMap[socket];
+        for (size_t i = 0; i < responses.size(); ++i) {
+            delete responses[i]; // 메모리 해제
+        }
         responsesMap.erase(socket);
+    }
 }
