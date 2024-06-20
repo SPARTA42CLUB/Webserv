@@ -29,19 +29,25 @@ private:
 	std::map<int, ServerConfig> socketToConfigMap;
 	std::map<int, time_t> last_activity_map;
 	std::map<int, std::string> recvDataMap;
-	std::map<int, std::vector<std::string> > completeDataMap;
+	std::map<int, std::vector<ResponseMessage*> > responsesMap;
+	std::map<int, bool> isChunkedMap;
 
 	void setupServerSockets();
 	void setNonBlocking(int socket);
 
 	void acceptClient(int serverSocket);
 	void handleClientReadEvent(struct kevent& event);
+	bool isCompleteRequest(const std::string& data, size_t& requestLength);
+	bool isCompleteChunk(const std::string& data, size_t& chunkLength, bool& isLastChunk);
+
+	void handleChunkedRequest(int socket, std::string& requestData);
+	void handleNormalRequest(int socket, std::string& requestData, size_t requestLength);
+
 	void handleClientWriteEvent(struct kevent& event);
 
-	bool isCompleteRequest(const std::string& data, size_t& requestLength);
-	bool handleRequest(int socket, const std::string& requestData);
+	ResponseMessage* createResponse(RequestMessage& reqMsg, ServerConfig& config);
 
-    void logHTTPMessage(int socket, ResponseMessage& res, const std::string& reqData);
+    void logHTTPMessage(int socket, const ResponseMessage& res, const std::string& reqData);
 	void sendResponse(int socket, ResponseMessage& res);
 	void closeConnection(int socket);
 
