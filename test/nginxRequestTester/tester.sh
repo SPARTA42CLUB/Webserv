@@ -70,6 +70,10 @@ Host: localhost:8080
 Host: localhost:8080
 
 " 401
+"GET /aaa HTTP/1.1
+Host: seunan.42.fr:80
+
+" 400
 )
 
 # ----------------------------------------------
