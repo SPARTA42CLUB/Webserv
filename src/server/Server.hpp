@@ -45,7 +45,7 @@ private:
 
 	void handleClientWriteEvent(struct kevent& event);
 
-	const ResponseMessage &Server::createResponse(const std::string& requestData, const ServerConfig& config) const;
+	void setResponse(std::string& requestData, ResponseMessage& resMsg, ServerConfig& config);
 
     void logHTTPMessage(int socket, const ResponseMessage& res, const std::string& reqData);
 	void sendResponse(int socket, ResponseMessage& res);

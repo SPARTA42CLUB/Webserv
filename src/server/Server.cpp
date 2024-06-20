@@ -230,7 +230,8 @@ void Server::handleClientReadEvent(struct kevent& event) {
 
 void Server::handleNormalRequest(int socket, std::string& requestData, size_t requestLength) {
     std::string completeRequest = requestData.substr(0, requestLength);
-    const ResponseMessage& res = createResponse(completeRequest, socketToConfigMap[socket]);
+    ResponseMessage res;
+    setResponse(completeRequest, res, socketToConfigMap[socket]);
 
     responsesMap[socket].push_back(res);
     requestData.erase(0, requestLength);
@@ -314,24 +315,6 @@ bool Server::isCompleteChunk(const std::string& data, size_t& requestLength, boo
     return false; // 아직 끝을 찾지 못함
 }
 
-const ResponseMessage &Server::createResponse(const std::string& requestData, const ServerConfig& config) const
-{
-    ResponseMessage resMsg;
-    RequestHandler requestHandler(resMsg, config);
-    try
-    {
-        RequestMessage reqMsg(requestData);
-        requestHandler.verifyRequest(reqMsg);
-        requestHandler.handleRequest(reqMsg);
-    }
-    catch (const HTTPException& e)
-    {
-        requestHandler.handleException(e);
-    }
-
-    return resMsg;
-}
-
 void Server::handleClientWriteEvent(struct kevent& event)
 {
     int socket = event.ident;
@@ -350,6 +333,34 @@ void Server::handleClientWriteEvent(struct kevent& event)
     }
 }
 
+void Server::sendResponse(int socket, ResponseMessage& res)
+{
+    std::string responseStr = res.toString();
+
+    if ((send(socket, responseStr.c_str(), responseStr.length(), 0)) < 0)
+    {
+        std::cerr << "send error: " << strerror(errno) << std::endl;
+        closeConnection(socket);
+        return;
+    }
+}
+
+void Server::setResponse(std::string& requestData, ResponseMessage& resMsg, ServerConfig& config)
+{
+    RequestHandler requestHandler(resMsg, config);
+    try
+    {
+        RequestMessage reqMsg(requestData);
+        requestHandler.verifyRequest(reqMsg);
+        requestHandler.handleRequest(reqMsg);
+    }
+    catch (const HTTPException& e)
+    {
+        requestHandler.handleException(e);
+    }
+}
+
+
 void Server::logHTTPMessage(int socket, const ResponseMessage& res, const std::string& reqData)
 {
     std::ofstream logFile("access.log", std::ios::app);
@@ -363,32 +374,6 @@ void Server::logHTTPMessage(int socket, const ResponseMessage& res, const std::s
             << res.toString() << "\n----------------------------------------------------------------------------------------\n"
             << std::endl;
     logFile.close();
-}
-
-void Server::sendResponse(int socket, ResponseMessage& res)
-{
-    std::string responseStr = res.toString();
-    eventManager.addWriteEvent(socket);
-
-    std::vector<struct kevent> events = eventManager.getCurrentEvents();
-    for (std::vector<struct kevent>::iterator it = events.begin(); it != events.end(); ++it)
-    {
-        struct kevent& event = *it;
-
-        if (event.ident != (int)socket)
-            continue;
-
-        if (event.filter == EVFILT_WRITE)
-        {
-            if ((send(socket, responseStr.c_str(), responseStr.length(), 0)) < 0)
-            {
-                std::cerr << "send error: " << strerror(errno) << std::endl;
-                eventManager.deleteWriteEvent(socket);
-                closeConnection(socket);
-                return;
-            }
-        }
-    }
 }
 
 // 클라이언트 소켓 종료
