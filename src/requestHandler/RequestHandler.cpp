@@ -262,6 +262,7 @@ void RequestHandler::badRequest(void)
     mResponseMessage.setStatusLine("HTTP/1.1", BAD_REQUEST, "Bad Request");
     mResponseMessage.addMessageBody("<html><head><title>400 Bad Request</title></head><body><h1>400 Bad Request</h1></body></html>");
     mResponseMessage.addResponseHeaderField("Content-Type", "text/html");
+    mResponseMessage.addResponseHeaderField("Connection", "close");
     addSemanticHeaderFields(mResponseMessage);
 }
 void RequestHandler::notFound(void)
@@ -269,6 +270,7 @@ void RequestHandler::notFound(void)
     mResponseMessage.setStatusLine("HTTP/1.1", NOT_FOUND, "Not Found");
     mResponseMessage.addMessageBody("<html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1></body></html>");
     mResponseMessage.addResponseHeaderField("Content-Type", "text/html");
+    mResponseMessage.addResponseHeaderField("Connection", "keep-alive");
     addSemanticHeaderFields(mResponseMessage);
 }
 void RequestHandler::methodNotAllowed(void)
@@ -276,6 +278,7 @@ void RequestHandler::methodNotAllowed(void)
     mResponseMessage.setStatusLine("HTTP/1.1", METHOD_NOT_ALLOWED, "Method Not Allowed");
     mResponseMessage.addMessageBody("<html><head><title>405 Method Not Allowed</title></head><body><h1>405 Method Not Allowed</h1></body></html>");
     mResponseMessage.addResponseHeaderField("Content-Type", "text/html");
+    mResponseMessage.addResponseHeaderField("Connection", "keep-alive");
     addSemanticHeaderFields(mResponseMessage);
 }
 void RequestHandler::httpVersionNotSupported(void)
@@ -283,6 +286,7 @@ void RequestHandler::httpVersionNotSupported(void)
     mResponseMessage.setStatusLine("HTTP/1.1", HTTP_VERSION_NOT_SUPPORTED, "HTTP Version Not Supported");
     mResponseMessage.addMessageBody("<html><head><title>505 HTTP Version Not Supported</title></head><body><h1>505 HTTP Version Not Supported</h1></body></html>");
     mResponseMessage.addResponseHeaderField("Content-Type", "text/html");
+    mResponseMessage.addResponseHeaderField("Connection", "keep-alive");
     addSemanticHeaderFields(mResponseMessage);
 }
 void RequestHandler::uriTooLong(void)
@@ -290,6 +294,7 @@ void RequestHandler::uriTooLong(void)
     mResponseMessage.setStatusLine("HTTP/1.1", URI_TOO_LONG, "Request-URI Too Long");
     mResponseMessage.addMessageBody("<html><head><title>414 Request-URI Too Long</title></head><body><h1>414 Request-URI Too Long</h1></body></html>");
     mResponseMessage.addResponseHeaderField("Content-Type", "text/html");
+    mResponseMessage.addResponseHeaderField("Connection", "keep-alive");
     addSemanticHeaderFields(mResponseMessage);
 }
 void RequestHandler::forbidden(void)
@@ -297,5 +302,10 @@ void RequestHandler::forbidden(void)
     mResponseMessage.setStatusLine("HTTP/1.1", FORBIDDEN, "Forbidden");
     mResponseMessage.addMessageBody("<html><head><title>403 Forbidden</title></head><body><h1>403 Forbidden</h1></body></html>");
     mResponseMessage.addResponseHeaderField("Content-Type", "text/html");
+    mResponseMessage.addResponseHeaderField("Connection", "keep-alive");
     addSemanticHeaderFields(mResponseMessage);
+}
+bool RequestHandler::isKeepAlive(void) const
+{
+    return mResponseMessage.isKeepAlive();
 }

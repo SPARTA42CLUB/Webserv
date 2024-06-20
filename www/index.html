@@ -4,13 +4,54 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>webserv</title>
+    <link rel="stylesheet" href="reset.css">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <h1>webserv</h1>
     <p>웹 서버입니다.</p>
-    <ul>
-        <ls><a href="page.html">page1</a></ls>
-    </ul>
+    <img src="./cat.jpeg" alt="고먐밈">
+    <a href="page.html">page</a>
+    <button id="openPopupBtn1">Post Method</button>
+    <button id="openPopupBtn2">File Upload</button>
+    <button id="openPopupBtn3">CGI</button>
+
+    <!-- Popup structures -->
+    <div id="popup1" class="popup-background">
+        <div class="popup-content">
+            <button class="close-btn">&times;</button>
+            <h2>Post Method</h2>
+            <form action="/" method="post">
+                <input type="text" name="username" placeholder="Username">
+                <input type="password" name="password" placeholder="Password">
+                <button type="submit">Submit</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="popup2" class="popup-background">
+        <div class="popup-content">
+            <button class="close-btn">&times;</button>
+            <h2>File Upload</h2>
+            <form action="/upload" method="post" enctype="multipart/form-data">
+                <input type="file" name="profile">
+                <input type="submit">
+            </form>
+        </div>
+    </div>
+
+    <div id="popup3" class="popup-background">
+        <div class="popup-content">
+            <button class="close-btn">&times;</button>
+            <h2>CGI</h2>
+            <form action="http://localhost/upload.php" method="post" enctype="multipart/form-data">
+                <input type="file" name="profile">
+                <input type="submit">
+            </form>
+        </div>
+    </div>
+    <img src="http://picsum.photos/1920" alt="랜덤 이미지">
+    <script src="script.js"></script>
+</body>
 </body>
 </html>

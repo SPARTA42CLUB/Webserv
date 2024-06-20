@@ -39,7 +39,7 @@ private:
 	void handleClientWriteEvent(struct kevent& event);
 
 	bool isCompleteRequest(const std::string& data, size_t& requestLength);
-	void handleRequest(int socket, const std::string& requestData);
+	bool handleRequest(int socket, const std::string& requestData);
 
     void logHTTPMessage(int socket, ResponseMessage& res, const std::string& reqData);
 	void sendResponse(int socket, ResponseMessage& res);
