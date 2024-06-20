@@ -244,15 +244,17 @@ void Server::handleNormalRequest(int socket, std::string& requestData, size_t re
 }
 
 void Server::handleChunkedRequest(int socket, std::string& requestData) {
-    size_t requestLength = 0;
+    size_t chunkLength = 0;
     bool isLastChunk = false;
-    while (isCompleteChunk(requestData, requestLength, isLastChunk)) {
-        std::string completeRequest = requestData.substr(0, requestLength);
 
-        // 청크 데이터 처리 로직 넣어야 됨
+    while (isCompleteChunk(requestData, chunkLength, isLastChunk)) {
+        std::string chunk = requestData.substr(0, chunkLength);
+
+        // 청크 데이터 처리 로직으로 변경해야 함
         // ...
+        std::cout << chunk << std::endl;
 
-        requestData.erase(0, requestLength);
+        requestData.erase(0, chunkLength);
 
         if (isLastChunk) {
             isChunkedMap[socket] = false; // 마지막 청크 후 청크 상태 해제
@@ -284,12 +286,12 @@ bool Server::isCompleteRequest(const std::string& data, size_t& requestLength, b
     return data.size() >= requestLength;
 }
 
-bool Server::isCompleteChunk(const std::string& data, size_t& requestLength, bool& isLastChunk) {
+bool Server::isCompleteChunk(const std::string& data, size_t& chunkLength, bool& isLastChunk) {
     size_t headerEnd = data.find("\r\n\r\n");
     if (headerEnd == std::string::npos)
         return false;
 
-    requestLength = headerEnd + 4;
+    chunkLength = headerEnd + 4;
     size_t pos = headerEnd + 4;
     while (pos < data.size()) {
         size_t chunkSizeEnd = data.find("\r\n", pos);
@@ -300,9 +302,9 @@ bool Server::isCompleteChunk(const std::string& data, size_t& requestLength, boo
         pos = chunkSizeEnd + 2; // 청크 크기 끝을 지나서 데이터 시작
 
         if (chunkSize == 0) {
-            requestLength = pos + 2; // 마지막 \r\n 포함
+            chunkLength = pos + 2; // 마지막 \r\n 포함
             isLastChunk = true; // 마지막 청크 처리
-            return data.size() >= requestLength;
+            return data.size() >= chunkLength;
         }
 
         if (pos + chunkSize + 2 > data.size())
