@@ -8,4 +8,4 @@ chown nginx:www-data /var/run/fcgiwrap.socket
 test -f nohup.out && rm ./nohup.out
 
 # start nginx server
-nginx -g 'daemon off;'
+nginx -g 'daemon off;' & node /usr/share/nginx/html/was/app.js

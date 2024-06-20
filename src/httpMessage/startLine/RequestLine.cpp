@@ -19,17 +19,19 @@ void RequestLine::parseRequestLine(const std::string& requestLine)
     std::istringstream iss(requestLine);
     if (iss >> mMethod >> mRequestTarget >> mHTTPVersion)
     {
-        // success
+        // CRLF 확인
+        std::string remaining;
+        std::getline(iss, remaining);
+        if (remaining == "\r" || remaining.empty()) // CRLF 혹은 EOF가 남아있는 경우
+        {
+            return;
+        }
     }
-    else
-    {
-        // fail
-        mMethod = "";
-        mRequestTarget = "";
-        mHTTPVersion = "";
-        throw HTTPException(BAD_REQUEST);
-    }
-    
+    // 파싱 실패 시 예외 처리
+    mMethod.clear();
+    mRequestTarget.clear();
+    mHTTPVersion.clear();
+    throw HTTPException(BAD_REQUEST);
 }
 std::string RequestLine::getMethod(void) const
 {

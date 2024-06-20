@@ -12,6 +12,7 @@ struct LocationConfig {
 	bool directory_listing;
 	std::string redirect;
 	std::string cgi;
+    std::string proxy_pass;
 
 	LocationConfig() : directory_listing(false) {}
 };

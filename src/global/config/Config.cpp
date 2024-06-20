@@ -1,5 +1,5 @@
 #include "Config.hpp"
-#include "error.hpp"
+#include "Exception.hpp"
 #include <fstream>
 #include <stdlib.h>
 #include <sstream>
@@ -13,7 +13,9 @@ Config::Config(const std::string& configFilePath) : configFilePath(configFilePat
 void Config::parse() {
 	std::ifstream file(configFilePath.c_str());
 	if (!file.is_open())
-		exit_with_error("Failed to open Config file");
+    {
+        throw Exception(FAILED_TO_OPEN_CONFIG_FILE);
+    }
 
 	// 파일 끝까지 반복
 	while (!file.eof()) {
@@ -110,6 +112,14 @@ void Config::parseLocation(std::ifstream& file, ServerConfig& serverConfig, cons
 			locationConfig.directory_listing = (value == "on");
 		} else if (key == "cgi")
 			iss >> locationConfig.cgi;
+        else if (key == "proxy_pass")
+        {
+            iss >> locationConfig.proxy_pass;
+            if (locationConfig.proxy_pass.back()== ';')
+            {
+                locationConfig.proxy_pass.pop_back();
+            }
+        }
 	}
 
 	// Location 설정 추가

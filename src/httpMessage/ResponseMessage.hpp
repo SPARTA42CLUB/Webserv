@@ -25,6 +25,7 @@ public:
     void addMessageBody(const std::string& body);
     std::string toString(void) const;
     size_t getMessageBodySize() const;
+    bool isKeepAlive() const;
     void clearMessageBody();
 };
 

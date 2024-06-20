@@ -16,12 +16,13 @@ void HeaderFields::parseHeaderFields(std::istringstream& headerFields)
     key: value\r\n
      */
     std::string line;
-    std::getline(headerFields, line);
-    if (line.empty() || line == CR)
+    std::getline(headerFields, line, *LF);
+    // NOTE: 테스트를 위해 "\n"으로 헤더가 끝나는 경우도 허용
+    if (line == "" || line == CR)
     {
         throw HTTPException(BAD_REQUEST);
     }
-    while (!line.empty() && line != CR) // "\r\n" 혹은 "\n"이 나올 때까지 읽음
+    while (line != "" && line != CR) // "\r\n"이나 "\n"이 나올때까지 반복
     {
         std::string key;
         std::string value;
@@ -34,7 +35,7 @@ void HeaderFields::parseHeaderFields(std::istringstream& headerFields)
             value.pop_back();
         }
         addField(key, value);
-        std::getline(headerFields, line);
+        std::getline(headerFields, line, *LF);
     }
 }
 void HeaderFields::addField(const std::string& key, const std::string& value)
