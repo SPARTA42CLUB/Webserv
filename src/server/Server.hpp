@@ -37,7 +37,7 @@ private:
 
 	void acceptClient(int serverSocket);
 	void handleClientReadEvent(struct kevent& event);
-	bool isCompleteRequest(const std::string& data, size_t& requestLength, bool& isChunked);
+	bool isCompleteRequest(const std::string& data, size_t& requestLength);
 	bool isCompleteChunk(const std::string& data, size_t& chunkLength, bool& isLastChunk);
 
 	void handleChunkedRequest(int socket, std::string& requestData);
@@ -45,7 +45,7 @@ private:
 
 	void handleClientWriteEvent(struct kevent& event);
 
-	ResponseMessage* createResponse(std::string& requestData, ServerConfig& config);
+	ResponseMessage* createResponse(RequestMessage& reqMsg, ServerConfig& config);
 
     void logHTTPMessage(int socket, const ResponseMessage& res, const std::string& reqData);
 	void sendResponse(int socket, ResponseMessage& res);
