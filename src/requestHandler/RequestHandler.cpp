@@ -113,7 +113,7 @@ void RequestHandler::handleRequest(const RequestMessage& req, ResponseMessage& r
     }
     else
     {
-        res.addResponseHeaderField("Connection", "close");
+        res.addResponseHeaderField("Connection", "keep-alive");
     }
 
     // Method에 따른 처리

@@ -6,6 +6,8 @@
 #include <ctime>
 #include <fstream>
 #include <iostream>
+#include <sstream>
+#include <string>
 #include "HTTPException.hpp"
 #include "RequestMessage.hpp"
 #include "ResponseMessage.hpp"
@@ -111,14 +113,15 @@ void Server::run()
                 continue;
             }
 
-            if (event.filter == EVFILT_READ)
-            {
-                if (std::find(serverSockets.begin(), serverSockets.end(), event.ident) != serverSockets.end())
-                    acceptClient(event.ident);
-                else
-                    handleClientReadEvent(event);
+            if (std::find(serverSockets.begin(), serverSockets.end(), event.ident) != serverSockets.end()) {
+                acceptClient(event.ident);
+            } else if (event.filter == EVFILT_READ) {
+                handleClientReadEvent(event);
+            } else if (event.filter == EVFILT_WRITE) {
+                handleClientWriteEvent(event);
             }
         }
+
         checkTimeout();
     }
 }
@@ -186,50 +189,99 @@ void Server::handleClientReadEvent(struct kevent& event)
         return;
     }
 
-    update_last_activity(event.ident);
+    uintptr_t socket = event.ident;
+
+    update_last_activity(socket);
 
     // 클라이언트 요청 수신
     char buffer[4096];
     ssize_t bytesRead;
     std::string requestData;
 
-    if ((bytesRead = recv(event.ident, buffer, sizeof(buffer) - 1, 0)) < 0)
+    if ((bytesRead = recv(socket, buffer, sizeof(buffer) - 1, 0)) < 0)
     {
         std::cerr << "recv error" << std::endl;
-        closeConnection(event.ident);
+        closeConnection(socket);
         return;
     }
 
     buffer[bytesRead] = '\0';
-    requestData += buffer;
+    recvDataMap[socket] += buffer;
 
-    /*
-    // NOTE:
-    지금 requestHandler는 서버에 종속되어있는데 데이터 멤버도 없어서 그냥 네임 스페이스처럼 사용이 되고 있음
-    그냥 서버에 종속되지 않는 클래스로 만들고 data member로 reqMsg, resMsg, config를 레퍼런스로 받아서 사용하게끔 수정 제안
+    std::string str = recvDataMap[socket];
+    size_t requestLength = 0;
 
-    reqMsg에서 예외를 던지거나 bad request인지 bool을 리턴하는 함수를 만들어서 그걸 이용해서 예외를 던지는게 더 좋을 것 같음
-     */
-    bool bKeepAlive = false;
+    bool hasComplete = false;
+
+    // 읽은 데이터가 하나의 Request 단위가 완성 됐을 때 처리
+    while (isCompleteRequest(recvDataMap[socket], requestLength)) {
+        std::string completeRequest = recvDataMap[socket].substr(0, requestLength);
+        completeDataMap[socket].push_back(completeRequest);
+        recvDataMap[socket].erase(0, requestLength);
+
+        hasComplete = true;
+    }
+
+    // 리소스 효율을 위해 요청이 하나 완료 되면 그 때 WRITE 이벤트 등록
+    if (hasComplete)
+        eventManager.addWriteEvent(socket);
+}
+
+bool Server::isCompleteRequest(const std::string& data, size_t& requestLength) {
+    size_t headerEnd = data.find("\r\n\r\n");
+    if (headerEnd == std::string::npos)
+        return false;
+
+    requestLength = headerEnd + 4;
+
+    std::istringstream headerStream(data.substr(0, headerEnd + 4));
+    std::string headerLine;
+    while (std::getline(headerStream, headerLine) && headerLine != "\r") {
+        if (headerLine.find("Content-Length:") != std::string::npos) {
+            requestLength += std::stoul(headerLine.substr(16));
+        }
+    }
+
+    return data.size() >= requestLength;
+}
+
+void Server::handleClientWriteEvent(struct kevent& event) {
+    uintptr_t socket = event.ident;
+    std::vector<std::string>& completeData = completeDataMap[socket];
+    while (!completeData.empty()) {
+
+        std::string requestData = completeData.front();
+        handleRequest(socket, requestData);
+        completeData.erase(completeData.begin());
+    }
+
+    if (completeData.empty())
+        eventManager.deleteWriteEvent(socket);
+}
+
+void Server::handleRequest(int socket, const std::string& requestData) {
     ResponseMessage resMsg;
+    bool bKeepAlive = true; // reqMsg 생성자 혹은 bad request시 예외를 던져서 keepAlive여부를 판단하는게 더 좋을 거 같음
+
     try
     {
         RequestMessage reqMsg(requestData);
         bKeepAlive = shouldKeepAlive(reqMsg);
-        requestHandler.verifyRequest(RequestMessage(requestData), socketToConfigMap[event.ident]);
-        requestHandler.handleRequest(reqMsg, resMsg, socketToConfigMap[event.ident]);
+        requestHandler.verifyRequest(RequestMessage(requestData), socketToConfigMap[socket]);
+        requestHandler.handleRequest(reqMsg, resMsg, socketToConfigMap[socket]);
     }
     catch (const HTTPException& e)
     {
         requestHandler.handleException(e, resMsg);
+        bKeepAlive = false;
     }
 
-    logHTTPMessage(event.ident, resMsg, requestData);
-    sendResponse(event.ident, resMsg);
+    logHTTPMessage(socket, resMsg, requestData);
+    sendResponse(socket, resMsg);
 
     // 만약 reqMsg가 keep-alive여도 400 bad request가 떨어지면 keep-alive를 무시하고 연결을 끊는다.
     if (!bKeepAlive)
-        closeConnection(event.ident);
+        closeConnection(socket);
 }
 
 void Server::logHTTPMessage(int socket, ResponseMessage& res, const std::string& reqData)
@@ -268,8 +320,6 @@ void Server::sendResponse(int socket, ResponseMessage& res)
             }
         }
     }
-
-    eventManager.deleteWriteEvent(socket);
 }
 
 bool Server::shouldKeepAlive(const RequestMessage& req)
@@ -292,4 +342,10 @@ void Server::closeConnection(int socket)
 
     socketToConfigMap.erase(socket);
     last_activity_map.erase(socket);
+
+    if (!recvDataMap.empty())
+        recvDataMap.erase(socket);
+
+    if (!completeDataMap.empty())
+        completeDataMap.erase(socket);
 }
