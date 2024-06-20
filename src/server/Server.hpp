@@ -40,14 +40,14 @@ private:
 	bool isCompleteRequest(const std::string& data, size_t& requestLength, bool& isChunked);
 	bool isCompleteChunk(const std::string& data, size_t& requestLength, bool& isLastChunk);
 
-	void handleChunkedRequest(uintptr_t socket, std::string& requestData);
-	void handleNormalRequest(uintptr_t socket, std::string& requestData, size_t requestLength);
+	void handleChunkedRequest(int socket, std::string& requestData);
+	void handleNormalRequest(int socket, std::string& requestData, size_t requestLength);
 
 	void handleClientWriteEvent(struct kevent& event);
 
 	const ResponseMessage &Server::createResponse(const std::string& requestData, const ServerConfig& config) const;
 
-    void logHTTPMessage(int socket, ResponseMessage& res, const std::string& reqData);
+    void logHTTPMessage(int socket, const ResponseMessage& res, const std::string& reqData);
 	void sendResponse(int socket, ResponseMessage& res);
 	void closeConnection(int socket);
 

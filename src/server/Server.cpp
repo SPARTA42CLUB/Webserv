@@ -198,7 +198,7 @@ void Server::handleClientReadEvent(struct kevent& event) {
     if (event.flags & EV_EOF)
         return;
 
-    uintptr_t socket = event.ident;
+    int socket = event.ident;
 
     update_last_activity(socket);
 
@@ -228,18 +228,9 @@ void Server::handleClientReadEvent(struct kevent& event) {
     }
 }
 
-void Server::handleNormalRequest(uintptr_t socket, std::string& requestData, size_t requestLength) {
+void Server::handleNormalRequest(int socket, std::string& requestData, size_t requestLength) {
     std::string completeRequest = requestData.substr(0, requestLength);
-    ResponseMessage res;
-    RequestHandler requestHandler(res, socketToConfigMap[socket]);
-
-    try {
-        RequestMessage reqMsg(completeRequest);
-        requestHandler.verifyRequest(reqMsg);
-        requestHandler.handleRequest(reqMsg);
-    } catch (const HTTPException& e) {
-        requestHandler.handleException(e);
-    }
+    const ResponseMessage& res = createResponse(completeRequest, socketToConfigMap[socket]);
 
     responsesMap[socket].push_back(res);
     requestData.erase(0, requestLength);
@@ -248,9 +239,11 @@ void Server::handleNormalRequest(uintptr_t socket, std::string& requestData, siz
     if (!responsesMap[socket].empty()) {
         eventManager.addWriteEvent(socket);
     }
+
+    logHTTPMessage(socket, res, requestData);
 }
 
-void Server::handleChunkedRequest(uintptr_t socket, std::string& requestData) {
+void Server::handleChunkedRequest(int socket, std::string& requestData) {
     size_t requestLength = 0;
     bool isLastChunk = false;
     while (isCompleteChunk(requestData, requestLength, isLastChunk)) {
@@ -284,7 +277,7 @@ bool Server::isCompleteRequest(const std::string& data, size_t& requestLength, b
         }
         if (headerLine.find("Transfer-Encoding: chunked") != std::string::npos) {
             isChunked = true;
-            return false;  // 청크 인코딩 처리로 전환
+            return false;
         }
     }
 
@@ -341,32 +334,23 @@ const ResponseMessage &Server::createResponse(const std::string& requestData, co
 
 void Server::handleClientWriteEvent(struct kevent& event)
 {
-    uintptr_t socket = event.ident;
-    std::vector<std::string>& completeData = completeDataMap[socket];
-    bool bKeepAlive = true;
+    int socket = event.ident;
+    std::vector<ResponseMessage>& responses = responsesMap[socket];
+    bool bKeepAlive = responses.back().isKeepAlive();
 
-    for (size_t i = 0; i < completeData.size(); ++i)
-    {
-        std::string requestData = completeData[i];
-        bKeepAlive = handleRequest(socket, requestData);
+    for (size_t i = 0; i < responses.size(); ++i) {
+        sendResponse(socket, responses[i]);
     }
-
-    while (!completeData.empty())
-    {
-        completeData.pop_back();
-    }
-
-    //
-    logHTTPMessage(socket, resMsg, requestData);
-    sendResponse(socket, resMsg);
-    //
+    responses.clear();
 
     eventManager.deleteWriteEvent(socket);
-    if (!bKeepAlive)
+
+    if (!bKeepAlive) {
         closeConnection(socket);
+    }
 }
 
-void Server::logHTTPMessage(int socket, ResponseMessage& res, const std::string& reqData)
+void Server::logHTTPMessage(int socket, const ResponseMessage& res, const std::string& reqData)
 {
     std::ofstream logFile("access.log", std::ios::app);
 
@@ -391,7 +375,7 @@ void Server::sendResponse(int socket, ResponseMessage& res)
     {
         struct kevent& event = *it;
 
-        if (event.ident != (uintptr_t)socket)
+        if (event.ident != (int)socket)
             continue;
 
         if (event.filter == EVFILT_WRITE)
