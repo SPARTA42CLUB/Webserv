@@ -11,8 +11,6 @@ const char* Exception::what() const _NOEXCEPT
 {
     switch (mReason)
     {
-        case FAILED_TO_OPEN_CONFIG_FILE:
-            return "Failed to open config file";
         case FAILED_TO_CREATE_KQUEUE:
             return "Failed to create kqueue";
         case FAILED_TO_BIND_SOCKET:
