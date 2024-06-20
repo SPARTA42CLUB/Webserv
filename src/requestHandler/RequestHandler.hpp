@@ -11,6 +11,7 @@ class RequestHandler
 private:
     ResponseMessage& mResponseMessage;
     const ServerConfig& mServerConfig;
+    std::string mLocation;
     std::string mPath;
 
     // Request
@@ -26,12 +27,16 @@ private:
     void addContentType(ResponseMessage& res);
 
     // Response (Exception)
+    // 3xx
+    void found(void); // Require 'Location' header field
+    // 4xx
     void badRequest(void);
+    void forbidden(void);
     void notFound(void);
     void methodNotAllowed(void);
-    void httpVersionNotSupported(void);
     void uriTooLong(void);
-    void forbidden(void);
+    // 5xx
+    void httpVersionNotSupported(void);
 
 
 public:

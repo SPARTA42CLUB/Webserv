@@ -6,6 +6,7 @@
 RequestHandler::RequestHandler(ResponseMessage& mResponseMessage, const ServerConfig& serverConfig)
 : mResponseMessage(mResponseMessage)
 , mServerConfig(serverConfig)
+, mLocation("")
 , mPath("")
 {
 }
@@ -54,8 +55,30 @@ void RequestHandler::handleRequest(const RequestMessage& req)
 {
     std::string reqTarget = req.getRequestLine().getRequestTarget();
     std::string method = req.getRequestLine().getMethod();
-    // NOTE: 요청한 URI에 해당하는 LocationConfig 찾기
     std::map<std::string, LocationConfig>::const_iterator targetFindIter = mServerConfig.locations.find(reqTarget);
+
+    /* 
+    // NOTE: 될 수 있는 조합
+    GET
+    1. URI == Location이며 URI가 디렉토리(/로 끝남)
+        a. index 파일이 있을 경우 index 파일을 읽음
+        b. index 파일이 없을 경우 404
+        c. redirect가 있을 경우
+            1. redirect <location> : 302(기본값) 반환, Location 헤더에 <Location> 추가 (nginx는 상태코드 추가 가능)
+    2. URI == Location이며 URI가 파일
+        a. 파일이 있을 경우 파일을 읽음
+        b. 파일이 없을 경우 404
+        x. redirect가 있을 경우
+        
+    3. URI != Location
+        a. 모든 location 블록에서 root + index 파일을 찾음
+    HEAD: GET과 동일하나 body가 없음
+    POST
+    DELETE
+     */
+
+    // NOTE: 요청한 URI에 해당하는 LocationConfig 찾기
+    // 만약 URI에 해당하는 Location이 있다면 해당 Location의 root 경로에 index 파일을 찾음
     if (targetFindIter == mServerConfig.locations.end())
     {
         for (std::map<std::string, LocationConfig>::const_iterator it = mServerConfig.locations.begin(); it != mServerConfig.locations.end(); it++)
@@ -66,6 +89,7 @@ void RequestHandler::handleRequest(const RequestMessage& req)
                 if (access(tmp.c_str(), F_OK) == 0)
                 {
                     mPath = tmp;
+                    mLocation = it->first;
                     break;
                 }
             }
@@ -232,9 +256,17 @@ void RequestHandler::addContentType(ResponseMessage& mResponseMessage)
 }
 void RequestHandler::handleException(const HTTPException& e)
 {
-    if (e.getStatusCode() == BAD_REQUEST)
+    if (e.getStatusCode() == FOUND)
+    {
+        found();
+    }
+    else if (e.getStatusCode() == BAD_REQUEST)
     {
         badRequest();
+    }
+    else if (e.getStatusCode() == FORBIDDEN)
+    {
+        forbidden();
     }
     else if (e.getStatusCode() == NOT_FOUND)
     {
@@ -244,18 +276,22 @@ void RequestHandler::handleException(const HTTPException& e)
     {
         methodNotAllowed();
     }
-    else if (e.getStatusCode() == HTTP_VERSION_NOT_SUPPORTED)
-    {
-        httpVersionNotSupported();
-    }
     else if (e.getStatusCode() == URI_TOO_LONG)
     {
         uriTooLong();
     }
-    else if (e.getStatusCode() == FORBIDDEN)
+    else if (e.getStatusCode() == HTTP_VERSION_NOT_SUPPORTED)
     {
-        forbidden();
+        httpVersionNotSupported();
     }
+}
+void RequestHandler::found(void)
+{
+    const std::string& location = mServerConfig.locations.find(mPath)->second.redirect;
+    mResponseMessage.setStatusLine("HTTP/1.1", FOUND, "Found");
+    mResponseMessage.addResponseHeaderField("Location", location);
+    mResponseMessage.addResponseHeaderField("Connection", "close");
+    addSemanticHeaderFields(mResponseMessage);
 }
 void RequestHandler::badRequest(void)
 {
@@ -263,6 +299,14 @@ void RequestHandler::badRequest(void)
     mResponseMessage.addMessageBody("<html><head><title>400 Bad Request</title></head><body><h1>400 Bad Request</h1></body></html>");
     mResponseMessage.addResponseHeaderField("Content-Type", "text/html");
     mResponseMessage.addResponseHeaderField("Connection", "close");
+    addSemanticHeaderFields(mResponseMessage);
+}
+void RequestHandler::forbidden(void)
+{
+    mResponseMessage.setStatusLine("HTTP/1.1", FORBIDDEN, "Forbidden");
+    mResponseMessage.addMessageBody("<html><head><title>403 Forbidden</title></head><body><h1>403 Forbidden</h1></body></html>");
+    mResponseMessage.addResponseHeaderField("Content-Type", "text/html");
+    mResponseMessage.addResponseHeaderField("Connection", "keep-alive");
     addSemanticHeaderFields(mResponseMessage);
 }
 void RequestHandler::notFound(void)
@@ -281,14 +325,6 @@ void RequestHandler::methodNotAllowed(void)
     mResponseMessage.addResponseHeaderField("Connection", "keep-alive");
     addSemanticHeaderFields(mResponseMessage);
 }
-void RequestHandler::httpVersionNotSupported(void)
-{
-    mResponseMessage.setStatusLine("HTTP/1.1", HTTP_VERSION_NOT_SUPPORTED, "HTTP Version Not Supported");
-    mResponseMessage.addMessageBody("<html><head><title>505 HTTP Version Not Supported</title></head><body><h1>505 HTTP Version Not Supported</h1></body></html>");
-    mResponseMessage.addResponseHeaderField("Content-Type", "text/html");
-    mResponseMessage.addResponseHeaderField("Connection", "keep-alive");
-    addSemanticHeaderFields(mResponseMessage);
-}
 void RequestHandler::uriTooLong(void)
 {
     mResponseMessage.setStatusLine("HTTP/1.1", URI_TOO_LONG, "Request-URI Too Long");
@@ -297,10 +333,10 @@ void RequestHandler::uriTooLong(void)
     mResponseMessage.addResponseHeaderField("Connection", "keep-alive");
     addSemanticHeaderFields(mResponseMessage);
 }
-void RequestHandler::forbidden(void)
+void RequestHandler::httpVersionNotSupported(void)
 {
-    mResponseMessage.setStatusLine("HTTP/1.1", FORBIDDEN, "Forbidden");
-    mResponseMessage.addMessageBody("<html><head><title>403 Forbidden</title></head><body><h1>403 Forbidden</h1></body></html>");
+    mResponseMessage.setStatusLine("HTTP/1.1", HTTP_VERSION_NOT_SUPPORTED, "HTTP Version Not Supported");
+    mResponseMessage.addMessageBody("<html><head><title>505 HTTP Version Not Supported</title></head><body><h1>505 HTTP Version Not Supported</h1></body></html>");
     mResponseMessage.addResponseHeaderField("Content-Type", "text/html");
     mResponseMessage.addResponseHeaderField("Connection", "keep-alive");
     addSemanticHeaderFields(mResponseMessage);
