@@ -74,6 +74,14 @@ Connection: close$CR
 Content-Type: text/html$CR
 $CR
 " 414
+"DELETE /notfound.html HTTP/1.1$CR
+Host: localhost:8080$CR
+$CR
+" 404
+"DELETE /delete.html HTTP/1.1$CR
+Host: localhost:8080$CR
+$CR
+" 200
 )
 
 # ---------------------------------------------------------------------------------------------------
@@ -100,7 +108,7 @@ clear && echo -e "${WHITE}webserv tester$NC" && \
 echo -e "${BLUE}webserver building...$NC" && \
 make -C ../../ mem > /dev/null 2>&1 && \
 echo -e "${BLUE}webserver running...$NC" && \
-touch ../../www/forbidden.html && chmod 000 ../../www/forbidden.html
+touch ../../www/forbidden.html ../../www/delete.html && chmod 000 ../../www/forbidden.html
 
 ../../webserv test.conf & WEBSERV_PID=$! && sleep $WEBSERVER_CREATE_TIME
 

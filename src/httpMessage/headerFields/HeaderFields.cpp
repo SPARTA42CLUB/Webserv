@@ -9,6 +9,7 @@ HeaderFields::HeaderFields()
 HeaderFields::~HeaderFields()
 {
 }
+#include <iostream>
 void HeaderFields::parseHeaderFields(std::istringstream& headerFields)
 {
     /*
@@ -18,11 +19,13 @@ void HeaderFields::parseHeaderFields(std::istringstream& headerFields)
     std::string line;
     std::getline(headerFields, line, *LF);
     // NOTE: 테스트를 위해 "\n"으로 헤더가 끝나는 경우도 허용
-    if (line == "" || line == CR)
+    // FIXME: "\n"으로 헤더가 끝나는 경우 삭제 + telnet으로 테스트 시 34행에서 stack-buffer-overflow 발생
+    // FIXME: 원래는 무조건 양식을 지키는 string을 받는 경우에만 reqMsg, resMsg가 생성되었지만 chunked인 경우 양식을 지키지 않아도 객체가 생성되므로 수정 필요
+    if (line.empty()  || line == CR)
     {
         throw HTTPException(BAD_REQUEST);
     }
-    while (line != "" && line != CR) // "\r\n"이나 "\n"이 나올때까지 반복
+    while (!line.empty() && line != CR) // "\r\n"이나 "\n"이 나올때까지 반복
     {
         std::string key;
         std::string value;
@@ -30,10 +33,11 @@ void HeaderFields::parseHeaderFields(std::istringstream& headerFields)
         std::getline(lineStream, key, ':');
         lineStream >> std::ws; // Skip leading whitespace
         std::getline(lineStream, value, *LF);
-        if (value.back() == *CR)
+        if (value.empty() || value.back() != *CR)
         {
-            value.pop_back();
+            throw HTTPException(BAD_REQUEST);
         }
+        value.pop_back();
         addField(key, value);
         std::getline(headerFields, line, *LF);
     }
