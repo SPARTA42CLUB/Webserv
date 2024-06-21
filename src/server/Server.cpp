@@ -93,13 +93,8 @@ void Server::setupServerSockets()
 // 소켓 논블로킹 설정
 void Server::setNonBlocking(int socket)
 {
-    // 파일 디스크립터 플래그 가져오기
-    int flags = fcntl(socket, F_GETFL, 0);
-    if (flags == -1)
-        throw std::runtime_error("Failed to get flags");
-
     // 논블로킹 설정
-    if (fcntl(socket, F_SETFL, flags | O_NONBLOCK) == -1)
+    if (fcntl(socket, F_SETFL, O_NONBLOCK) == -1)
         throw std::runtime_error("Failed to set non-blocking");
 }
 
@@ -365,7 +360,7 @@ void Server::sendResponse(int socket, ResponseMessage& res)
 
     if ((send(socket, responseStr.c_str(), responseStr.length(), 0)) < 0)
     {
-        std::cerr << "send error: " << strerror(errno) << std::endl;
+        std::cerr << "send error: " << std::endl;
         closeConnection(socket);
         return;
     }
