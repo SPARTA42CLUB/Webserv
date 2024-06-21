@@ -360,7 +360,7 @@ void Server::sendResponse(int socket, ResponseMessage& res)
 
     if ((send(socket, responseStr.c_str(), responseStr.length(), 0)) < 0)
     {
-        std::cerr << "send error: " << strerror(errno) << std::endl;
+        std::cerr << "send error: " << std::endl;
         closeConnection(socket);
         return;
     }

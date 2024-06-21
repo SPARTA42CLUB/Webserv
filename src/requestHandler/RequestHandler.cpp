@@ -254,14 +254,18 @@ void RequestHandler::postRequest(const RequestMessage& req)
     mResponseMessage.addMessageBody("<html><body><h1>POST Request</h1></body></html>");
     addSemanticHeaderFields(mResponseMessage);
 }
+// https://www.rfc-editor.org/rfc/rfc9110.html#name-delete
 void RequestHandler::deleteRequest(const RequestMessage& req)
 {
     (void)req;
     (void)mResponseMessage;
-    (void)mPath;
+    if (mPath == "" || std::remove(mPath.c_str()) != 0)
+    {
+        throw HTTPException(NOT_FOUND);
+    }
     mResponseMessage.setStatusLine(req.getRequestLine().getHTTPVersion(), OK, "OK");
     mResponseMessage.addResponseHeaderField("Content-Type", "text/html");
-    mResponseMessage.addMessageBody("<html><body><h1>DELETE Request</h1></body></html>");
+    mResponseMessage.addMessageBody("<html><body><h1>File deleted.</h1></body></html>");
     addSemanticHeaderFields(mResponseMessage);
 }
 void RequestHandler::addSemanticHeaderFields(ResponseMessage& mResponseMessage)
