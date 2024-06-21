@@ -15,7 +15,7 @@ private:
     std::string mPath;
 
     // Request
-    void verifyRequestLine(const RequestLine& reqLine);
+    void verifyRequestLine(const StartLine& reqLine);
     void verifyRequestHeaderFields(const HeaderFields& reqHeaderFields);
 
     // Response (Success)
