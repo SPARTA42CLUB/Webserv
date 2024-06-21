@@ -38,7 +38,7 @@ private:
 	void handleClientReadEvent(struct kevent& event);
 
     void logHTTPMessage(int socket, ResponseMessage& res, const std::string& reqData);
-	void sendResponse(int socket, ResponseMessage& res);
+	void sendResponse(int socket, ResponseMessage& res, bool bKeepAlive);
 	void closeConnection(int socket);
 
 	void update_last_activity(int socket);

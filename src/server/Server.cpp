@@ -9,6 +9,7 @@
 #include "HTTPException.hpp"
 #include "RequestMessage.hpp"
 #include "ResponseMessage.hpp"
+#include "ChunkedRequestReader.hpp"
 #include "error.hpp"
 
 // ServerConfig 클래스 생성자
@@ -191,7 +192,6 @@ void Server::handleClientReadEvent(struct kevent& event)
     // 클라이언트 요청 수신
     char buffer[4096];
     ssize_t bytesRead;
-    std::string requestData;
 
     if ((bytesRead = recv(event.ident, buffer, sizeof(buffer) - 1, 0)) < 0)
     {
@@ -200,8 +200,9 @@ void Server::handleClientReadEvent(struct kevent& event)
         return;
     }
 
-    buffer[bytesRead] = '\0';
-    requestData += buffer;
+    // buffer[bytesRead] = '\0';
+	// std::cout << buffer;
+    std::string requestData(buffer, buffer + bytesRead);
 
     /*
     // NOTE:
@@ -212,22 +213,41 @@ void Server::handleClientReadEvent(struct kevent& event)
      */
     bool bKeepAlive = false;
     ResponseMessage resMsg;
-    try
-    {
-        RequestMessage reqMsg(requestData);
-        bKeepAlive = shouldKeepAlive(reqMsg);
-        requestHandler.verifyRequest(RequestMessage(requestData), socketToConfigMap[event.ident]);
-        requestHandler.handleRequest(reqMsg, resMsg, socketToConfigMap[event.ident]);
-    }
-    catch (const HTTPException& e)
-    {
-        requestHandler.handleException(e, resMsg);
-    }
-    // 만약 reqMsg가 keep-alive여도 400 bad request가 떨어지면 keep-alive를 무시하고 연결을 끊는다.
-    if (!bKeepAlive)
-        closeConnection(event.ident);
+	if (requestData.substr(0, 4) == "POST") {
+		std::cout << "POST!!" << "\n";
+		return ;
+	}
+	ChunkedRequestReader tester("var/www/upload/files/testfile2.png", requestData);
+	if (requestData.size() < tester.getChunkSize()) {
+		std::cout << "!short!" << std::endl;
+		while (true)
+		{
+			if ((bytesRead = recv(event.ident, buffer, sizeof(buffer) - 1, 0)) > 0) {
+				requestData += std::string(buffer, buffer + bytesRead);
+				if (requestData.size() > tester.getChunkSize())
+					break;
+			}
+		}
+	}
+	ChunkedRequestReader reader("var/www/upload/files/testfile.png", requestData);
+	reader.processRequest();
+	std::cout << "---------------------" << std::endl;
+    // try
+    // {
+    //     RequestMessage reqMsg(requestData);
+    //     bKeepAlive = shouldKeepAlive(reqMsg);
+    //     requestHandler.verifyRequest(RequestMessage(requestData), socketToConfigMap[event.ident]);
+    //     requestHandler.handleRequest(reqMsg, resMsg, socketToConfigMap[event.ident]);
+    // }
+    // catch (const HTTPException& e)
+    // {
+    //     // requestHandler.handleException(e, resMsg);
+    // }
+	if (!bKeepAlive) {
+		bKeepAlive = true;
+	}
     logHTTPMessage(event.ident, resMsg, requestData);
-    sendResponse(event.ident, resMsg);
+    sendResponse(event.ident, resMsg, bKeepAlive);
 }
 
 void Server::logHTTPMessage(int socket, ResponseMessage& res, const std::string& reqData)
@@ -245,15 +265,19 @@ void Server::logHTTPMessage(int socket, ResponseMessage& res, const std::string&
     logFile.close();
 }
 
-void Server::sendResponse(int socket, ResponseMessage& res)
+void Server::sendResponse(int socket, ResponseMessage& res, bool bKeepAlive)
 {
     std::string responseStr = res.toString();
+	std::cout << responseStr << std::endl;
     ssize_t bytesSent = send(socket, responseStr.c_str(), responseStr.length(), 0);
     if (bytesSent == -1)
     {
         std::cerr << "send error: " << strerror(errno) << std::endl;
         closeConnection(socket);
     }
+	// 만약 reqMsg가 keep-alive여도 400 bad request가 떨어지면 keep-alive를 무시하고 연결을 끊는다.
+    if (!bKeepAlive)
+        closeConnection(socket);
 }
 
 bool Server::shouldKeepAlive(const RequestMessage& req)

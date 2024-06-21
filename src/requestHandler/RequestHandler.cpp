@@ -135,32 +135,29 @@ void RequestHandler::handleRequest(const RequestMessage& req, ResponseMessage& r
         }
         else if (method == "POST")
         {
-			if (this->processingChunkedRequest)
-			{
-				// std::cout << "Processing chunked request" << std::endl;
-				// std::cout << req.getMessageBody().toString() << std::endl;
-				std::cout << "-----------message body-----------\n";
-				std::cout << req.getMessageBody().size() << std::endl;
-				std::cout << req.getMessageBody().toString() << std::endl;
-				std::cout << "----------------------------------\n";
-				ChunkedRequestReader reader("var/www/upload/files/testfile.png", req.getMessageBody().toString());
-				if (reader.processRequest()) {
-					processingChunkedRequest = false;
-				}
-			}
-			else
-			{
-				if (req.getRequestHeaderFields().getField("Transfer-Encoding") == "chunked")
-				{
-					processingChunkedRequest = true;
-				}
-				postRequest(req, res, serverConfig, path);
-			}
-			// std::cout << "Processing chunked request" << std::endl;
-			// std::cout << req.getMessageBody().toString() << std::endl;
-			// ChunkedRequestReader reader("var/www/upload/files/testfile", clientSocket);
-			// reader.processRequest();
-            // postRequest(req, res, serverConfig, path);
+			// if (this->processingChunkedRequest)
+			// {
+			// 	std::cout << "Processing chunked request" << std::endl;
+			// 	std::cout << req.getMessageBody().toString() << std::endl;
+			// 	std::cout << "-----------message body-----------\n";
+			// 	std::cout << req.getMessageBody().size() << std::endl;
+			// 	std::cout << req.getMessageBody().toString() << std::endl;
+			// 	std::cout << "----------------------------------\n";
+			// 	ChunkedRequestReader reader("var/www/upload/files/testfile", req.getMessageBody().toString());
+			// 	if (reader.processRequest()) {
+			// 		processingChunkedRequest = false;
+			// 	}
+			// 	std::cout << "Done chunked request" << std::endl;
+			// }
+			// else
+			// {
+			// 	if (req.getRequestHeaderFields().getField("Transfer-Encoding") == "chunked") {
+			// 		processingChunkedRequest = true;
+			// 	}
+			// 	else {
+					postRequest(req, res, serverConfig, path);
+			// 	}
+			// }
         }
         else if (method == "DELETE")
         {
