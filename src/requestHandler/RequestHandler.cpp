@@ -255,6 +255,7 @@ void RequestHandler::postRequest(const RequestMessage& req)
     addSemanticHeaderFields(mResponseMessage);
 }
 // https://www.rfc-editor.org/rfc/rfc9110.html#name-delete
+// https://www.rfc-editor.org/rfc/rfc9110.html#name-delete
 void RequestHandler::deleteRequest(const RequestMessage& req)
 {
     if (mPath == "")

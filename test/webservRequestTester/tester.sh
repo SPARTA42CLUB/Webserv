@@ -118,7 +118,8 @@ chmod 544 ../../www/permission_denied/
 clear && echo -e "${WHITE}webserv tester$NC" && \
 echo -e "${BLUE}webserver building...$NC" && \
 make -C ../../ mem > /dev/null 2>&1 && \
-echo -e "${BLUE}webserver running...$NC"
+echo -e "${BLUE}webserver running...$NC" && \
+touch ../../www/forbidden.html && chmod 000 ../../www/forbidden.html
 
 ../../webserv test.conf & WEBSERV_PID=$! && sleep $WEBSERVER_CREATE_TIME
 
