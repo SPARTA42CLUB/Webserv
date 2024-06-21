@@ -171,79 +171,22 @@ void RequestHandler::handleRequest(const RequestMessage& req)
 }
 void RequestHandler::getRequest(const RequestMessage& req)
 {
-	// // Range 요청 판별
-	// if (req.getRequestHeaderFields().hasField("Range")) {
-	// 	// Extract range values
-	// 	std::string rangeHeader = req.getRequestHeaderFields().getField("Range");
-	// 	size_t rangeStart = 0;
-	// 	size_t rangeEnd = 0;
-	// 	if (!rangeHeader.empty())
-	// 	{
-	// 		size_t equalPos = rangeHeader.find('=');
-	// 		size_t dashPos = rangeHeader.find('-');
-	// 		rangeStart = std::stoul(rangeHeader.substr(equalPos + 1, dashPos - equalPos - 1));
-	// 		rangeEnd = std::stoul(rangeHeader.substr(dashPos + 1));
-	// 	}
-
-	// 	RangeRequestReader reader(mPath);
-	// 	reader.addRange(rangeStart, rangeEnd);
-		
-	// 	std::string responseBody = reader.processRequest();
-	// 	mResponseMessage.setStatusLine(req.getRequestLine().getHTTPVersion(), PARTIAL_CONTENT, "Partial Content");
-	// 	mResponseMessage.addResponseHeaderField("Content-Type", "multipart/byteranges; boundary=BOUNDARY_STRING");
-	// 	mResponseMessage.addMessageBody(responseBody);
-	// 	return ;
-	// }
-	// Range 요청 판별
-	if (req.getRequestHeaderFields().hasField("Range")) {
-		// Extract range values
-		std::string rangeHeader = req.getRequestHeaderFields().getField("Range");
-
-		// Check if the header starts with "bytes="
-		if (rangeHeader.substr(0, 6) == "bytes=") {
-			std::vector<std::pair<size_t, size_t> > ranges; // 벡터 타입 명시적으로 지정
-
-			// Remove "bytes=" from the header
-			rangeHeader = rangeHeader.substr(6);
-
-			// Split the header by commas to handle multiple ranges
-			std::istringstream iss(rangeHeader);
-			std::string rangePart;
-			while (std::getline(iss, rangePart, ',')) {
-				size_t dashPos = rangePart.find('-');
-				if (dashPos != std::string::npos) {
-					size_t rangeStart = std::stoul(rangePart.substr(0, dashPos));
-					size_t rangeEnd = std::stoul(rangePart.substr(dashPos + 1));
-					ranges.push_back(std::make_pair(rangeStart, rangeEnd));
-				}
-			}
-
-			// Create a RangeRequestReader instance
-			RangeRequestReader reader(mPath);
-
-			// Add all ranges to the reader
-			for (std::vector<std::pair<size_t, size_t> >::const_iterator it = ranges.begin(); it != ranges.end(); ++it) {
-				reader.addRange((*it).first, (*it).second); // 반복자 사용하여 요소 접근
-			}
-
-			// Process the request and get the response body
-			std::string responseBody = reader.processRequest();
-
-			// Set HTTP response status line and headers
-			mResponseMessage.setStatusLine(req.getRequestLine().getHTTPVersion(), PARTIAL_CONTENT, "Partial Content");
-			mResponseMessage.addResponseHeaderField("Content-Type", "multipart/byteranges; boundary=BOUNDARY_STRING");
-			mResponseMessage.addMessageBody(responseBody);
-
-			return;
-		}
-	}
-
-
     std::ifstream file(mPath);
     if (file.is_open() == false)
     {
         throw HTTPException(FORBIDDEN);
     }
+	// Range 요청 판별
+	if (req.getRequestHeaderFields().hasField("Range")) {
+		std::string rangeHeader = req.getRequestHeaderFields().getField("Range");
+		// Check if the header starts with "bytes="
+		if (rangeHeader.substr(0, 6) == "bytes=") {
+			file.close();
+			rangeRequest(req);
+			return;
+		}
+	}
+	// 그 외 요청 처리
     mResponseMessage.setStatusLine(req.getRequestLine().getHTTPVersion(), OK, "OK");
     std::string line;
     while (std::getline(file, line))
@@ -255,6 +198,47 @@ void RequestHandler::getRequest(const RequestMessage& req)
     addSemanticHeaderFields(mResponseMessage);
     addContentType(mResponseMessage);
 }
+
+void RequestHandler::rangeRequest(const RequestMessage& req)
+{
+	// Extract range values
+	std::string rangeHeader = req.getRequestHeaderFields().getField("Range");
+	std::vector<std::pair<size_t, size_t> > ranges; // 벡터 타입 명시적으로 지정
+
+	// Remove "bytes=" from the header
+	rangeHeader = rangeHeader.substr(6);
+
+	// Split the header by commas to handle multiple ranges
+	std::istringstream iss(rangeHeader);
+	std::string rangePart;
+	while (std::getline(iss, rangePart, ',')) {
+		size_t dashPos = rangePart.find('-');
+		if (dashPos != std::string::npos) {
+			size_t rangeStart = std::stoul(rangePart.substr(0, dashPos));
+			size_t rangeEnd = std::stoul(rangePart.substr(dashPos + 1));
+			ranges.push_back(std::make_pair(rangeStart, rangeEnd));
+		}
+	}
+
+	// Create a RangeRequestReader instance
+	RangeRequestReader reader(mPath);
+
+	// Add all ranges to the reader
+	for (std::vector<std::pair<size_t, size_t> >::const_iterator it = ranges.begin(); it != ranges.end(); ++it) {
+		reader.addRange((*it).first, (*it).second); // 반복자 사용하여 요소 접근
+	}
+
+	// Process the request and get the response body
+	std::string responseBody = reader.processRequest();
+
+	// Set HTTP response status line and headers
+	mResponseMessage.setStatusLine(req.getRequestLine().getHTTPVersion(), PARTIAL_CONTENT, "Partial Content");
+	mResponseMessage.addResponseHeaderField("Content-Type", "multipart/byteranges; boundary=BOUNDARY_STRING");
+	mResponseMessage.addMessageBody(responseBody);
+
+	return;
+}
+
 void RequestHandler::headRequest(const RequestMessage& req)
 {
     getRequest(req);
