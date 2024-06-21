@@ -20,6 +20,7 @@ private:
 
     // Response (Success)
     void getRequest(const RequestMessage& req);
+	void rangeRequest(const RequestMessage& req);
     void headRequest(const RequestMessage& req);
     void postRequest(const RequestMessage& req);
     void deleteRequest(const RequestMessage& req);

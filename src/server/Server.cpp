@@ -13,6 +13,7 @@
 #include "RequestHandler.hpp"
 #include "RequestMessage.hpp"
 #include "ResponseMessage.hpp"
+#include "ChunkedRequestReader.hpp"
 
 // ServerConfig 클래스 생성자
 Server::Server(const Config& config)
@@ -218,7 +219,7 @@ void Server::handleClientReadEvent(struct kevent& event) {
     }
 
     buffer[bytesRead] = '\0';
-    requestData += buffer;
+	requestData += std::string(buffer, buffer + bytesRead);
 
     // 청크 인코딩 여부에 따라 청크 요청 처리
     if (isChunkedMap[socket]) {
@@ -299,11 +300,12 @@ void Server::handleChunkedRequest(int socket, std::string& chunkedData) {
 
         // 청크 데이터 처리 로직으로 변경해야 함
         // ...
-        std::cout << chunk << std::endl;
+        ChunkedRequestReader reader("upload/testfile.png", chunk);
+		bool isChunkedEnd = reader.processRequest();
 
         chunkedData.erase(0, chunkLength);
 
-        if (isLastChunk) {
+        if (isChunkedEnd) {
             isChunkedMap[socket] = false; // 마지막 청크 후 청크 상태 해제
             return ;
         }
