@@ -23,7 +23,7 @@ void RequestHandler::verifyRequest(const RequestMessage& req)
         throw e;
     }
 }
-void RequestHandler::verifyRequestLine(const RequestLine& reqLine)
+void RequestHandler::verifyRequestLine(const StartLine& reqLine)
 {
     const std::string method = reqLine.getMethod();
     const std::string reqTarget = reqLine.getRequestTarget();
@@ -257,11 +257,13 @@ void RequestHandler::postRequest(const RequestMessage& req)
 // https://www.rfc-editor.org/rfc/rfc9110.html#name-delete
 void RequestHandler::deleteRequest(const RequestMessage& req)
 {
-    (void)req;
-    (void)mResponseMessage;
-    if (mPath == "" || std::remove(mPath.c_str()) != 0)
+    if (mPath == "")
     {
         throw HTTPException(NOT_FOUND);
+    }
+    if (std::remove(mPath.c_str()) != 0)
+    {
+        throw HTTPException(METHOD_NOT_ALLOWED);
     }
     mResponseMessage.setStatusLine(req.getRequestLine().getHTTPVersion(), OK, "OK");
     mResponseMessage.addResponseHeaderField("Content-Type", "text/html");
