@@ -17,7 +17,7 @@ def send_file_in_chunks(file_path, chunk_size, conn):
             padded_chunk = chunk + b'\x00' * (chunk_size - actual_chunk_size)
             chunk_size_hex = format(len(padded_chunk), 'x').encode()
             conn.send(b"%s\r\n%s\r\n" % (chunk_size_hex, padded_chunk))
-            time.sleep(0.05)
+            time.sleep(0.005)
 
 def main():
     conn = http.client.HTTPConnection(UPLOAD_HOST, UPLOAD_PORT)
