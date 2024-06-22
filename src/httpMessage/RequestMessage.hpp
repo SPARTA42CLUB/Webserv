@@ -18,6 +18,9 @@ private:
     void parseMessageBody(std::istringstream& reqStream);
     RequestMessage(const RequestMessage& rhs);
     RequestMessage& operator=(const RequestMessage& rhs);
+    void verifyRequest(const RequestMessage& req);
+    void verifyRequestLine(const RequestLine& reqLine);
+    void verifyRequestHeaderFields(const HeaderFields& reqHeaderFields);
 
 public:
     RequestMessage();

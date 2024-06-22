@@ -9,13 +9,10 @@
 class RequestHandler
 {
 private:
-    Config mConfig;
+    ResponseMessage& mResponseMessage;
+    const ServerConfig& mServerConfig;
     std::string mLocation;
     std::string mPath;
-
-    // Request
-    void verifyRequestLine(const RequestLine& reqLine);
-    void verifyRequestHeaderFields(const HeaderFields& reqHeaderFields);
 
     // Response (Success)
     void getRequest(const RequestMessage& req);
@@ -40,7 +37,7 @@ private:
 
 
 public:
-    RequestHandler(Config config);
+    RequestHandler(ResponseMessage& res, const ServerConfig& serverConfig);
     void verifyRequest(const RequestMessage& req);
     void handleRequest(const RequestMessage& req);
     void handleException(const HTTPException& e);

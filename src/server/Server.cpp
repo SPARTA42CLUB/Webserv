@@ -293,8 +293,7 @@ void Server::handleChunkedRequest(int socket, std::string& chunkedData) {
     while (isCompleteChunk(chunkedData, chunkLength, isLastChunk)) {
         std::string chunk = chunkedData.substr(0, chunkLength);
 
-        // 청크 데이터 처리 로직으로 변경해야 함
-        // ...
+        // NOTE: 파일 경로 수정해야 함
         ChunkedRequestReader reader("upload/testfile.png", chunk);
 		bool isChunkedEnd = reader.processRequest();
 
@@ -365,26 +364,6 @@ void Server::sendResponse(int socket, ResponseMessage& res)
         return;
     }
 }
-
-ResponseMessage* Server::createResponse(RequestMessage& reqMsg, ServerConfig& config)
-{
-    ResponseMessage* res = new ResponseMessage();
-    ResponseMessage& resMsg = *res;
-    RequestHandler requestHandler(resMsg, config);
-
-    try
-    {
-        requestHandler.verifyRequest(reqMsg);
-        requestHandler.handleRequest(reqMsg);
-    }
-    catch (const HTTPException& e)
-    {
-        requestHandler.handleException(e);
-    }
-
-    return res;
-}
-
 
 void Server::logHTTPMessage(int socket, const ResponseMessage& res, const std::string& reqData)
 {

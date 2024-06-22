@@ -4,58 +4,17 @@
 #include <ctime>
 #include <fstream>
 
-RequestHandler::RequestHandler(Config config)
-: mConfig(config)
+RequestHandler::RequestHandler(ResponseMessage& mResponseMessage, const ServerConfig& serverConfig)
+: mResponseMessage(mResponseMessage)
+, mServerConfig(serverConfig)
 , mLocation("")
 , mPath("")
 {
-}
-void RequestHandler::verifyRequest(const RequestMessage& req)
-{
-    try
-    {
-        verifyRequestLine(req.getRequestLine());
-        verifyRequestHeaderFields(req.getRequestHeaderFields());
-    }
-    catch (const HTTPException& e)
-    {
-        throw e;
-    }
-}
-void RequestHandler::verifyRequestLine(const RequestLine& reqLine)
-{
-    const std::string method = reqLine.getMethod();
-    const std::string reqTarget = reqLine.getRequestTarget();
-    const std::string ver = reqLine.getHTTPVersion();
-    if (method != "GET" && method != "HEAD" && method != "POST" && method != "DELETE")
-    {
-        throw HTTPException(METHOD_NOT_ALLOWED);
-    }
-    if (ver != "HTTP/1.1")
-    {
-        throw HTTPException(HTTP_VERSION_NOT_SUPPORTED);
-    }
-    if (reqTarget[0] != '/')
-    {
-        throw HTTPException(NOT_FOUND);
-    }
-    if (reqTarget.size() >= 8200)  // nginx max uri length
-    {
-        throw HTTPException(URI_TOO_LONG);
-    }
-}
-void RequestHandler::verifyRequestHeaderFields(const HeaderFields& reqHeaderFields)
-{
-    if (reqHeaderFields.hasField("Host") == false)
-    {
-        throw HTTPException(BAD_REQUEST);
-    }
 }
 void RequestHandler::handleRequest(const RequestMessage& req)
 {
     std::string reqTarget = req.getRequestLine().getRequestTarget();
     std::string method = req.getRequestLine().getMethod();
-    ServerConfig =
     std::map<std::string, LocationConfig>::const_iterator targetFindIter = mServerConfig.locations.find(reqTarget);
 
     /*
@@ -257,11 +216,13 @@ void RequestHandler::postRequest(const RequestMessage& req)
 // https://www.rfc-editor.org/rfc/rfc9110.html#name-delete
 void RequestHandler::deleteRequest(const RequestMessage& req)
 {
-    (void)req;
-    (void)mResponseMessage;
-    if (mPath == "" || std::remove(mPath.c_str()) != 0)
+    if (mPath == "")
     {
         throw HTTPException(NOT_FOUND);
+    }
+    if (std::remove(mPath.c_str()) != 0)
+    {
+        throw HTTPException(METHOD_NOT_ALLOWED);
     }
     mResponseMessage.setStatusLine(req.getRequestLine().getHTTPVersion(), OK, "OK");
     mResponseMessage.addResponseHeaderField("Content-Type", "text/html");
