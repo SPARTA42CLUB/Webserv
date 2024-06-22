@@ -13,6 +13,7 @@
 #include "EventManager.hpp"
 #include "RequestMessage.hpp"
 #include "ResponseMessage.hpp"
+#include "Connection.hpp"
 
 class Server {
 public:
@@ -25,14 +26,10 @@ private:
 	const Config& config;
 	EventManager eventManager;
 	std::vector<int> serverSockets;
-	std::vector<int> clientSockets;
-	std::map<int, ServerConfig> socketToConfigMap;
-	std::map<int, time_t> last_activity_map;
-	std::map<int, std::string> recvDataMap;
-	std::map<int, std::vector<ResponseMessage*> > responsesMap;
-	std::map<int, bool> isChunkedMap;
+	std::map<int, Connection> connections;
 
 	void setupServerSockets();
+	int createServerSocket(ServerConfig serverConfig);
 	void setNonBlocking(int socket);
 
 	void acceptClient(int serverSocket);
@@ -45,11 +42,9 @@ private:
 
 	void handleClientWriteEvent(struct kevent& event);
 
-	ResponseMessage* createResponse(RequestMessage& reqMsg, ServerConfig& config);
-
     void logHTTPMessage(int socket, const ResponseMessage& res, const std::string& reqData);
 	void sendResponse(int socket, ResponseMessage& res);
-	void closeConnection(int socket);
+	void closeConnection(Connection& connection);
 
 	void update_last_activity(int socket);
 	void checkTimeout();

@@ -31,8 +31,8 @@ Server::~Server()
         close(serverSockets[i]);
     }
 
-    for (size_t i = 0; i < clientSockets.size(); ++i)
-        close(clientSockets[i]);
+    for (size_t i = 0; i < connections.size(); ++i)
+        close(connections[i]);
 }
 
 // Server 소켓 생성 및 설정
@@ -48,32 +48,7 @@ void Server::setupServerSockets()
 
     for (size_t i = 0; i < serverConfigs.size(); ++i)
     {
-        // 소켓 생성
-        int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
-        if (serverSocket == -1)
-            throw std::runtime_error("Failed to create socket");
-
-        /* 개발 편의용 세팅. 서버 소켓이 이미 사용중이더라도 실행되게끔 설정 */
-        int optval = 1;
-        setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
-        /* ----------------------------------------------------------------- */
-
-        // 소켓 옵션 설정
-        setNonBlocking(serverSocket);
-
-        // 서버 주소 설정
-        struct sockaddr_in serverAddr;
-        memset(&serverAddr, 0, sizeof(serverAddr));                               // 0으로 초기화
-        serverAddr.sin_family = AF_INET;                                          // IPv4
-        serverAddr.sin_port = htons(serverConfigs[i].port);                       // 포트 설정
-        inet_pton(AF_INET, serverConfigs[i].host.c_str(), &serverAddr.sin_addr);  // IP 주소 설정
-
-        // 소켓 바인딩
-        if (bind(serverSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) == -1)
-        {
-            close(serverSocket);
-            throw Exception(FAILED_TO_BIND_SOCKET);
-        }
+        int serverSocket = createServerSocket(serverConfigs[i]);
 
         // 소켓 리스닝
         if (listen(serverSocket, 10) == -1)
@@ -84,10 +59,40 @@ void Server::setupServerSockets()
 
         // 서버 소켓 벡터에 추가
         serverSockets.push_back(serverSocket);
-        socketToConfigMap[serverSocket] = serverConfigs[i];
 
         eventManager.addReadEvent(serverSocket);
     }
+}
+
+int Server::createServerSocket(ServerConfig serverConfig) {
+    // 소켓 생성
+    int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
+    if (serverSocket == -1)
+        throw std::runtime_error("Failed to create socket");
+
+    /* 개발 편의용 세팅. 서버 소켓이 이미 사용중이더라도 실행되게끔 설정 */
+    int optval = 1;
+    setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
+    /* ----------------------------------------------------------------- */
+
+    // 소켓 옵션 설정
+    setNonBlocking(serverSocket);
+
+    // 서버 주소 설정
+    struct sockaddr_in serverAddr;
+    memset(&serverAddr, 0, sizeof(serverAddr));                               // 0으로 초기화
+    serverAddr.sin_family = AF_INET;                                          // IPv4
+    serverAddr.sin_port = htons(serverConfig.port);                       // 포트 설정
+    inet_pton(AF_INET, serverConfig.host.c_str(), &serverAddr.sin_addr);  // IP 주소 설정
+
+    // 소켓 바인딩
+    if (bind(serverSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) == -1)
+    {
+        close(serverSocket);
+        throw Exception(FAILED_TO_BIND_SOCKET);
+    }
+
+    return serverSocket;
 }
 
 // 소켓 논블로킹 설정
@@ -138,55 +143,40 @@ void Server::checkTimeout()
 {
     time_t now = time(NULL);
 
-    for (size_t i = 0; i < clientSockets.size(); ++i)
+    for (size_t i = 0; i < connections.size(); ++i)
     {
-        int clientSocket = clientSockets[i];
-        int timeout = socketToConfigMap[clientSocket].keepalive_timeout;
+        int connection = connections[i];
+        int timeout = socketToConfigMap[connection].keepalive_timeout;
 
-        if (difftime(now, last_activity_map[clientSocket]) > timeout)
+        if (difftime(now, last_activity_map[connection]) > timeout)
         {
-            std::cout << "Timeout. Connection closed: " << clientSocket << std::endl;
-            closeConnection(clientSocket);
+            std::cout << "Timeout. Connection closed: " << connection << std::endl;
+            closeConnection(connection);
         }
     }
 }
 
-void Server::update_last_activity(int socket)
-{
-    last_activity_map[socket] = time(NULL);
-}
-
+// 서버 소켓으로 읽기 이벤트가 발생했다는 것의 의미 : 새로운 클라이언트가 연결 요청을 보냈다는 것
+// 서버 소켓인 경우 'accept'를 이용하여 클라이언트의 연결 수락
 void Server::acceptClient(int serverSocket)
 {
-    // 서버 소켓으로 읽기 이벤트가 발생했다는 것의 의미 : 새로운 클라이언트가 연결 요청을 보냈다는 것
-    // 서버 소켓인 경우 'accept'를 이용하여 클라이언트의 연결 수락
-    struct sockaddr_in clientAddr;
-    socklen_t addrLen = sizeof(clientAddr);
-
-    int clientSocket = accept(serverSocket, (struct sockaddr*)&clientAddr, &addrLen);
-    if (clientSocket == -1)
-    {
-        std::cerr << "Failed to accept connection: " << strerror(errno) << std::endl;
-        return;
-    }
-
-    setNonBlocking(clientSocket);
-    update_last_activity(clientSocket);
+    //
+    update_last_activity(connection);
 
     try
     {
-        eventManager.addReadEvent(clientSocket);
+        eventManager.addReadEvent(connection);
     }
     catch (const std::runtime_error& e)
     {
         std::cerr << e.what() << std::endl;
-        close(clientSocket);
+        close(connection);
         return;
     }
 
-    clientSockets.push_back(clientSocket);
-    socketToConfigMap[clientSocket] = socketToConfigMap[serverSocket];
-    isChunkedMap[clientSocket] = false;
+    connections.push_back(connection);
+    socketToConfigMap[connection] = socketToConfigMap[serverSocket];
+    isChunkedMap[connection] = false;
 }
 
 // 클라이언트 요청 처리
@@ -257,7 +247,6 @@ void Server::handleNormalRequest(int socket, std::string& requestData, size_t re
     try
     {
         RequestMessage reqMsg(completeRequest);
-        requestHandler.verifyRequest(reqMsg);
         requestHandler.handleRequest(reqMsg);
 
         if (reqMsg.getRequestHeaderFields().getField("Transfer-Encoding") == "chunked") {
@@ -275,7 +264,7 @@ void Server::handleNormalRequest(int socket, std::string& requestData, size_t re
     }
 
     responsesMap[socket].push_back(res);
-    logHTTPMessage(socket, *res, requestData);
+    logHTTPMessage(socket, *res, completeRequest);
 
     requestData.erase(0, requestLength);
 
@@ -381,28 +370,12 @@ void Server::logHTTPMessage(int socket, const ResponseMessage& res, const std::s
 }
 
 // 클라이언트 소켓 종료
-void Server::closeConnection(int socket)
+void Server::closeConnection(Connection& connection)
 {
-    eventManager.deleteReadEvent(socket);
+    int fd = connection.getFd();
+    eventManager.deleteReadEvent(fd);
 
-    close(socket);
+    connection.close();
 
-    std::vector<int>::iterator it = std::find(clientSockets.begin(), clientSockets.end(), socket);
-    if (it != clientSockets.end())
-        clientSockets.erase(it);
-
-    socketToConfigMap.erase(socket);
-    last_activity_map.erase(socket);
-    isChunkedMap.erase(socket);
-
-    if (!recvDataMap.empty())
-        recvDataMap.erase(socket);
-
-    if (!responsesMap.empty()) {
-        std::vector<ResponseMessage*>& responses = responsesMap[socket];
-        for (size_t i = 0; i < responses.size(); ++i) {
-            delete responses[i]; // 메모리 해제
-        }
-        responsesMap.erase(socket);
-    }
+    connections.erase(fd);
 }
