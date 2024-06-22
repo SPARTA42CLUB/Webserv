@@ -38,7 +38,6 @@ private:
 
 public:
     RequestHandler(ResponseMessage& res, const ServerConfig& serverConfig);
-    void verifyRequest(const RequestMessage& req);
     void handleRequest(const RequestMessage& req);
     void handleException(const HTTPException& e);
 };
