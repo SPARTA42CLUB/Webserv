@@ -4,9 +4,8 @@
 #include <ctime>
 #include <fstream>
 
-RequestHandler::RequestHandler(ResponseMessage& mResponseMessage, const ServerConfig& serverConfig)
-: mResponseMessage(mResponseMessage)
-, mServerConfig(serverConfig)
+RequestHandler::RequestHandler(Config config)
+: mConfig(config)
 , mLocation("")
 , mPath("")
 {
@@ -56,9 +55,10 @@ void RequestHandler::handleRequest(const RequestMessage& req)
 {
     std::string reqTarget = req.getRequestLine().getRequestTarget();
     std::string method = req.getRequestLine().getMethod();
+    ServerConfig =
     std::map<std::string, LocationConfig>::const_iterator targetFindIter = mServerConfig.locations.find(reqTarget);
 
-    /* 
+    /*
     // NOTE: 될 수 있는 조합
     GET
     1. URI == Location이며 URI가 디렉토리(/로 끝남)
@@ -70,7 +70,7 @@ void RequestHandler::handleRequest(const RequestMessage& req)
         a. 파일이 있을 경우 파일을 읽음
         b. 파일이 없을 경우 404
         x. redirect가 있을 경우
-        
+
     3. URI != Location
         a. 모든 location 블록에서 root + index 파일을 찾음
     HEAD: GET과 동일하나 body가 없음

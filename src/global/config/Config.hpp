@@ -65,10 +65,13 @@ private:
     void parseRedirect(LocationConfig& locationConfig, std::string& value);
     void parseCgi(LocationConfig& locationConfig, std::string& value);
 
+    const ServerConfig& getDefaultServerConfig() const;
 
 public:
     Config(const std::string &configFilePath);
     const std::vector<ServerConfig>& getServerConfigs() const;
+    const ServerConfig& getServerConfigByHost(std::string host) const;
+
     // TEST: 파싱 결과 출력
     void print(void);
 };
