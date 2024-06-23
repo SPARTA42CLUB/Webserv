@@ -2,6 +2,7 @@
 #include "Config.hpp"
 #include "Exception.hpp"
 #include "Server.hpp"
+#include "Logger.hpp"
 
 int main(int argc, char* argv[])
 {
@@ -26,7 +27,7 @@ int main(int argc, char* argv[])
     catch (const std::exception& e)
     {
         // 서버 실행 중 에러 발생 시 종료
-        std::cerr << "Server run failed: " << e.what() << std::endl;
+        Logger::getInstance().logError(e.what());
     }
 
     return 0;

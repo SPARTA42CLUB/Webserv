@@ -1,26 +1,39 @@
 #pragma once
 
-#include <vector>
+#include <deque>
 #include <string>
 
-#include "Config.hpp"
+#include "Logger.hpp"
 #include "ResponseMessage.hpp"
 #include "RequestMessage.hpp"
 
+#define DEFAULT_KEEPALIVE_TIME 60
+
 class Connection {
 private:
-	int fd;
-	ServerConfig serverConfig;
-	time_t last_activity;
-	std::string recvData;
-	std::vector<ResponseMessage*> responses;
+	int socket;
+	int chunkedFd;
+	int CGIPipeFd;
 	bool isChunked;
-
-	RequestMessage lastRequest;
+	bool isCGI;
+	std::string recvedData;
+	std::deque<ResponseMessage*> responses;
+	time_t last_activity;
+	int keepalive_time;
+	Logger& logger;
 
 public:
-	Connection(int serverSocket);
+	Connection(int socket);
 	~Connection();
-	int getFd();
+
+	ssize_t recvToSocket();
+	ssize_t sendToSocket();
+
+	void handleChunkedRequest();
+	std::string getCompleteChunk();
+	void handleNormalRequest();
+	std::string getCompleteRequest();
+
 	void update_last_activity();
+	bool isKeepAlive();
 };

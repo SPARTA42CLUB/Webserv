@@ -6,8 +6,10 @@
 enum eReason
 {
     FAILED_TO_CREATE_KQUEUE,
-    FAILED_TO_BIND_SOCKET,
-    FAILED_TO_LISTEN_SOCKET,
+    FAILED_TO_ADD_KEVENT,
+    FAILED_TO_GET_KEVENT,
+    KEVENT_ERROR,
+    FAILED_TO_SEND,
 };
 
 class Exception : public std::exception

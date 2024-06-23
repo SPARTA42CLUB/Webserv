@@ -77,7 +77,7 @@ void RequestMessage::verifyRequest(const RequestMessage& req)
         throw e;
     }
 }
-void RequestMessage::verifyRequestLine(const RequestLine& reqLine)
+void RequestMessage::verifyRequestLine(const StartLine& reqLine)
 {
     const std::string method = reqLine.getMethod();
     const std::string reqTarget = reqLine.getRequestTarget();
@@ -105,4 +105,10 @@ void RequestMessage::verifyRequestHeaderFields(const HeaderFields& reqHeaderFiel
     {
         throw HTTPException(BAD_REQUEST);
     }
+}
+std::string RequestMessage::toString(void) const
+{
+    std::ostringstream oss;
+    oss << mRequestLine.toString() << mRequestHeaderFields.toString() << "\r\n" << mMessageBody.toString();
+    return oss.str();
 }

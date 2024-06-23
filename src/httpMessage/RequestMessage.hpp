@@ -19,7 +19,7 @@ private:
     RequestMessage(const RequestMessage& rhs);
     RequestMessage& operator=(const RequestMessage& rhs);
     void verifyRequest(const RequestMessage& req);
-    void verifyRequestLine(const RequestLine& reqLine);
+    void verifyRequestLine(const StartLine& reqLine);
     void verifyRequestHeaderFields(const HeaderFields& reqHeaderFields);
 
 public:
@@ -29,6 +29,7 @@ public:
     const StartLine& getRequestLine() const;
     const HeaderFields& getRequestHeaderFields() const;
     const MessageBody& getMessageBody() const;
+    std::string toString(void) const;
 };
 
 #endif

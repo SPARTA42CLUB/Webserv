@@ -1,6 +1,5 @@
 #include "Server.hpp"
 #include <arpa/inet.h>
-#include <cerrno>
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
@@ -10,17 +9,18 @@
 #include <string>
 #include "Exception.hpp"
 #include "HTTPException.hpp"
-#include "RequestHandler.hpp"
-#include "RequestMessage.hpp"
-#include "ResponseMessage.hpp"
-#include "ChunkedRequestReader.hpp"
+#include "SocketException.hpp"
+#include "Logger.hpp"
 
 // ServerConfig 클래스 생성자
 Server::Server(const Config& config)
 : config(config)
 , eventManager()
+, serverSockets()
+, connectionsMap()
+, pipeToSocketMap()
+, logger(Logger::getInstance())
 {
-    // Server 소켓 생성 및 설정
     setupServerSockets();
 }
 
@@ -31,8 +31,10 @@ Server::~Server()
         close(serverSockets[i]);
     }
 
-    for (size_t i = 0; i < connections.size(); ++i)
-        close(connections[i]);
+    for (std::map<int, Connection*>::const_iterator it = connectionsMap.begin(); it != connectionsMap.end(); ++it)
+    {
+        delete it->second;
+    }
 }
 
 // Server 소켓 생성 및 설정
@@ -50,32 +52,30 @@ void Server::setupServerSockets()
     {
         int serverSocket = createServerSocket(serverConfigs[i]);
 
-        // 소켓 리스닝
         if (listen(serverSocket, 10) == -1)
         {
             close(serverSocket);
-            throw Exception(FAILED_TO_LISTEN_SOCKET);
+            throw SocketException(FAILED_TO_LISTEN_SOCKET);
         }
 
-        // 서버 소켓 벡터에 추가
         serverSockets.push_back(serverSocket);
 
         eventManager.addReadEvent(serverSocket);
     }
 }
 
+// 소켓 생성 및 config에 따른 binding
 int Server::createServerSocket(ServerConfig serverConfig) {
-    // 소켓 생성
+
     int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (serverSocket == -1)
-        throw std::runtime_error("Failed to create socket");
+        throw SocketException(FAILED_TO_CREATE_SOCKET);
 
     /* 개발 편의용 세팅. 서버 소켓이 이미 사용중이더라도 실행되게끔 설정 */
     int optval = 1;
     setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
     /* ----------------------------------------------------------------- */
 
-    // 소켓 옵션 설정
     setNonBlocking(serverSocket);
 
     // 서버 주소 설정
@@ -85,11 +85,10 @@ int Server::createServerSocket(ServerConfig serverConfig) {
     serverAddr.sin_port = htons(serverConfig.port);                       // 포트 설정
     inet_pton(AF_INET, serverConfig.host.c_str(), &serverAddr.sin_addr);  // IP 주소 설정
 
-    // 소켓 바인딩
     if (bind(serverSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) == -1)
     {
         close(serverSocket);
-        throw Exception(FAILED_TO_BIND_SOCKET);
+        throw SocketException(FAILED_TO_BIND_SOCKET);
     }
 
     return serverSocket;
@@ -98,9 +97,11 @@ int Server::createServerSocket(ServerConfig serverConfig) {
 // 소켓 논블로킹 설정
 void Server::setNonBlocking(int socket)
 {
-    // 논블로킹 설정
     if (fcntl(socket, F_SETFL, O_NONBLOCK) == -1)
-        throw std::runtime_error("Failed to set non-blocking");
+    {
+        close(socket);
+        throw SocketException(FAILED_TO_SET_NON_BLOCKING);
+    }
 }
 
 // 서버 실행
@@ -115,11 +116,7 @@ void Server::run()
             struct kevent& event = *it;
 
             if (event.flags & EV_ERROR)
-            {
-                std::cerr << "Event error: " << strerror(event.data) << std::endl;
-                close(event.ident);
-                continue;
-            }
+                throw Exception(KEVENT_ERROR);
 
             if (std::find(serverSockets.begin(), serverSockets.end(), event.ident) != serverSockets.end())
             {
@@ -135,51 +132,44 @@ void Server::run()
             }
         }
 
-        checkTimeout();
+        checkKeepAlive();
     }
 }
 
-void Server::checkTimeout()
+// Connection들의 keepAlive 관리
+void Server::checkKeepAlive()
 {
-    time_t now = time(NULL);
-
-    for (size_t i = 0; i < connections.size(); ++i)
+    for (std::map<int, Connection*>::const_iterator it = connectionsMap.begin(); it != connectionsMap.end(); ++it)
     {
-        int connection = connections[i];
-        int timeout = socketToConfigMap[connection].keepalive_timeout;
-
-        if (difftime(now, last_activity_map[connection]) > timeout)
-        {
-            std::cout << "Timeout. Connection closed: " << connection << std::endl;
-            closeConnection(connection);
-        }
+        if ((it->second)->isKeepAlive() == false)
+            closeConnection(it->first);
     }
 }
 
-// 서버 소켓으로 읽기 이벤트가 발생했다는 것의 의미 : 새로운 클라이언트가 연결 요청을 보냈다는 것
-// 서버 소켓인 경우 'accept'를 이용하여 클라이언트의 연결 수락
+// 서버 소켓에서 읽기 이벤트가 발생했다는 것의 의미 : 새로운 클라이언트가 연결 요청을 보냈다는 것
 void Server::acceptClient(int serverSocket)
 {
-    //
-    update_last_activity(connection);
+    struct sockaddr_in clientAddr;
+    socklen_t addrLen = sizeof(clientAddr);
 
-    try
+    int connectionSocket = accept(serverSocket, (struct sockaddr*)&clientAddr, &addrLen);
+    if (connectionSocket == -1)
     {
-        eventManager.addReadEvent(connection);
-    }
-    catch (const std::runtime_error& e)
-    {
-        std::cerr << e.what() << std::endl;
-        close(connection);
-        return;
+        logger.logWarning("Failed to accept");
+        return ;
     }
 
-    connections.push_back(connection);
-    socketToConfigMap[connection] = socketToConfigMap[serverSocket];
-    isChunkedMap[connection] = false;
+    eventManager.addReadEvent(connectionSocket);
+
+    setNonBlocking(connectionSocket);
+
+    Connection* connection = new Connection(connectionSocket);
+    connectionsMap[connectionSocket] = connection;
+
+    Logger::getInstance().logAccept(connectionSocket, clientAddr);
 }
 
-// 클라이언트 요청 처리
+// 소켓에 read event 발생시 소켓에서 데이터 읽음
 void Server::handleClientReadEvent(struct kevent& event) {
     if (event.flags & EV_EOF)
     {
@@ -187,198 +177,43 @@ void Server::handleClientReadEvent(struct kevent& event) {
         return;
     }
 
-    int socket = event.ident;
-
-    update_last_activity(socket);
-
-    // 클라이언트 요청 수신
-    char buffer[4096];
-    ssize_t bytesRead;
-    std::string& requestData = recvDataMap[socket];
-
-    if ((bytesRead = recv(socket, buffer, sizeof(buffer) - 1, 0)) < 0) {
-        std::cerr << "recv error" << std::endl;
-        closeConnection(socket);
-        return;
-    }
-
-    if (bytesRead == 0) {
-        return ;
-    }
-
-    buffer[bytesRead] = '\0';
-	requestData += std::string(buffer, buffer + bytesRead);
-
-    // 청크 인코딩 여부에 따라 청크 요청 처리
-    if (isChunkedMap[socket]) {
-        handleChunkedRequest(socket, requestData);
-    }
-
-    size_t requestLength = 0;
-    // 일반 요청 처리
-    while (isCompleteRequest(requestData, requestLength)) {
-        handleNormalRequest(socket, requestData, requestLength);
-    }
-}
-
-bool Server::isCompleteRequest(const std::string& data, size_t& requestLength) {
-    size_t headerEnd = data.find("\r\n\r\n");
-    if (headerEnd == std::string::npos)
-        return false;
-
-    requestLength = headerEnd + 4;
-
-    std::istringstream headerStream(data.substr(0, headerEnd + 4));
-    std::string headerLine;
-    while (std::getline(headerStream, headerLine) && headerLine != "\r") {
-        if (headerLine.find("Content-Length:") != std::string::npos) {
-            requestLength += std::strtoul(headerLine.substr(16).c_str(), NULL, 10);
-            return data.size() >= requestLength;
-        }
-    }
-
-    return data.size() >= requestLength;
-}
-
-void Server::handleNormalRequest(int socket, std::string& requestData, size_t requestLength) {
-    std::string completeRequest = requestData.substr(0, requestLength);
-
-    ResponseMessage* res = new ResponseMessage();
-    ResponseMessage& resMsg = *res;
-    RequestHandler requestHandler(resMsg, socketToConfigMap[socket]);
-
-    try
+    if (connectionsMap[event.ident]->recvToSocket() < 0)
     {
-        RequestMessage reqMsg(completeRequest);
-        requestHandler.handleRequest(reqMsg);
-
-        if (reqMsg.getRequestHeaderFields().getField("Transfer-Encoding") == "chunked") {
-            delete res;
-            requestData.erase(0, requestLength);
-            isChunkedMap[socket] = true;
-
-            handleChunkedRequest(socket, requestData);
-            return ;
-        }
-    }
-    catch (const HTTPException& e)
-    {
-        requestHandler.handleException(e);
-    }
-
-    responsesMap[socket].push_back(res);
-    logHTTPMessage(socket, *res, completeRequest);
-
-    requestData.erase(0, requestLength);
-
-    // 리소스 효율을 위해 요청이 하나 완료되면 그 때 WRITE 이벤트 등록
-    if (!responsesMap[socket].empty()) {
-        eventManager.addWriteEvent(socket);
+        logger.logWarning("Recv error");
+        closeConnection(event.ident);
     }
 
 }
 
-void Server::handleChunkedRequest(int socket, std::string& chunkedData) {
-    size_t chunkLength = 0;
-    bool isLastChunk = false;
-
-    while (isCompleteChunk(chunkedData, chunkLength, isLastChunk)) {
-        std::string chunk = chunkedData.substr(0, chunkLength);
-
-        // NOTE: 파일 경로 수정해야 함
-        ChunkedRequestReader reader("upload/testfile.png", chunk);
-		bool isChunkedEnd = reader.processRequest();
-
-        chunkedData.erase(0, chunkLength);
-
-        if (isChunkedEnd) {
-            isChunkedMap[socket] = false; // 마지막 청크 후 청크 상태 해제
-            return ;
-        }
-    }
-}
-
-bool Server::isCompleteChunk(const std::string& data, size_t& chunkLength, bool& isLastChunk) {
-    size_t pos = 0;
-    size_t chunkSizeEnd = data.find("\r\n", pos);
-    if (chunkSizeEnd == std::string::npos)
-        return false; // 청크 크기가 아직 도착하지 않음
-
-    size_t chunkSize = std::strtoul(data.substr(pos, chunkSizeEnd - pos).c_str(), NULL, 16);
-    pos = chunkSizeEnd + 2; // 청크 크기 끝을 지나서 데이터 시작
-
-    if (chunkSize == 0) {
-        chunkLength = pos + 2; // 마지막 \r\n 포함
-        if (data.size() >= chunkLength)
-            isLastChunk = true; // 마지막 청크 처리
-        return data.size() >= chunkLength;
-    }
-
-    if (pos + chunkSize + 2 > data.size())
-        return false; // 청크 데이터가 아직 도착하지 않음
-    chunkLength = pos + chunkSize + 2;
-    return true;
-}
-
+// 보낸 데이터가 0일 때 write event 삭제
 void Server::handleClientWriteEvent(struct kevent& event)
 {
+    ssize_t bytesSend;
     int socket = event.ident;
-    std::vector<ResponseMessage*>& responses = responsesMap[socket];
 
-    if (responses.empty()) {
-        eventManager.deleteWriteEvent(socket);
-        return ;
-    }
-
-    bool bKeepAlive = responses.back()->isKeepAlive();
-
-    for (size_t i = 0; i < responses.size(); ++i) {
-        sendResponse(socket, *responses[i]);
-        delete responses[i];
-    }
-    responses.clear();
-
-    eventManager.deleteWriteEvent(socket);
-
-    if (!bKeepAlive) {
-        closeConnection(socket);
-    }
-}
-
-void Server::sendResponse(int socket, ResponseMessage& res)
-{
-    std::string responseStr = res.toString();
-
-    if ((send(socket, responseStr.c_str(), responseStr.length(), 0)) < 0)
+    if ((bytesSend = connectionsMap[socket]->sendToSocket()) < 0)
     {
-        std::cerr << "send error: " << std::endl;
+        logger.logWarning("Send error");
         closeConnection(socket);
-        return;
     }
+
+    if (bytesSend == 0)
+        eventManager.deleteWriteEvent(socket);
 }
 
-void Server::logHTTPMessage(int socket, const ResponseMessage& res, const std::string& reqData)
+// 커넥션 종료에 필요한 작업들 처리
+void Server::closeConnection(int socket)
 {
-    std::ofstream logFile("access.log", std::ios::app);
-
-    time_t now = time(0);
-    struct tm* timeinfo = localtime(&now);
-
-    logFile << asctime(timeinfo) << "Client IP: " << socketToConfigMap[socket].host << '\n'
-            << "Request:\n"
-            << reqData << "Response:\n"
-            << res.toString() << "\n----------------------------------------------------------------------------------------\n"
-            << std::endl;
-    logFile.close();
+    eventManager.deleteReadEvent(socket);
+    delete connectionsMap[socket];
+    connectionsMap.erase(socket);
+    pipeToSocketMap.erase(socket);
 }
 
-// 클라이언트 소켓 종료
-void Server::closeConnection(Connection& connection)
+bool Server::isServerSocket(int socket)
 {
-    int fd = connection.getFd();
-    eventManager.deleteReadEvent(fd);
+    if (std::find(serverSockets.begin(), serverSockets.end(), socket) != serverSockets.end())
+        return true;
 
-    connection.close();
-
-    connections.erase(fd);
+    return false;
 }
