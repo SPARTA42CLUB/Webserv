@@ -3,10 +3,13 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include "parse.hpp"
 #include "ConfigException.hpp"
 
 Config::Config(const std::string& configFilePath)
 : configFilePath(configFilePath)
+, keepalive_timeout(DEFAULT_TIMEOUT)
+, serverConfigs()
 {
     try
     {
@@ -34,20 +37,43 @@ void Config::parse()
         std::string line;
         std::getline(file, line);
         // server { 문자열이 있으면 서버 설정 파싱
-        if (line.find("server {") != std::string::npos)
+        try
         {
-            try
+            if (line.find("keepalive_timeout") != std::string::npos)
+            {
+                parseKeepAliveTimeout(line);
+            }
+            if (line.find("server {") != std::string::npos)
             {
                 parseServer(file);
             }
-            catch(const ConfigException& e)
-            {
-                throw e;
-            }
+        }
+        catch(const std::exception& e)
+        {
+            throw e;
         }
     }
-
     file.close();
+}
+void Config::parseKeepAliveTimeout(std::string& line)
+{
+    std::istringstream iss(line);
+    std::string key, value;
+    iss >> key;
+    getline(iss, value);
+    if (key != "keepalive_timeout")
+    {
+        throw ConfigException(INVALID_CONFIG_FILE);
+    }
+    if (!isValidValue(value))
+    {
+        throw ConfigException(INVALID_CONFIG_FILE);
+    }
+    keepalive_timeout = atoi(value.c_str());
+    if (keepalive_timeout == 0)
+    {
+        throw ConfigException(INVALID_CONFIG_FILE);
+    }
 }
 
 // 서버 설정 파싱
@@ -148,10 +174,7 @@ const std::vector<ServerConfig>& Config::getServerConfigs() const
 }
 bool Config::isValidValue(std::string& value)
 {
-    if (value.front() == ' ')
-    {
-        value.erase(value.begin());
-    }
+    trim(value);
     if (value.back() == ';')
     {
         value.pop_back();
@@ -172,10 +195,7 @@ bool Config::isValidValue(std::string& value)
 }
 bool Config::isValidLocationPath(std::string& locationPath)
 {
-    if (locationPath.front() == ' ')
-    {
-        locationPath.erase(locationPath.begin());
-    }
+    trim(locationPath);
     if (locationPath.empty())
     {
         return false;
@@ -207,26 +227,6 @@ void Config::parsePort(ServerConfig& serverConfig, std::string& value)
     }
     serverConfig.port = atoi(value.c_str());
     if (serverConfig.port > 65535)
-    {
-        throw ConfigException(INVALID_CONFIG_FILE);
-    }
-}
-void Config::parseServerName(ServerConfig& serverConfig, std::string& value)
-{
-    if (!isValidValue(value))
-    {
-        throw ConfigException(INVALID_CONFIG_FILE);
-    }
-    serverConfig.server_name = value;
-}
-void Config::parseKeepAliveTimeout(ServerConfig& serverConfig, std::string& value)
-{
-    if (!isValidValue(value))
-    {
-        throw ConfigException(INVALID_CONFIG_FILE);
-    }
-    serverConfig.keepalive_timeout = atoi(value.c_str());
-    if (serverConfig.keepalive_timeout == 0)
     {
         throw ConfigException(INVALID_CONFIG_FILE);
     }
@@ -315,15 +315,6 @@ void Config::parseAllowMethods(LocationConfig& locationConfig, std::string& valu
         locationConfig.allow_methods.push_back(method);
     }
 }
-
-void Config::parseUploadDir(LocationConfig& locationConfig, std::string& value)
-{
-    if (!isValidValue(value))
-    {
-        throw ConfigException(INVALID_CONFIG_FILE);
-    }
-    locationConfig.upload_dir = value;
-}
 void Config::parseDirectoryListing(LocationConfig& locationConfig, std::string& value)
 {
     if (!isValidValue(value))
@@ -365,14 +356,13 @@ using namespace std;
 void Config::print()
 {
     cout << "Config file path: " << configFilePath << endl;
+    cout << "Keepalive timeout: " << keepalive_timeout << endl;
 
     for (size_t i = 0; i < serverConfigs.size(); i++)
     {
         cout << "Server " << i + 1 << ":" << endl;
         cout << "host: " << serverConfigs[i].host << endl;
         cout << "port: " << serverConfigs[i].port << endl;
-        cout << "server_name: " << serverConfigs[i].server_name << endl;
-        cout << "keepalive_timeout: " << serverConfigs[i].keepalive_timeout << endl;
         cout << "client_max_body_size: " << serverConfigs[i].client_max_body_size << endl;
         cout << "error_pages: " << endl;
         for (std::map<size_t, std::string>::iterator it = serverConfigs[i].error_pages.begin(); it != serverConfigs[i].error_pages.end(); ++it)
@@ -383,6 +373,7 @@ void Config::print()
         {
             cout << "locations: " << it->first << ":" << endl;
             cout << "    " << "root: " << it->second.root << endl;
+            cout << "    " << "alias: " << it->second.alias << endl;
             cout << "    " << "index: " << it->second.index << endl;
             cout << "    " << "allow_methods: ";
             for (size_t j = 0; j < it->second.allow_methods.size(); j++)
@@ -390,7 +381,6 @@ void Config::print()
                 cout << "    " << it->second.allow_methods[j] << " ";
             }
             cout << endl;
-            cout << "    " << "upload_dir: " << it->second.upload_dir << endl;
             cout << "    " << "directory_listing: " << it->second.directory_listing << endl;
             cout << "    " << "redirect: " << it->second.redirect << endl;
             cout << "    " << "cgi: " << it->second.cgi << endl;

@@ -4,18 +4,27 @@
 #include <string>
 #include <vector>
 
+const size_t DEFAULT_TIMEOUT = 60;
+const size_t DEFAULT_MAX_BODY_SIZE = 1024; // 1KB
+
 struct LocationConfig
 {
     std::string root;
+    std::string alias;
     std::string index;
     std::vector<std::string> allow_methods;
-    std::string upload_dir;
     bool directory_listing;
     std::string redirect;
     std::string cgi;
 
     LocationConfig()
-    : directory_listing(false)
+    : root()
+    , alias()
+    , index()
+    , allow_methods()
+    , directory_listing(false)
+    , redirect()
+    , cgi()
     {
     }
 };
@@ -24,16 +33,16 @@ struct ServerConfig
 {
     std::string host;
     size_t port;
-    std::string server_name;
-    size_t keepalive_timeout;
     size_t client_max_body_size;
     std::map<size_t, std::string> error_pages;
     std::map<std::string, LocationConfig> locations;
 
     ServerConfig()
-    : port(80)
-    , keepalive_timeout(60)
-    , client_max_body_size(0)
+    : host()
+    , port(0)
+    , client_max_body_size(DEFAULT_MAX_BODY_SIZE)
+    , error_pages()
+    , locations()
     {
     }
 };
@@ -41,13 +50,17 @@ struct ServerConfig
 class Config
 {
 private:
-    std::string configFilePath;
+    const std::string configFilePath;
+    size_t keepalive_timeout;
     std::vector<ServerConfig> serverConfigs;
     void parse();
+
     bool isValidValue(std::string &value);
     bool isValidLocationPath(std::string &locationPath);
 
+    void parseKeepAliveTimeout(std::string &line);
     void parseServer(std::ifstream &file);
+
     // Parse ServerConfig
     void parseHost(ServerConfig& serverConfig, std::string& value);
     void parsePort(ServerConfig& serverConfig, std::string& value);

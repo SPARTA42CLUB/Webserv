@@ -1,5 +1,6 @@
 import http.client
 import time
+import subprocess
 
 UPLOAD_HOST = "localhost"
 UPLOAD_PORT = 8081
@@ -36,6 +37,7 @@ def main():
     
     print("File sent successfully.")
     conn.close()
+    subprocess.run(["sh", "diff.sh"])
 
 if __name__ == "__main__":
     main()
