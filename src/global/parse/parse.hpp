@@ -5,5 +5,6 @@
 
 void trim(std::string &str);
 bool isWhitespace(char c);
+bool isDigitStr(std::string &str);
 
 #endif

@@ -10,16 +10,13 @@ int main(int argc, char* argv[])
 
     // Config 파일 경로 설정
     if (argc > 1)
-    {
         ConfigPath = argv[1];
-    }
 
     try
     {
         Config config(ConfigPath);
-        // TEST: Config 파일 파싱 결과 출력
-        // config.print();
-        // ~~
+        if (argv[1] == "-c")
+            config.print();
         Server server(config);
         server.run();
     }

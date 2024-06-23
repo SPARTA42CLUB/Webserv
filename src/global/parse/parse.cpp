@@ -26,3 +26,15 @@ bool isWhitespace(char c)
 {
     return c == ' ' || c == '\t' || c == '\n' || c == '\r';
 }
+
+bool isDigitStr(const std::string &str)
+{
+    for (size_t i = 0; i < str.size(); ++i)
+    {
+        if (!isdigit(str[i]))
+        {
+            return false;
+        }
+    }
+    return true;
+}
