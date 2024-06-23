@@ -4,12 +4,12 @@
 #include <sstream>
 #include "HeaderFields.hpp"
 #include "MessageBody.hpp"
-#include "RequestLine.hpp"
+#include "StartLine.hpp"
 
 class RequestMessage
 {
 private:
-    RequestLine mRequestLine;
+    StartLine mRequestLine;
     HeaderFields mRequestHeaderFields;
     MessageBody mMessageBody;
     void parseRequestMessage(const std::string& request);
@@ -26,7 +26,7 @@ public:
     RequestMessage();
     RequestMessage(const std::string& request);
     ~RequestMessage();
-    const RequestLine& getRequestLine() const;
+    const StartLine& getRequestLine() const;
     const HeaderFields& getRequestHeaderFields() const;
     const MessageBody& getMessageBody() const;
 };

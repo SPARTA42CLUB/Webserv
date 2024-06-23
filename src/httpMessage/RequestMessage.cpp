@@ -18,7 +18,7 @@ RequestMessage::RequestMessage(const std::string& request)
 RequestMessage::~RequestMessage()
 {
 }
-const RequestLine& RequestMessage::getRequestLine() const
+const StartLine& RequestMessage::getRequestLine() const
 {
     return mRequestLine;
 }

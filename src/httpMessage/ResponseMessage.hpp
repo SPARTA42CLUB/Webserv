@@ -4,12 +4,12 @@
 #include <sstream>
 #include "HeaderFields.hpp"
 #include "MessageBody.hpp"
-#include "StatusLine.hpp"
+#include "StartLine.hpp"
 
 class ResponseMessage
 {
 private:
-    StatusLine mStatusLine;
+    StartLine mStatusLine;
     HeaderFields mResponseHeaderFields;
     MessageBody mMessageBody;
     ResponseMessage(const ResponseMessage& rhs);

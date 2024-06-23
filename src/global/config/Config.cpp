@@ -326,15 +326,15 @@ void Config::parseAllowMethods(LocationConfig& locationConfig, std::string& valu
     std::string method;
     while (getline(iss, method, ' '))
     {
-        if (iss.eof())
-        {
-            break;
-        }
         if (method != "GET" && method != "HEAD" && method != "POST" && method != "DELETE")
         {
             throw ConfigException(INVALID_CONFIG_FILE);
         }
         locationConfig.allow_methods.push_back(method);
+        if (iss.eof())
+        {
+            break;
+        }
     }
 }
 

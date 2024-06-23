@@ -181,8 +181,11 @@ void Server::acceptClient(int serverSocket)
 
 // 클라이언트 요청 처리
 void Server::handleClientReadEvent(struct kevent& event) {
-    // if (event.flags & EV_EOF)
-    //     return;
+    if (event.flags & EV_EOF)
+    {
+        closeConnection(event.ident);
+        return;
+    }
 
     int socket = event.ident;
 

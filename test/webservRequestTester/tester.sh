@@ -31,7 +31,7 @@ $CR
 Host: seunan:8081$CR
 $CR
 " 200
-"GET /forbidden.html HTTP/1.1$CR
+"GET /permission_denied/forbidden HTTP/1.1$CR
 Host: localhost:8080$CR
 $CR
 " 403
@@ -61,7 +61,7 @@ $CR
 Connection: close$CR
 Content-Type: text/html$CR
 $CR
-bodybody" 201
+bodybody" 200
 "GET / HTTP/1.1$CR
 Host: localhost:8080$CR
 Connection: close$CR
@@ -78,10 +78,14 @@ $CR
 Host: localhost:8080$CR
 $CR
 " 404
-"DELETE /delete.html HTTP/1.1$CR
+"DELETE /delete HTTP/1.1$CR
 Host: localhost:8080$CR
 $CR
 " 200
+"DELETE /permission_denied/not_allow HTTP/1.1$CR
+Host: localhost:8080$CR
+$CR
+" 405
 )
 
 # ---------------------------------------------------------------------------------------------------
@@ -103,12 +107,18 @@ CYAN='\033[96m'
 WHITE='\033[97m'
 NC='\033[0m'
 
+# 테스트를 위한 파일 생성
+mkdir -p ../../www/permission_denied && \
+touch ../../www/permission_denied/not_allow ../../www/permission_denied/forbidden ../../www/delete && \
+chmod 000  ../../www/permission_denied/forbidden && \
+chmod 444 ../../www/permission_denied/not_allow && \
+chmod 544 ../../www/permission_denied/
+
 # webserv 프로그램을 백그라운드에서 실행
 clear && echo -e "${WHITE}webserv tester$NC" && \
 echo -e "${BLUE}webserver building...$NC" && \
 make -C ../../ mem > /dev/null 2>&1 && \
-echo -e "${BLUE}webserver running...$NC" && \
-touch ../../www/forbidden.html ../../www/delete.html && chmod 000 ../../www/forbidden.html
+echo -e "${BLUE}webserver running...$NC"
 
 ../../webserv test.conf & WEBSERV_PID=$! && sleep $WEBSERVER_CREATE_TIME
 
@@ -149,7 +159,7 @@ for ((i=0; i<${#requests[@]}; i+=2)); do
     fi
 done
 
-rm -f ../../www/forbidden.html
+rm -rf ../../www/permission_denied access.log
 
 # webserv 프로그램 종료
 kill -9 $WEBSERV_PID > /dev/null 2>&1
