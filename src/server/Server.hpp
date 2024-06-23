@@ -14,6 +14,26 @@
 #include "RequestMessage.hpp"
 #include "ResponseMessage.hpp"
 
+struct Connection
+{
+    int socket;
+    int chunkedFD;
+    bool isCGI;
+    std::string recvDataMap;
+    std::vector<ResponseMessage*> responsesMap;
+    time_t last_activity;
+
+    Connection()
+    : socket(-1)
+    , chunkedFD(-1)
+    , isCGI(false)
+    , recvDataMap()
+    , responsesMap()
+    , last_activity(0)
+    {
+    }
+};
+
 class Server {
 public:
 	Server(const Config& config);
@@ -26,11 +46,8 @@ private:
 	EventManager eventManager;
 	std::vector<int> serverSockets;
 	std::vector<int> clientSockets;
-	std::map<int, ServerConfig> socketToConfigMap;
-	std::map<int, time_t> last_activity_map;
-	std::map<int, std::string> recvDataMap;
-	std::map<int, std::vector<ResponseMessage*> > responsesMap;
-	std::map<int, bool> isChunkedMap;
+    std::map<int, Connection> connectionsMap;
+    std::map<int, int> pipeToSocketMap;
 
 	void setupServerSockets();
 	void setNonBlocking(int socket);
