@@ -44,8 +44,7 @@ void Logger::logAccept(int socket, struct sockaddr_in addr)
 void Logger::logHTTPMessage(const ResponseMessage& res, const RequestMessage& req)
 {
 	std::ostringstream oss;
-    oss << "Host: " << req.getRequestHeaderFields().getField("Host") << '\n'
-            << "Request:\n"
+    oss << "Request:\n"
             << req.toString()
             << "Response:\n"
             << res.toString()

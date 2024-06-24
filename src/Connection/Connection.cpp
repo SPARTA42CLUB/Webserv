@@ -5,7 +5,7 @@
 #include "ChunkedRequestReader.hpp"
 #include "RequestHandler.hpp"
 
-Connection::Connection(int socket)
+Connection::Connection(int socket, const Config& config)
 : socket(socket)
 , chunkedFd(-1)
 , isChunked(false)
@@ -13,8 +13,8 @@ Connection::Connection(int socket)
 , recvedData()
 , responses()
 , last_activity(time(NULL))
-, keepalive_time(DEFAULT_KEEPALIVE_TIME)
 , logger(Logger::getInstance())
+, config(config)
 {}
 
 Connection::~Connection()
@@ -27,12 +27,13 @@ Connection::~Connection()
     if (isCGI)
         close(CGIPipeFd);
 
-	for (size_t i = 0; i < responses.size(); ++i) {
+	for (size_t i = 0; i < responses.size(); ++i)
+    {
 		delete responses[i]; // 메모리 해제
 	}
 }
 
-ssize_t Connection::recvToSocket()
+ssize_t Connection::excuteByRecv()
 {
     char buffer[4096];
     ssize_t bytesRead;
@@ -50,7 +51,7 @@ ssize_t Connection::recvToSocket()
     // 일반 요청 처리
     handleNormalRequest();
 
-    update_last_activity();
+    updateLastActivity();
     return bytesRead;
 }
 
@@ -60,7 +61,7 @@ void Connection::handleChunkedRequest()
 
     while ((chunk = getCompleteChunk()).length() > 0)
     {
-        // NOTE: 파일 경로 수정해야 함
+        // NOTE: 헤더 보고 파일 경로 수정해야 함.
         ChunkedRequestReader reader("upload/testfile.png", chunk);
 		bool isChunkedEnd = reader.processRequest();
 
@@ -89,7 +90,7 @@ std::string Connection::getCompleteChunk()
     return recvedData.substr(0, pos + chunkSize + 2);
 }
 
-// NOTE: 여기는 RequestHandler 손보고 고쳐야 할듯..
+// // NOTE: 여기는 RequestHandler 손보고 고쳐야 할듯..
 void Connection::handleNormalRequest()
 {
     // std::string requestString;
@@ -175,22 +176,18 @@ ssize_t Connection::sendToSocket()
     delete responses.front();
     responses.pop_front();
 
-    update_last_activity();
+    updateLastActivity();
 
     return bytesSend;
 }
 
-void Connection::update_last_activity()
+void Connection::updateLastActivity()
 {
     last_activity = time(NULL);
 }
 
-bool Connection::isKeepAlive()
+time_t Connection::getLastActivity() const
 {
-    time_t now = time(NULL);
-
-    if (difftime(now, last_activity) < keepalive_time)
-        return true;
-
-    return false;
+    (void)config;
+    return last_activity;
 }
