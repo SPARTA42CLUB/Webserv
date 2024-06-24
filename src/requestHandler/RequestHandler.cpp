@@ -239,6 +239,8 @@ void RequestHandler::addSemanticHeaderFields(ResponseMessage& mResponseMessage)
     std::strftime(buffer, sizeof(buffer), "%a, %d %b %Y %H:%M:%S GMT", timeinfo);
     std::string date = buffer;
 
+    mServerConfig.locations.find(mLocation)->second.cgi;
+
     mResponseMessage.addResponseHeaderField("Content-Length", mResponseMessage.getMessageBodySize());
     mResponseMessage.addResponseHeaderField("Server", "webserv");
     mResponseMessage.addResponseHeaderField("Date", date);

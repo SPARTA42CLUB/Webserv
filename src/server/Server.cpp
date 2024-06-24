@@ -204,6 +204,7 @@ void Server::handleClientWriteEvent(struct kevent& event)
 // 커넥션 종료에 필요한 작업들 처리
 void Server::closeConnection(int socket)
 {
+    std::cout << "Connection closed: " << socket << std::endl;
     eventManager.deleteReadEvent(socket);
     delete connectionsMap[socket];
     connectionsMap.erase(socket);
