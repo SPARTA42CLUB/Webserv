@@ -26,7 +26,6 @@ private:
 	EventManager eventManager;
 	std::vector<int> serverSockets;
     std::map<int, Connection*> connectionsMap;
-    std::map<int, int> pipeToSocketMap;
 	Logger& logger;
 
 	void setupServerSockets();

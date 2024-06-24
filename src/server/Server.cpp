@@ -17,7 +17,6 @@ Server::Server(const Config& config)
 , eventManager()
 , serverSockets()
 , connectionsMap()
-, pipeToSocketMap()
 , logger(Logger::getInstance())
 {
     setupServerSockets();
@@ -32,7 +31,7 @@ Server::~Server()
 
     for (std::map<int, Connection*>::const_iterator it = connectionsMap.begin(); it != connectionsMap.end(); ++it)
     {
-        delete it->second;
+        closeConnection(it->first);
     }
 }
 
@@ -82,7 +81,7 @@ int Server::createServerSocket(ServerConfig serverConfig) {
     memset(&serverAddr, 0, sizeof(serverAddr));                               // 0으로 초기화
     serverAddr.sin_family = AF_INET;                                          // IPv4
     serverAddr.sin_port = htons(serverConfig.port);                       // 포트 설정
-    inet_pton(AF_INET, serverConfig.host.c_str(), &serverAddr.sin_addr);  // IP 주소 설정
+    inet_pton(AF_INET, serverConfig.host.c_str(), &serverAddr.sin_addr);  // IP 주소 설정 NOTE: host 검색해보기
 
     if (bind(serverSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) == -1)
     {
@@ -117,7 +116,7 @@ void Server::run()
             if (event.flags & EV_ERROR)
                 throw SysException(KEVENT_ERROR);
 
-            if (std::find(serverSockets.begin(), serverSockets.end(), event.ident) != serverSockets.end())
+            if (isServerSocket(event.ident))
             {
                 acceptClient(event.ident);
             }
@@ -138,9 +137,10 @@ void Server::run()
 // Connection들의 keepAlive 관리
 void Server::checkKeepAlive()
 {
+    const time_t now = time(NULL);
     for (std::map<int, Connection*>::const_iterator it = connectionsMap.begin(); it != connectionsMap.end(); ++it)
     {
-        if ((it->second)->isKeepAlive() == false)
+        if (difftime(now, (it->second)->getLastActivity()) > config.getKeepAliveTime())
             closeConnection(it->first);
     }
 }
@@ -162,10 +162,10 @@ void Server::acceptClient(int serverSocket)
 
     setNonBlocking(connectionSocket);
 
-    Connection* connection = new Connection(connectionSocket);
+    Connection* connection = new Connection(connectionSocket, config);
     connectionsMap[connectionSocket] = connection;
 
-    Logger::getInstance().logAccept(connectionSocket, clientAddr);
+    logger.logAccept(connectionSocket, clientAddr);
 }
 
 // 소켓에 read event 발생시 소켓에서 데이터 읽음
@@ -176,7 +176,8 @@ void Server::handleClientReadEvent(struct kevent& event) {
         return;
     }
 
-    if (connectionsMap[event.ident]->recvToSocket() < 0)
+    const ssize_t recvBytes = connectionsMap[event.ident]->excuteByRecv();
+    if (recvBytes < 0)
     {
         logger.logWarning("Recv error");
         closeConnection(event.ident);
@@ -187,10 +188,10 @@ void Server::handleClientReadEvent(struct kevent& event) {
 // 보낸 데이터가 0일 때 write event 삭제
 void Server::handleClientWriteEvent(struct kevent& event)
 {
-    ssize_t bytesSend;
     int socket = event.ident;
 
-    if ((bytesSend = connectionsMap[socket]->sendToSocket()) < 0)
+    const ssize_t bytesSend = connectionsMap[socket]->sendToSocket();
+    if (bytesSend < 0)
     {
         logger.logWarning("Send error");
         closeConnection(socket);
@@ -207,7 +208,6 @@ void Server::closeConnection(int socket)
     eventManager.deleteReadEvent(socket);
     delete connectionsMap[socket];
     connectionsMap.erase(socket);
-    pipeToSocketMap.erase(socket);
 }
 
 bool Server::isServerSocket(int socket)
