@@ -88,6 +88,7 @@ public:
     Config(const std::string& configFilePath);
     const std::vector<ServerConfig>& getServerConfigs() const;
     const ServerConfig& getServerConfigByHost(std::string host) const;
+    size_t getKeepAliveTime() const;
 
     // TEST: 파싱 결과 출력
     void print(void) const;

@@ -484,3 +484,8 @@ bool isDigitStr(const std::string &str)
     }
     return true;
 }
+
+size_t Config::getKeepAliveTime() const
+{
+    return keepalive_timeout;
+}
