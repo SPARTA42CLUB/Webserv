@@ -37,14 +37,19 @@ void EventManager::addEvent(int socket, int16_t filter, uint16_t flags) {
 	EV_SET(&evSet, socket, filter, flags, 0, 0, NULL);
 
 	if (kevent(kq, &evSet, 1, NULL, 0, NULL) == -1) {
-		std::cerr << "kevent failed: " << strerror(errno) << std::endl;
-		throw std::runtime_error("Failed to add event to kqueue");
+		close(socket);
+		throw Exception(FAILED_TO_ADD_KEVENT);
 	}
 }
 
 
 std::vector<struct kevent> EventManager::getCurrentEvents() {
 
+	/*
+	kevent는 이벤트가 발생해야 반환되는데,
+	timeout을 설정하면 이벤트가 발생하지 않아도
+	kevent함수가 반환된다.
+	*/
 	struct timespec timeout;
 	timeout.tv_sec = 1;
 	timeout.tv_nsec = 0;
@@ -57,11 +62,7 @@ std::vector<struct kevent> EventManager::getCurrentEvents() {
 	struct kevent events[1024];
 	int numEvents = kevent(kq, NULL, 0, events, 1024, &timeout);
 	if (numEvents == -1)
-		throw std::runtime_error("Failed to get event from kqueue");
+		throw Exception(FAILED_TO_GET_KEVENT);
 
 	return std::vector<struct kevent>(events, events + numEvents);
-}
-
-int EventManager::getKqueue() {
-	return kq;
 }

@@ -15,6 +15,8 @@ const char* ConfigException::what() const _NOEXCEPT
         return "Failed to open config file";
     case INVALID_CONFIG_FILE:
         return "Invalid config file";
+    case EMPTY_SERVER_CONFIG:
+        return "Empty Server Config";
     case PORT_NOT_EXIST:
         return "Port not exist in server config";
     case HOST_NOT_EXIST:

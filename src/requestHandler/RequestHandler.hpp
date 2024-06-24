@@ -14,10 +14,6 @@ private:
     std::string mLocation;
     std::string mPath;
 
-    // Request
-    void verifyRequestLine(const StartLine& reqLine);
-    void verifyRequestHeaderFields(const HeaderFields& reqHeaderFields);
-
     // Response (Success)
     void getRequest(const RequestMessage& req);
 	void rangeRequest(const RequestMessage& req);
@@ -42,7 +38,6 @@ private:
 
 public:
     RequestHandler(ResponseMessage& res, const ServerConfig& serverConfig);
-    void verifyRequest(const RequestMessage& req);
     void handleRequest(const RequestMessage& req);
     void handleException(const HTTPException& e);
 };

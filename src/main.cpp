@@ -2,6 +2,7 @@
 #include "Config.hpp"
 #include "Exception.hpp"
 #include "Server.hpp"
+#include "Logger.hpp"
 #include "color.hpp"
 
 static bool isOption(const std::string& arg);
@@ -27,7 +28,8 @@ int main(int argc, char* argv[])
     catch (const std::exception& e)
     {
         // 서버 실행 중 에러 발생 시 종료
-        std::cerr << color::FG_RED << "Server run failed: " << e.what() << color::RESET << std::endl;
+        Logger::getInstance().logError(e.what());
+        // std::cerr << color::FG_RED << "Server run failed: " << e.what() << color::RESET << std::endl;
     }
 
     return 0;

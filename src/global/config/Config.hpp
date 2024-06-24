@@ -78,13 +78,17 @@ private:
     // Check Validity
     bool isValidValue(std::string& value);
     bool isValidLocationPath(std::string& locationPath);
-    
+
     void verifyConfig(void);
     void makePath(const std::string& loc, LocationConfig& locConf);
+
+    const ServerConfig& getDefaultServerConfig() const;
 
 public:
     Config(const std::string& configFilePath);
     const std::vector<ServerConfig>& getServerConfigs() const;
+    const ServerConfig& getServerConfigByHost(std::string host) const;
+
     // TEST: 파싱 결과 출력
     void print(void) const;
 };

@@ -23,6 +23,31 @@ Config::Config(const std::string& configFilePath)
     {
         throw e;
     }
+
+}
+
+// host 값으로 ServerConfig 찾아서 반환.
+const ServerConfig& Config::getServerConfigByHost(std::string host) const
+{
+    for (std::vector<ServerConfig>::const_iterator it = serverConfigs.begin(); it != serverConfigs.end(); ++it)
+    {
+        if (it->host == host)
+        {
+            return *it;
+        }
+    }
+
+    // 일치하는 host 없으면 기본 serverConfig 반환
+    return getDefaultServerConfig();
+}
+
+// serverConfigs의 첫 번째 애를 기본 서버로 반환
+const ServerConfig& Config::getDefaultServerConfig() const
+{
+    if (!serverConfigs.empty())
+        return serverConfigs.front();
+
+    throw ConfigException(EMPTY_SERVER_CONFIG);
 }
 // Config 파일 파싱
 void Config::parse(const std::string& configFilePath)
@@ -92,7 +117,7 @@ void Config::parseServer(std::ifstream& file)
         std::string key, value;
         iss >> key;
         getline(iss, value);
-        
+
         // key에 따라 설정 값 파싱
         try
         {
@@ -109,6 +134,7 @@ void Config::parseServer(std::ifstream& file)
             throw e;
         }
     }
+
     serverConfigs.push_back(serverConfig);
 }
 void Config::parseLocation(std::ifstream& file, ServerConfig& serverConfig, std::string& locationPath)
@@ -151,7 +177,7 @@ void Config::parseLocation(std::ifstream& file, ServerConfig& serverConfig, std:
         {
             throw e;
         }
-        
+
     }
     serverConfig.locations[locationPath] = locationConfig;
 }

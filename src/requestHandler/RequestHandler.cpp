@@ -11,54 +11,13 @@ RequestHandler::RequestHandler(ResponseMessage& mResponseMessage, const ServerCo
 , mPath("")
 {
 }
-void RequestHandler::verifyRequest(const RequestMessage& req)
-{
-    try
-    {
-        verifyRequestLine(req.getRequestLine());
-        verifyRequestHeaderFields(req.getRequestHeaderFields());
-    }
-    catch (const HTTPException& e)
-    {
-        throw e;
-    }
-}
-void RequestHandler::verifyRequestLine(const StartLine& reqLine)
-{
-    const std::string method = reqLine.getMethod();
-    const std::string reqTarget = reqLine.getRequestTarget();
-    const std::string ver = reqLine.getHTTPVersion();
-    if (method != "GET" && method != "HEAD" && method != "POST" && method != "DELETE")
-    {
-        throw HTTPException(METHOD_NOT_ALLOWED);
-    }
-    if (ver != "HTTP/1.1")
-    {
-        throw HTTPException(HTTP_VERSION_NOT_SUPPORTED);
-    }
-    if (reqTarget[0] != '/')
-    {
-        throw HTTPException(NOT_FOUND);
-    }
-    if (reqTarget.size() >= 8200)  // nginx max uri length
-    {
-        throw HTTPException(URI_TOO_LONG);
-    }
-}
-void RequestHandler::verifyRequestHeaderFields(const HeaderFields& reqHeaderFields)
-{
-    if (reqHeaderFields.hasField("Host") == false)
-    {
-        throw HTTPException(BAD_REQUEST);
-    }
-}
 void RequestHandler::handleRequest(const RequestMessage& req)
 {
     std::string reqTarget = req.getRequestLine().getRequestTarget();
     std::string method = req.getRequestLine().getMethod();
     std::map<std::string, LocationConfig>::const_iterator targetFindIter = mServerConfig.locations.find(reqTarget);
 
-    /* 
+    /*
     // NOTE: 될 수 있는 조합
     GET
     1. URI == Location이며 URI가 디렉토리(/로 끝남)
@@ -70,7 +29,7 @@ void RequestHandler::handleRequest(const RequestMessage& req)
         a. 파일이 있을 경우 파일을 읽음
         b. 파일이 없을 경우 404
         x. redirect가 있을 경우
-        
+
     3. URI != Location
         a. 모든 location 블록에서 root + index 파일을 찾음
     HEAD: GET과 동일하나 body가 없음
@@ -280,7 +239,8 @@ void RequestHandler::addSemanticHeaderFields(ResponseMessage& mResponseMessage)
     std::strftime(buffer, sizeof(buffer), "%a, %d %b %Y %H:%M:%S GMT", timeinfo);
     std::string date = buffer;
 
-    mServerConfig.locations.find(mLocation)->second.cgi;
+    // NOTE: expression result unused
+    // mServerConfig.locations.find(mLocation)->second.cgi;
 
     mResponseMessage.addResponseHeaderField("Content-Length", mResponseMessage.getMessageBodySize());
     mResponseMessage.addResponseHeaderField("Server", "webserv");

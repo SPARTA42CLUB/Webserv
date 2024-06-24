@@ -13,6 +13,7 @@ RequestMessage::RequestMessage(const std::string& request)
 , mMessageBody()
 {
     parseRequestMessage(request);
+    verifyRequest(request);
 }
 RequestMessage::~RequestMessage()
 {
@@ -63,4 +64,51 @@ void RequestMessage::parseRequestHeaderFields(std::istringstream& reqStream)
 void RequestMessage::parseMessageBody(std::istringstream& reqStream)
 {
     mMessageBody.parseMessageBody(reqStream);
+}
+void RequestMessage::verifyRequest(const RequestMessage& req)
+{
+    try
+    {
+        verifyRequestLine(req.getRequestLine());
+        verifyRequestHeaderFields(req.getRequestHeaderFields());
+    }
+    catch (const HTTPException& e)
+    {
+        throw e;
+    }
+}
+void RequestMessage::verifyRequestLine(const StartLine& reqLine)
+{
+    const std::string method = reqLine.getMethod();
+    const std::string reqTarget = reqLine.getRequestTarget();
+    const std::string ver = reqLine.getHTTPVersion();
+    if (method != "GET" && method != "HEAD" && method != "POST" && method != "DELETE")
+    {
+        throw HTTPException(METHOD_NOT_ALLOWED);
+    }
+    if (ver != "HTTP/1.1")
+    {
+        throw HTTPException(HTTP_VERSION_NOT_SUPPORTED);
+    }
+    if (reqTarget[0] != '/')
+    {
+        throw HTTPException(NOT_FOUND);
+    }
+    if (reqTarget.size() >= 8200)  // nginx max uri length
+    {
+        throw HTTPException(URI_TOO_LONG);
+    }
+}
+void RequestMessage::verifyRequestHeaderFields(const HeaderFields& reqHeaderFields)
+{
+    if (reqHeaderFields.hasField("Host") == false)
+    {
+        throw HTTPException(BAD_REQUEST);
+    }
+}
+std::string RequestMessage::toString(void) const
+{
+    std::ostringstream oss;
+    oss << mRequestLine.toString() << mRequestHeaderFields.toString() << "\r\n" << mMessageBody.toString();
+    return oss.str();
 }

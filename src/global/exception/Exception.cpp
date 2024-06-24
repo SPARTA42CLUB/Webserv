@@ -13,10 +13,14 @@ const char* Exception::what() const _NOEXCEPT
     {
         case FAILED_TO_CREATE_KQUEUE:
             return "Failed to create kqueue";
-        case FAILED_TO_BIND_SOCKET:
-            return "Failed to bind socket";
-        case FAILED_TO_LISTEN_SOCKET:
-            return "Failed to listen socket";
+        case KEVENT_ERROR:
+            return "Kevent error";
+        case FAILED_TO_ADD_KEVENT:
+            return "Failed to add kevent";
+        case FAILED_TO_GET_KEVENT:
+            return "Failed to get kevent";
+        case FAILED_TO_SEND:
+            return "Failed to send";
         default:
             return "Unknown exception";
     }
