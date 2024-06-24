@@ -6,7 +6,8 @@ services:
     image: nginx:test
     container_name: nginx
     ports:
-      - "8080:80"
+      - "9090:9090"
+      - "9091:9091"
     volumes:
       - ./conf:/etc/nginx/conf.d
       - ./logs:/var/log/nginx

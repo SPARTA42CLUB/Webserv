@@ -2,32 +2,38 @@
 #include "Config.hpp"
 #include "Exception.hpp"
 #include "Server.hpp"
+#include "color.hpp"
+
+static bool isOption(const std::string& arg);
 
 int main(int argc, char* argv[])
 {
     // Config 기본 경로 설정
     std::string ConfigPath = "default.conf";
-
-    // Config 파일 경로 설정
-    if (argc > 1)
-    {
+    if (argc > 1 && !isOption(argv[1]))
         ConfigPath = argv[1];
-    }
 
     try
     {
         Config config(ConfigPath);
-        // TEST: Config 파일 파싱 결과 출력
-        // config.print();
-        // ~~
+        if (argc > 1 && isOption(argv[1]))
+        {
+            config.print();
+            return 0;
+        }
         Server server(config);
         server.run();
     }
     catch (const std::exception& e)
     {
         // 서버 실행 중 에러 발생 시 종료
-        std::cerr << "Server run failed: " << e.what() << std::endl;
+        std::cerr << color::FG_RED << "Server run failed: " << e.what() << color::RESET << std::endl;
     }
 
     return 0;
+}
+
+bool isOption(const std::string& arg)
+{
+    return (arg == "-c" || arg == "--config");
 }

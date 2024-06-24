@@ -51,8 +51,7 @@ $(NAME): $(OBJ)
 	@$(CXX) $(CFLAGS) $(OBJ) -o $(NAME)
 	@echo "$(FG_WHITE)Creating $@$(RESET)"
 
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
-	@mkdir -p $(dir $@)
+%.o: %.cpp
 	@$(CXX) $(CFLAGS) -c $< -o $@ $(INCLUDE)
 	@echo "$(FG_CYAN)Compiled:$(RESET) $< -> $@"
 

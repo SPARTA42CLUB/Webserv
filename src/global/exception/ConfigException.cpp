@@ -15,7 +15,13 @@ const char* ConfigException::what() const _NOEXCEPT
         return "Failed to open config file";
     case INVALID_CONFIG_FILE:
         return "Invalid config file";
+    case PORT_NOT_EXIST:
+        return "Port not exist in server config";
+    case HOST_NOT_EXIST:
+        return "Host not exist in server config";
+    case ROOT_NOT_EXIST:
+        return "Root not exist in location config";
     default:
-        return "Unknown exception";
+        return "Unknown exception in config file";
     }
 }

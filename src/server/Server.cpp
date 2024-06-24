@@ -84,7 +84,6 @@ void Server::setupServerSockets()
 
         // 서버 소켓 벡터에 추가
         serverSockets.push_back(serverSocket);
-        socketToConfigMap[serverSocket] = serverConfigs[i];
 
         eventManager.addReadEvent(serverSocket);
     }
@@ -141,6 +140,7 @@ void Server::checkTimeout()
     for (size_t i = 0; i < clientSockets.size(); ++i)
     {
         int clientSocket = clientSockets[i];
+        int timeout = config.getServerConfigs()[]
         int timeout = socketToConfigMap[clientSocket].keepalive_timeout;
 
         if (difftime(now, last_activity_map[clientSocket]) > timeout)
@@ -164,6 +164,7 @@ void Server::acceptClient(int serverSocket)
     socklen_t addrLen = sizeof(clientAddr);
 
     int clientSocket = accept(serverSocket, (struct sockaddr*)&clientAddr, &addrLen);
+    std::cout << "Accepted connection: " << clientSocket << std::endl;
     if (clientSocket == -1)
     {
         std::cerr << "Failed to accept connection: " << strerror(errno) << std::endl;
@@ -186,7 +187,7 @@ void Server::acceptClient(int serverSocket)
 
     clientSockets.push_back(clientSocket);
     socketToConfigMap[clientSocket] = socketToConfigMap[serverSocket];
-    isChunkedMap[clientSocket] = false;
+    chunkedDataMap[clientSocket].isChunked = false;
 }
 
 // 클라이언트 요청 처리
@@ -220,7 +221,7 @@ void Server::handleClientReadEvent(struct kevent& event) {
 	requestData += std::string(buffer, buffer + bytesRead);
 
     // 청크 인코딩 여부에 따라 청크 요청 처리
-    if (isChunkedMap[socket]) {
+    if (chunkedDataMap[socket].isChunked) {
         handleChunkedRequest(socket, requestData);
     }
 
@@ -259,14 +260,25 @@ void Server::handleNormalRequest(int socket, std::string& requestData, size_t re
 
     try
     {
-        RequestMessage reqMsg(completeRequest);
+        RequestMessage* req = new RequestMessage(completeRequest);
+        RequestMessage& reqMsg = *req;
         requestHandler.verifyRequest(reqMsg);
         requestHandler.handleRequest(reqMsg);
 
         if (reqMsg.getRequestHeaderFields().getField("Transfer-Encoding") == "chunked") {
             delete res;
             requestData.erase(0, requestLength);
-            isChunkedMap[socket] = true;
+            chunkedDataMap[socket].isChunked = true;
+            chunkedDataMap[socket].reqMsg = req;
+
+            // TODO: 청크 데이터 처리 로직 추가
+            // 지금은 append로 열려서 이미 있는 파일에 계속 데이터가 추가됨
+            // 최소 함수 호출 시 마다 파일을 열고 닫는 것은 비효율적이므로 파일을 열어놓고 계속 데이터를 추가하는 방식으로 구현
+            // write 이벤트에서 했듯이 config에서 설정한 업로드 경로 + 파일명, 쓸 파일에 대한 fd를 지니고 있어야함
+
+            /* 1. 파일 오픈 -> chunkedDataMap[socket].fd = open("upload/testfile.png", O_WRONLY | O_CREAT | O_APPEND, 0644);
+
+             */
 
             handleChunkedRequest(socket, requestData);
             return ;
@@ -277,6 +289,8 @@ void Server::handleNormalRequest(int socket, std::string& requestData, size_t re
         requestHandler.handleException(e);
     }
 
+    // FIXME: exception 시 처리 안됨
+    delete chunkedDataMap[socket].reqMsg;
     responsesMap[socket].push_back(res);
     logHTTPMessage(socket, *res, requestData);
 
@@ -296,15 +310,13 @@ void Server::handleChunkedRequest(int socket, std::string& chunkedData) {
     while (isCompleteChunk(chunkedData, chunkLength, isLastChunk)) {
         std::string chunk = chunkedData.substr(0, chunkLength);
 
-        // 청크 데이터 처리 로직으로 변경해야 함
-        // ...
         ChunkedRequestReader reader("upload/testfile.png", chunk);
 		bool isChunkedEnd = reader.processRequest();
 
         chunkedData.erase(0, chunkLength);
 
         if (isChunkedEnd) {
-            isChunkedMap[socket] = false; // 마지막 청크 후 청크 상태 해제
+            chunkedDataMap[socket].isChunked = false; // 마지막 청크 후 청크 상태 해제
             return ;
         }
     }
@@ -407,6 +419,7 @@ void Server::logHTTPMessage(int socket, const ResponseMessage& res, const std::s
 // 클라이언트 소켓 종료
 void Server::closeConnection(int socket)
 {
+    std::cout << "Connection closed: " << socket << std::endl;
     eventManager.deleteReadEvent(socket);
 
     close(socket);
@@ -417,7 +430,7 @@ void Server::closeConnection(int socket)
 
     socketToConfigMap.erase(socket);
     last_activity_map.erase(socket);
-    isChunkedMap.erase(socket);
+    chunkedDataMap.erase(socket);
 
     if (!recvDataMap.empty())
         recvDataMap.erase(socket);
