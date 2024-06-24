@@ -1,13 +1,13 @@
-#include "Exception.hpp"
+#include "SysException.hpp"
 
-Exception::Exception(enum eReason reason)
+SysException::SysException(enum eReason reason)
 : mReason(reason)
 {
 }
-Exception::~Exception() _NOEXCEPT
+SysException::~SysException() _NOEXCEPT
 {
 }
-const char* Exception::what() const _NOEXCEPT
+const char* SysException::what() const _NOEXCEPT
 {
     switch (mReason)
     {
@@ -21,6 +21,14 @@ const char* Exception::what() const _NOEXCEPT
             return "Failed to get kevent";
         case FAILED_TO_SEND:
             return "Failed to send";
+        case FAILED_TO_CREATE_SOCKET:
+            return "Failed to create socket";
+		case FAILED_TO_BIND_SOCKET:
+			return "Failed to bind socket";
+		case FAILED_TO_LISTEN_SOCKET:
+			return "Failed to listen socket";
+		case FAILED_TO_SET_NON_BLOCKING:
+			return "Failed to set non-blocking";
         default:
             return "Unknown exception";
     }

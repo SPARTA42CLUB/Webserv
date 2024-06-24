@@ -35,11 +35,9 @@ private:
 	void checkKeepAlive();
 
 	void acceptClient(int serverSocket);
-
 	void handleClientReadEvent(struct kevent& event);
 	void handleClientWriteEvent(struct kevent& event);
 
 	void closeConnection(int socket);
-
 	bool isServerSocket(int socket);
 };

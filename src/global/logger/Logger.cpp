@@ -58,7 +58,7 @@ void Logger::log(LogLevel level, const std::string& message, const std::string& 
 
 	std::ofstream logFile;
     logFile.open(filePath, std::ios::app);
-    std::string logMessage = "[ " + logLevelToString(level) + " ] " + getTimeStamp() + "\n" + message + "\n----------------------------------------------------------------------------------------\n";
+    std::string logMessage = "[ " + logLevelToString(level) + " ] " + getTimeStamp() + ' ' + message;
 
     if (level == INFO)
         std::cout << logMessage << std::endl;

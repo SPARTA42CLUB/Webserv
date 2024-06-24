@@ -7,9 +7,8 @@
 #include <iostream>
 #include <sstream>
 #include <string>
-#include "Exception.hpp"
+#include "SysException.hpp"
 #include "HTTPException.hpp"
-#include "SocketException.hpp"
 #include "Logger.hpp"
 
 // ServerConfig 클래스 생성자
@@ -55,7 +54,7 @@ void Server::setupServerSockets()
         if (listen(serverSocket, 10) == -1)
         {
             close(serverSocket);
-            throw SocketException(FAILED_TO_LISTEN_SOCKET);
+            throw SysException(FAILED_TO_LISTEN_SOCKET);
         }
 
         serverSockets.push_back(serverSocket);
@@ -69,7 +68,7 @@ int Server::createServerSocket(ServerConfig serverConfig) {
 
     int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (serverSocket == -1)
-        throw SocketException(FAILED_TO_CREATE_SOCKET);
+        throw SysException(FAILED_TO_CREATE_SOCKET);
 
     /* 개발 편의용 세팅. 서버 소켓이 이미 사용중이더라도 실행되게끔 설정 */
     int optval = 1;
@@ -88,7 +87,7 @@ int Server::createServerSocket(ServerConfig serverConfig) {
     if (bind(serverSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) == -1)
     {
         close(serverSocket);
-        throw SocketException(FAILED_TO_BIND_SOCKET);
+        throw SysException(FAILED_TO_BIND_SOCKET);
     }
 
     return serverSocket;
@@ -100,7 +99,7 @@ void Server::setNonBlocking(int socket)
     if (fcntl(socket, F_SETFL, O_NONBLOCK) == -1)
     {
         close(socket);
-        throw SocketException(FAILED_TO_SET_NON_BLOCKING);
+        throw SysException(FAILED_TO_SET_NON_BLOCKING);
     }
 }
 
@@ -116,7 +115,7 @@ void Server::run()
             struct kevent& event = *it;
 
             if (event.flags & EV_ERROR)
-                throw Exception(KEVENT_ERROR);
+                throw SysException(KEVENT_ERROR);
 
             if (std::find(serverSockets.begin(), serverSockets.end(), event.ident) != serverSockets.end())
             {
