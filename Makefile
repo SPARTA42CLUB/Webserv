@@ -38,8 +38,8 @@ RESET 			:= \033[0m
 SRC_DIR			:= ./src
 OBJ_DIR			:= ./obj
 
-INCLUDE_DIRS	:= $(shell find $(SRC_DIR) -type d)
-INCLUDE			:= $(addprefix -I, $(INCLUDE_DIRS))
+INCLUDE_DIR 	:= $(shell find $(SRC_DIR) -type d)
+INCLUDE			:= $(addprefix -I, $(INCLUDE_DIR))
 
 SRC				:= $(shell find $(SRC_DIR) -name "*.cpp")
 OBJ				:= $(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(SRC))
@@ -51,7 +51,8 @@ $(NAME): $(OBJ)
 	@$(CXX) $(CFLAGS) $(OBJ) -o $(NAME)
 	@echo "$(FG_WHITE)Creating $@$(RESET)"
 
-%.o: %.cpp
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
+	@mkdir -p $(dir $@)
 	@$(CXX) $(CFLAGS) -c $< -o $@ $(INCLUDE)
 	@echo "$(FG_CYAN)Compiled:$(RESET) $< -> $@"
 

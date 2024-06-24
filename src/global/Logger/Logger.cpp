@@ -1,4 +1,5 @@
 #include "Logger.hpp"
+#include <arpa/inet.h>
 
 Logger& Logger::getInstance() {
     static Logger instance;
@@ -25,12 +26,12 @@ void Logger::logError(const std::string& logMessage)
 void Logger::logAccept(int socket, struct sockaddr_in addr)
 {
 	std::ostringstream oss;
-	oss << "[ Accept Client ]\n "
+	oss << "[ Accept Client ] \n"
 			<< "IP: "
-			<< addr.sin_addr.s_addr
+			<< inet_ntoa(addr.sin_addr)
 			<< "\n"
 			<< "Port: "
-			<< addr.sin_port
+			<< ntohs(addr.sin_port)
 			<< "\n"
             << "Socket: "
             << socket
@@ -57,7 +58,7 @@ void Logger::log(LogLevel level, const std::string& message, const std::string& 
 
 	std::ofstream logFile;
     logFile.open(filePath, std::ios::app);
-    std::string logMessage = getTimeStamp() + " [" + logLevelToString(level) + "] " + message + "\n----------------------------------------------------------------------------------------\n";
+    std::string logMessage = "[ " + logLevelToString(level) + " ] " + getTimeStamp() + "\n" + message + "\n----------------------------------------------------------------------------------------\n";
 
     if (level == INFO)
         std::cout << logMessage << std::endl;
