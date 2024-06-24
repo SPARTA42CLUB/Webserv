@@ -7,6 +7,9 @@ enum eConfigException
 {
     FAILED_TO_OPEN_CONFIG_FILE,
     INVALID_CONFIG_FILE,
+    PORT_NOT_EXIST,
+    HOST_NOT_EXIST,
+    ROOT_NOT_EXIST,
 };
 
 class ConfigException : public std::exception

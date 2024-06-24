@@ -9,7 +9,7 @@
 
 void sendChunk(int sockfd, const std::string& chunkSize, const std::string& chunkData) {
     std::string chunk = chunkSize + "\r\n" + chunkData + "\r\n";
-    int n = write(sockfd, chunk.c_str(), chunk.length());
+    int n = send(sockfd, chunk.c_str(), chunk.length(), 0);
     if (n < 0) {
         std::cerr << "ERROR writing to socket" << std::endl;
     }
@@ -59,7 +59,7 @@ void sendChunkedData(const std::string& host, int port, const std::string& path)
         "Transfer-Encoding: chunked\r\n"
         "Content-Type: text/plain\r\n"
         "\r\n";
-    int n = write(sockfd, headers.c_str(), headers.length());
+    int n = send(sockfd, headers.c_str(), headers.length(), 0);
     if (n < 0) {
         std::cerr << "ERROR writing headers to socket" << std::endl;
         close(sockfd);
