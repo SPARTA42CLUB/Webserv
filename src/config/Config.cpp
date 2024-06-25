@@ -3,15 +3,9 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include "parse.hpp"
 #include "ConfigException.hpp"
 #include "color.hpp"
-
-static bool isWhitespace(char c);
-static void trim(std::string &str);
-static bool isDigitStr(const std::string &str);
-
-const size_t Config::implementMethodsSize = 4;
-const std::string Config::implementMethods[implementMethodsSize] = {"GET", "HEAD", "POST", "DELETE"};
 
 Config::Config(const std::string& configFilePath)
 : keepalive_timeout(DEFAULT_TIMEOUT)
@@ -27,6 +21,10 @@ Config::Config(const std::string& configFilePath)
         throw e;
     }
 
+}
+
+Config::~Config()
+{
 }
 
 // host 값으로 ServerConfig 찾아서 반환.
@@ -121,19 +119,19 @@ void Config::parseServer(std::ifstream& file)
             throw ConfigException(INVALID_SERVER_CONFIG);
         try
         {
-            if (key == "host") parseHost(serverConfig, value);
-            else if (key == "port") parsePort(serverConfig, value);
-            else if (key == "root") parseRoot(serverConfig, value);
-            else if (key == "index") parseIndex(serverConfig, value);
-            else if (key == "client_max_body_size") parseClientMaxBodySize(serverConfig, value);
-            else if (key == "error_page") parseErrorPage(serverConfig, value);
+            if (key == "host") serverConfig.parseHost(value);
+            else if (key == "port") serverConfig.parsePort(value);
+            else if (key == "root") serverConfig.parseRoot(value);
+            else if (key == "index") serverConfig.parseIndex(value);
+            else if (key == "client_max_body_size") serverConfig.parseClientMaxBodySize(value);
+            else if (key == "error_page") serverConfig.parseErrorPage(value);
             else if (key == "location") 
             {
-                if (!isValidLocationPath(value, serverConfig))
+                if (!serverConfig.isValidLocationPath(value))
                 {
                     throw ConfigException(INVALID_LOCATION_CONFIG);
                 }
-                parseLocation(file, serverConfig, value);
+                serverConfig.parseLocation(file, value);
             }
             else throw ConfigException(INVALID_SERVER_CONFIG);
         }
@@ -147,207 +145,6 @@ void Config::parseServer(std::ifstream& file)
         }
     }
     serverConfigs.push_back(serverConfig);
-}
-void Config::parseLocation(std::ifstream& file, ServerConfig& serverConfig, std::string& locationPath)
-{
-    LocationConfig locationConfig;
-    std::string line;
-    std::map<std::string, bool> duplicateCheck;
-
-    while (std::getline(file, line) && line.find("}") == std::string::npos)
-    {
-        if (line.empty())
-            continue;
-        std::istringstream iss(line);
-        std::string key, value;
-        iss >> key;
-        getline(iss, value);
-        if (duplicateCheck[key])
-            throw ConfigException(INVALID_LOCATION_CONFIG);
-        try
-        {
-            if (key == "root") parseRoot(locationConfig, value);
-            else if (key == "index") parseIndex(locationConfig, value);
-            else if (key == "allow_methods") parseAllowMethods(locationConfig, value);
-            else if (key == "directory_listing") parseDirectoryListing(locationConfig, value);
-            else if (key == "redirect") parseRedirect(locationConfig, value);
-            else if (key == "cgi_interpreter") parseCGI(locationConfig, value);
-            else if (key == "location")
-            {
-                if (!isValidLocationPath(value, serverConfig))
-                {
-                    throw ConfigException(INVALID_LOCATION_CONFIG);
-                }
-                if (value.find(locationPath) != 0)
-                {
-                    throw ConfigException(INVALID_LOCATION_CONFIG);
-                }
-                parseLocation(file, serverConfig, value);
-            }
-            else throw ConfigException(INVALID_LOCATION_CONFIG);
-        }
-        catch(const ConfigException& e)
-        {
-            throw e;
-        }
-        duplicateCheck[key] = true;
-    }
-    serverConfig.locations[locationPath] = locationConfig;
-}
-void Config::parseHost(ServerConfig& serverConfig, std::string& value)
-{
-    if (!isValidValue(value))
-        throw ConfigException(INVALID_SERVER_CONFIG);
-    serverConfig.host = value;
-}
-void Config::parsePort(ServerConfig& serverConfig, std::string& value)
-{
-    if (!isValidValue(value) || !isDigitStr(value))
-        throw ConfigException(INVALID_SERVER_CONFIG);
-    serverConfig.port = atoi(value.c_str());
-    if (serverConfig.port > MAX_PORT_NUM || serverConfig.port == 0)
-    {
-        throw ConfigException(INVALID_SERVER_CONFIG);
-    }
-}
-void Config::parseRoot(ServerConfig& serverConfig, std::string& value)
-{
-    if (!isValidValue(value))
-        throw ConfigException(INVALID_SERVER_CONFIG);
-    serverConfig.root = value;
-}
-void Config::parseIndex(ServerConfig& serverConfig, std::string& value)
-{
-    if (!isValidValue(value))
-        throw ConfigException(INVALID_SERVER_CONFIG);
-    serverConfig.index = value;
-}
-void Config::parseClientMaxBodySize(ServerConfig& serverConfig, std::string& value)
-{
-    if (!isValidValue(value) || !isDigitStr(value))
-        throw ConfigException(INVALID_SERVER_CONFIG);
-    serverConfig.client_max_body_size = atoi(value.c_str());
-    if (serverConfig.client_max_body_size == 0)
-        throw ConfigException(INVALID_SERVER_CONFIG);
-}
-void Config::parseErrorPage(ServerConfig& serverConfig, std::string& value)
-{
-    trim(value);
-    std::istringstream iss(value);
-    std::vector<int> statuses;
-    std::string prefix;
-    while (getline(iss, prefix, ' '))
-    {
-        if (iss.eof())
-            break;
-        if (!isDigitStr(prefix) || prefix.empty())
-            throw ConfigException(INVALID_SERVER_CONFIG);
-        size_t status = atoi(prefix.c_str());
-        if (status < 100 || status > 599)
-            throw ConfigException(INVALID_SERVER_CONFIG);
-        statuses.push_back(status);
-    }
-    if (!isValidValue(prefix))
-        throw ConfigException(INVALID_SERVER_CONFIG);
-    for (std::vector<int>::iterator it = statuses.begin(); it != statuses.end(); ++it)
-        serverConfig.error_pages[*it] = prefix;
-}
-void Config::parseRoot(LocationConfig& locationConfig, std::string& value)
-{
-    if (!isValidValue(value))
-        throw ConfigException(INVALID_LOCATION_CONFIG);
-    locationConfig.root = value;
-}
-void Config::parseIndex(LocationConfig& locationConfig, std::string& value)
-{
-    if (!isValidValue(value))
-        throw ConfigException(INVALID_LOCATION_CONFIG);
-    locationConfig.index = value;
-}
-void Config::parseAllowMethods(LocationConfig& locationConfig, std::string& value)
-{
-    if (value.back() != ';')
-        throw ConfigException(INVALID_LOCATION_CONFIG);
-    value.pop_back();
-    std::istringstream iss(value);
-    std::string method;
-    while (iss >> method)
-    {
-        if (locationConfig.allow_methods[method] == true)
-            throw ConfigException(INVALID_LOCATION_CONFIG);
-        if (std::find(implementMethods, implementMethods + implementMethodsSize, method) == implementMethods + implementMethodsSize)
-            throw ConfigException(INVALID_LOCATION_CONFIG);
-        locationConfig.allow_methods[method] = true;
-    }
-    if (locationConfig.allow_methods.empty())
-        throw ConfigException(INVALID_LOCATION_CONFIG);
-}
-void Config::parseDirectoryListing(LocationConfig& locationConfig, std::string& value)
-{
-    if (!isValidValue(value))
-        throw ConfigException(INVALID_LOCATION_CONFIG);
-    if (value == "on")
-        locationConfig.directory_listing = true;
-    else if (value == "off")
-        locationConfig.directory_listing = false;
-    else
-        throw ConfigException(INVALID_LOCATION_CONFIG);
-}
-void Config::parseRedirect(LocationConfig& locationConfig, std::string& value)
-{
-    if (!isValidValue(value))
-        throw ConfigException(INVALID_LOCATION_CONFIG);
-    locationConfig.redirect = value;
-}
-void Config::parseCGI(LocationConfig& locationConfig, std::string& value)
-{
-    if (!isValidValue(value))
-        throw ConfigException(INVALID_LOCATION_CONFIG);
-    locationConfig.cgi_interpreter = value;
-}
-bool Config::isValidValue(std::string& value)
-{
-    trim(value);
-    if (value.back() != ';')
-    {
-        return false;
-    }
-    value.pop_back();
-    if (value.empty())
-    {
-        return false;
-    }
-    if (std::find(value.begin(), value.end(), ' ') != value.end())
-    {
-        return false;
-    }
-    return true;
-}
-bool Config::isValidLocationPath(std::string& locationPath, const ServerConfig& serverConfig)
-{
-    if (locationPath.back() != '{' || locationPath.find("//") != std::string::npos)
-    {
-        return false;
-    }
-    locationPath.pop_back();
-    trim(locationPath);
-    if (locationPath.empty())
-    {
-        return false;
-    }
-    if (find(locationPath.begin(), locationPath.end(), ' ') != locationPath.end())
-    {
-        return false;
-    }
-    if (locationPath.back() != '/' && locationPath.front() != '/' && locationPath.front() != '.')
-    {
-        return false;
-    }
-    if (serverConfig.locations.find(locationPath) != serverConfig.locations.end())
-    {
-        return false;
-    }
-    return true;
 }
 void Config::verifyConfig(void)
 {
@@ -381,9 +178,9 @@ void Config::verifyConfig(void)
             }
             if (locIt->CONFIG.allow_methods.empty())
             {
-                for (size_t j = 0; j < implementMethodsSize; j++)
+                for (size_t j = 0; j < LocationConfig::implementMethodsSize; j++)
                 {
-                    locIt->CONFIG.allow_methods[implementMethods[j]] = true;
+                    locIt->CONFIG.allow_methods[LocationConfig::implementMethods[j]] = true;
                 }
             }
             makePrefix(locIt->LOCATION, locIt->CONFIG);
@@ -392,6 +189,11 @@ void Config::verifyConfig(void)
 }
 void Config::makePrefix(const std::string& loc, LocationConfig& locConf)
 {
+    if (loc.front() == '.')
+    {
+        locConf.prefix = locConf.root;
+        return;
+    }
     if (locConf.root.back() == '/' && loc.front() == '/')
     {
         locConf.root.pop_back();
@@ -450,39 +252,4 @@ size_t Config::getKeepAliveTime() const
     return keepalive_timeout;
 }
 
-bool isWhitespace(char c)
-{
-    return c == ' ' || c == '\t' || c == '\n' || c == '\r';
-}
-void trim(std::string &str)
-{
-    size_t start = 0;
-    size_t end = str.size();
-    while (start < end && isWhitespace(str[start]))
-    {
-        ++start;
-    }
-    while (end > start && isWhitespace(str[end - 1]))
-    {
-        --end;
-    }
-    if (start == end)
-    {
-        str.clear();
-    }
-    else
-    {
-        str = str.substr(start, end - start);
-    }
-}
-bool isDigitStr(const std::string &str)
-{
-    for (size_t i = 0; i < str.size(); ++i)
-    {
-        if (!isdigit(str[i]))
-        {
-            return false;
-        }
-    }
-    return true;
-}
+
