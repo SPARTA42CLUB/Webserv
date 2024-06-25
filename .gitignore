@@ -45,3 +45,4 @@ www/permission_denied/
 
 # log
 access.log
+error.log

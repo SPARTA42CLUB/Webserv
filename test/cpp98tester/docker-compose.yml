@@ -1,7 +1,0 @@
-services:
-  cpp:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: cpp:test
-    container_name: cpp

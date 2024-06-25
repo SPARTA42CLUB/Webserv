@@ -1,23 +1,19 @@
 #include <iostream>
 #include "Config.hpp"
-#include "Exception.hpp"
-#include "Server.hpp"
 #include "Logger.hpp"
-#include "color.hpp"
+#include "Server.hpp"
 
-static bool isOption(const std::string& arg);
+static std::string makeConfigPath(int argc, char* argv[], bool& isOption);
 
 int main(int argc, char* argv[])
 {
-    // Config 기본 경로 설정
-    std::string ConfigPath = "default.conf";
-    if (argc > 1 && !isOption(argv[1]))
-        ConfigPath = argv[1];
+    bool isOption = false;
+    const std::string ConfigPath = makeConfigPath(argc, argv, isOption);
 
     try
     {
-        Config config(ConfigPath);
-        if (argc > 1 && isOption(argv[1]))
+        const Config config(ConfigPath);
+        if (isOption)
         {
             config.print();
             return 0;
@@ -29,13 +25,28 @@ int main(int argc, char* argv[])
     {
         // 서버 실행 중 에러 발생 시 종료
         Logger::getInstance().logError(e.what());
-        // std::cerr << color::FG_RED << "Server run failed: " << e.what() << color::RESET << std::endl;
     }
 
     return 0;
 }
 
-bool isOption(const std::string& arg)
+static std::string makeConfigPath(int argc, char* argv[], bool& isOption)
 {
-    return (arg == "-c" || arg == "--config");
+    std::string configPath = "conf/default.conf";
+    if (argc > 1)
+    {
+        if (std::string(argv[1]) == "-c" || std::string(argv[1]) == "--config")
+        {
+            isOption = true;
+            if (argc > 2)
+            {
+                configPath = argv[2];
+            }
+        }
+        else 
+        {
+            configPath = argv[1];
+        }
+    }
+    return configPath;
 }

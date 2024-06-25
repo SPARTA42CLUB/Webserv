@@ -3,19 +3,20 @@
 
 #include <string>
 
-enum eStartLine
-{
-    HTTP_VERSION = 0,
-    STATUS_CODE = 1,
-    REASON_PHRASE = 2,
-    METHOD = 1,
-    REQUEST_TARGET = 2
-};
+
 
 class StartLine
 {
 private:
     std::string mElements[3];
+    enum eStartLine
+    {
+        HTTP_VERSION = 0,
+        STATUS_CODE = 1,
+        REASON_PHRASE = 2,
+        METHOD = 1,
+        REQUEST_TARGET = 2
+    };
     StartLine(const StartLine& rhs);
     StartLine& operator=(const StartLine& rhs);
 

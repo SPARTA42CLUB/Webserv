@@ -29,6 +29,7 @@ private:
     std::map<std::string, std::string> mFields;
     HeaderFields(const HeaderFields& rhs);
     const HeaderFields& operator=(const HeaderFields& rhs);
+
 public:
     HeaderFields();
     ~HeaderFields();

@@ -61,8 +61,8 @@ clean:
 	@echo "$(FG_BLUE)Cleaned up object files$(RESET)"
 
 fclean: clean
-	@rm -f $(NAME)
-	@echo "$(FG_BLUE)Cleaned up executable and library$(RESET)"
+	@rm -f $(NAME) log/*.log
+	@echo "$(FG_BLUE)Cleaned up executable and log files$(RESET)"
 
 re:
 	@$(MAKE) fclean
