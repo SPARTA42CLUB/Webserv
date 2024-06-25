@@ -1,4 +1,5 @@
-#pragma once
+#ifndef CONFIG_HPP
+#define CONFIG_HPP
 
 #include <map>
 #include <string>
@@ -102,3 +103,5 @@ public:
     // TEST: 파싱 결과 출력
     void print(void) const;
 };
+
+#endif

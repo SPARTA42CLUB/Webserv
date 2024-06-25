@@ -16,7 +16,7 @@ public:
 	void deleteWriteEvent(int socket);
 
 private:
-	int kq;
+	const int kq;
 
-	void addEvent(int socket, int16_t filter, uint16_t flags);
+	void addEvent(const int socket, const int16_t filter, const uint16_t flags);
 };

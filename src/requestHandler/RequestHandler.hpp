@@ -11,7 +11,8 @@ class RequestHandler
 private:
     ResponseMessage& mResponseMessage;
     const ServerConfig& mServerConfig;
-    std::string mLocation;
+    // MethodExecuter methodExecuter; // 얘가 분배 이후 메소드를 실제로 실행하는 함수를 모두 지님
+    // CGIHandler cgiHandler;
     std::string mPath;
 
     // Response (Success)

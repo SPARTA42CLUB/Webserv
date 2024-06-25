@@ -7,7 +7,6 @@
 RequestHandler::RequestHandler(ResponseMessage& mResponseMessage, const ServerConfig& serverConfig)
 : mResponseMessage(mResponseMessage)
 , mServerConfig(serverConfig)
-, mLocation("")
 , mPath("")
 {
 }
@@ -49,7 +48,6 @@ void RequestHandler::handleRequest(const RequestMessage& req)
                 if (access(tmp.c_str(), F_OK) == 0)
                 {
                     mPath = tmp;
-                    mLocation = it->first;
                     break;
                 }
             }

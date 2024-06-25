@@ -1,42 +1,50 @@
-#pragma once
+#ifndef SERVER_HPP
+#define SERVER_HPP
 
-#include <vector>
 #include <map>
-#include <string>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/event.h>
+#include <vector>
 #include "Config.hpp"
-#include "EventManager.hpp"
 #include "Connection.hpp"
+#include "EventManager.hpp"
 #include "Logger.hpp"
 
-class Server {
-public:
-	Server(const Config& config);
-	~Server();
-
-	void run();
-
+class Server
+{
 private:
-	const Config& config;
-	EventManager eventManager;
-	std::vector<int> serverSockets;
+    const Config& config;
+    EventManager eventManager;
+    std::vector<int> serverSockets;
     std::map<int, Connection*> connectionsMap;
-	Logger& logger;
 
-	void setupServerSockets();
-	int createServerSocket(ServerConfig serverConfig);
-	void setNonBlocking(int socket);
-	void checkKeepAlive();
+    void setupServerSockets();
+    int createServerSocket(ServerConfig serverConfig);
+    void setNonBlocking(int socket);
+    void checkKeepAlive();
 
-	void acceptClient(int serverSocket);
-	void handleClientReadEvent(struct kevent& event);
-	void handleClientWriteEvent(struct kevent& event);
+    void acceptClient(int serverSocket);
+    void handleClientReadEvent(struct kevent& event);
+    void handleClientWriteEvent(struct kevent& event);
 
-	void closeConnection(int socket);
-	bool isServerSocket(int socket);
+    void closeConnection(int socket);
+    bool isServerSocket(int socket);
+
+    // 커넥션한테서 옮겨온애들
+    ssize_t executeByRecv(Connection& connection);
+
+    void handleNormalRequest(Connection& connection);
+    void updateLastActivity(Connection& connection);
+
+    void handleChunkedRequest();
+    std::string getCompleteChunk(Connection& connection);
+    std::string getCompleteRequest(Connection& connection);
+
+    ssize_t sendToSocket(Connection* connection);
+
+public:
+    Server(const Config& config);
+    ~Server();
+
+    void run();
 };
+
+#endif

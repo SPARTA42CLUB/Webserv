@@ -4,8 +4,8 @@
 #include "SysException.hpp"
 
 EventManager::EventManager()
+: kq(kqueue())
 {
-    kq = kqueue();
     if (kq == -1)
     {
         throw SysException(FAILED_TO_CREATE_KQUEUE);
@@ -37,7 +37,7 @@ void EventManager::deleteWriteEvent(int socket)
     addEvent(socket, EVFILT_WRITE, EV_DELETE);
 }
 
-void EventManager::addEvent(int socket, int16_t filter, uint16_t flags)
+void EventManager::addEvent(const int socket, const int16_t filter, const uint16_t flags)
 {
     struct kevent evSet;
     EV_SET(&evSet, socket, filter, flags, 0, 0, NULL);

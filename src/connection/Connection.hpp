@@ -1,39 +1,17 @@
 #pragma once
 
-#include <deque>
-#include <string>
-
-#include "Logger.hpp"
+#include <queue>
 #include "ResponseMessage.hpp"
-#include "RequestMessage.hpp"
-#include "Config.hpp"
 
-class Connection {
-private:
-	int socket;
-	int chunkedFd;
-	int CGIPipeFd; // NOTE: 2개 필요할 수도?
-	bool isChunked;
-	bool isCGI;
-	std::string recvedData;
-	std::deque<ResponseMessage*> responses;
-	time_t last_activity;
-	Logger& logger;
-	const Config& config;
+struct Connection
+{
+    const int socket;
+    bool isChunked;
+    const Connection* parentConnection;  // cgi의 응답을 담은 pipe를 생성한 connection에 대한 참조
+    std::string recvData;
+    std::queue<ResponseMessage*> responses;
+    time_t last_activity;
 
-	void handleChunkedRequest();
-	std::string getCompleteChunk();
-	void handleNormalRequest();
-	std::string getCompleteRequest();
-
-	void updateLastActivity();
-
-public:
-	Connection(int socket, const Config& config);
-	~Connection();
-
-	ssize_t excuteByRecv();
-	ssize_t sendToSocket();
-
-	time_t getLastActivity() const;
+    Connection(const int socket, const Connection* parentConnection = nullptr);
+    ~Connection();
 };

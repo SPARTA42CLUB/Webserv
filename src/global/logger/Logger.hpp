@@ -1,41 +1,42 @@
-#pragma once
+#ifndef LOGGER_HPP
+#define LOGGER_HPP
 
-#include <iostream>
-#include <fstream>
 #include <string>
-#include <sstream>
-#include <ctime>
-#include <netinet/in.h>
-
-#include "ResponseMessage.hpp"
 #include "RequestMessage.hpp"
+#include "ResponseMessage.hpp"
 
-class Logger {
+class Logger
+{
 public:
-    enum LogLevel {
+    enum eLogLevel
+    {
         INFO,
         WARNING,
         ERROR
     };
 
-	// Singleton
+    // Singleton
     static Logger& getInstance();
 
-    void logWarning(const std::string& logMessage);
-    void logError(const std::string& logMessage);
-	void logAccept(int socket, struct sockaddr_in addr);
-	void logHTTPMessage(const ResponseMessage& res, const RequestMessage& req);
-
+    void logWarning(const std::string& logMessage) const;
+    void logError(const std::string& logMessage) const;
+    void logAccept(int socket, struct sockaddr_in addr) const;
+    void logHTTPMessage(const ResponseMessage& res, const RequestMessage& req) const;
 
 private:
+    const std::string accessLogPath;
+    const std::string errorLogPath;
+
     // Singleton
     Logger();
     ~Logger();
     Logger(const Logger&);
     Logger& operator=(const Logger&);
 
-    void log(LogLevel level, const std::string& message, const std::string& filePath);
+    void log(eLogLevel level, const std::string& message) const;
 
-    std::string logLevelToString(LogLevel level);
-    std::string getTimeStamp();
+    std::string logLevelToString(const eLogLevel level) const;
+    std::string getTimeStamp() const;
 };
+
+#endif

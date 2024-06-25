@@ -1,39 +1,33 @@
 #include "Connection.hpp"
-
 #include <unistd.h>
-
 #include "ChunkedRequestReader.hpp"
-#include "RequestHandler.hpp"
 
-Connection::Connection(int socket, const Config& config)
+Connection::Connection(const int socket, const Connection* parentConnection)
 : socket(socket)
-, chunkedFd(-1)
 , isChunked(false)
-, isCGI(false)
-, recvedData()
+, parentConnection(parentConnection)
+, recvData()
 , responses()
 , last_activity(time(NULL))
-, logger(Logger::getInstance())
-, config(config)
-{}
+{
+}
 
 Connection::~Connection()
 {
     close(socket);
 
-    if (isChunked)
-        close(chunkedFd);
+    if (parentConnection)
+        delete parentConnection;
 
-    if (isCGI)
-        close(CGIPipeFd);
-
-	for (size_t i = 0; i < responses.size(); ++i)
+    while (!responses.empty())
     {
-		delete responses[i]; // 메모리 해제
-	}
+        delete responses.front();
+        responses.pop();
+    }
 }
 
-ssize_t Connection::excuteByRecv()
+/*
+ssize_t Connection::executeByRecv()
 {
     char buffer[4096];
     ssize_t bytesRead;
@@ -42,11 +36,27 @@ ssize_t Connection::excuteByRecv()
         return bytesRead;
 
     buffer[bytesRead] = '\0';
-	recvedData += std::string(buffer, buffer + bytesRead);
+        recvedData += std::string(buffer, buffer + bytesRead);
 
     // 청크 인코딩 여부에 따라 청크 요청 처리
     if (isChunked)
-        handleChunkedRequest();
+    {
+        std::string chunk;
+
+        while ((chunk = getCompleteChunk()).length() > 0)
+        {
+            // NOTE: 헤더 보고 파일 경로 수정해야 함.
+            ChunkedRequestReader reader("upload/testfile.png", chunk);
+                bool isChunkedEnd = reader.processRequest();
+
+            recvedData.erase(0, chunk.length());
+
+            if (isChunkedEnd) {
+                isChunked = false; // 마지막 청크 후 청크 상태 해제
+                return ;
+            }
+        }
+    }
 
     // 일반 요청 처리
     handleNormalRequest();
@@ -54,26 +64,9 @@ ssize_t Connection::excuteByRecv()
     updateLastActivity();
     return bytesRead;
 }
+*/
 
-void Connection::handleChunkedRequest()
-{
-    std::string chunk;
-
-    while ((chunk = getCompleteChunk()).length() > 0)
-    {
-        // NOTE: 헤더 보고 파일 경로 수정해야 함.
-        ChunkedRequestReader reader("upload/testfile.png", chunk);
-		bool isChunkedEnd = reader.processRequest();
-
-        recvedData.erase(0, chunk.length());
-
-        if (isChunkedEnd) {
-            isChunked = false; // 마지막 청크 후 청크 상태 해제
-            return ;
-        }
-    }
-}
-
+/*
 // NOTE: 그냥 2 더하면 안되고 \r\n인지 검사해야 함.
 std::string Connection::getCompleteChunk()
 {
@@ -89,7 +82,9 @@ std::string Connection::getCompleteChunk()
         return ""; // 청크 데이터가 아직 도착하지 않음
     return recvedData.substr(0, pos + chunkSize + 2);
 }
+*/
 
+/*
 // // NOTE: 여기는 RequestHandler 손보고 고쳐야 할듯..
 void Connection::handleNormalRequest()
 {
@@ -138,7 +133,9 @@ void Connection::handleNormalRequest()
     // }
 
 }
+*/
 
+/*
 // NOTE:그냥 4 더 하면 안 되고 \r\n\r\n인지 확인해야 함
 std::string Connection::getCompleteRequest()
 {
@@ -163,7 +160,9 @@ std::string Connection::getCompleteRequest()
         return recvedData.substr(0, requestLength);
     return "";
 }
+*/
 
+/*
 // NOTE: 응답 생성할 때마다 keepalive 설정하게 변경해야 함
 ssize_t Connection::sendToSocket()
 {
@@ -180,14 +179,19 @@ ssize_t Connection::sendToSocket()
 
     return bytesSend;
 }
+*/
 
+/*
 void Connection::updateLastActivity()
 {
     last_activity = time(NULL);
 }
+*/
 
+/*
 time_t Connection::getLastActivity() const
 {
     (void)config;
     return last_activity;
 }
+*/
