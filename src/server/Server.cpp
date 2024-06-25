@@ -26,10 +26,10 @@ Server::~Server()
         close(serverSockets[i]);
     }
 
-    // for (std::map<int, Connection*>::const_iterator it = connectionsMap.begin(); it != connectionsMap.end(); ++it)
-    // {
-    //     closeConnection(it->first);
-    // }
+    for (std::map<int, Connection*>::const_iterator it = connectionsMap.begin(); it != connectionsMap.end(); ++it)
+    {
+        closeConnection(it->first);
+    }
 }
 
 // Server 소켓 생성 및 설정

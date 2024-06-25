@@ -13,15 +13,15 @@ int main(int argc, char* argv[])
     bool isOption = false;
     const std::string ConfigPath = makeConfigPath(argc, argv, isOption);
 
-    const Config config(ConfigPath);
-    if (isOption)
-    {
-        config.print();
-        return 0;
-    }
-    Server server(config);
     try
     {
+        const Config config(ConfigPath);
+        if (isOption)
+        {
+            config.print();
+            return 0;
+        }
+        Server server(config);
         server.run();
     }
     catch (const std::exception& e)
