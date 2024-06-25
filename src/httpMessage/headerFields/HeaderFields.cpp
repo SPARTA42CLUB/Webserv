@@ -9,7 +9,6 @@ HeaderFields::HeaderFields()
 HeaderFields::~HeaderFields()
 {
 }
-#include <iostream>
 void HeaderFields::parseHeaderFields(std::istringstream& headerFields)
 {
     /*

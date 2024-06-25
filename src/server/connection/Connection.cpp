@@ -7,7 +7,9 @@ Connection::Connection(const int socket, const Connection* parentConnection)
 : socket(socket)
 , isChunked(false)
 , parentConnection(parentConnection)
-, recvData()
+, recvedData()
+, chunkBuffer()
+, requests()
 , responses()
 , last_activity(time(NULL))
 {
@@ -18,10 +20,6 @@ Connection::~Connection()
     std::cout << "Connection closed: " << socket << std::endl;
     EventManager::getInstance().deleteReadEvent(socket);
     close(socket);
-
-    if (parentConnection)
-        delete parentConnection;
-
     while (!responses.empty())
     {
         delete responses.front();
@@ -139,30 +137,7 @@ void Connection::handleNormalRequest()
 */
 
 /*
-// NOTE:그냥 4 더 하면 안 되고 \r\n\r\n인지 확인해야 함
-std::string Connection::getCompleteRequest()
-{
-    size_t headerEnd = recvedData.find("\r\n\r\n");
-    if (headerEnd == std::string::npos)
-        return "";
 
-    size_t requestLength = headerEnd + 4;
-
-    std::istringstream headerStream(recvedData.substr(0, headerEnd + 4));
-    std::string headerLine;
-    while (std::getline(headerStream, headerLine) && headerLine != "\r")
-    {
-        if (headerLine.find("Content-Length:") != std::string::npos)
-        {
-            requestLength += std::strtoul(headerLine.substr(16).c_str(), NULL, 10);
-            break ;
-        }
-    }
-
-    if (recvedData.length() >= requestLength)
-        return recvedData.substr(0, requestLength);
-    return "";
-}
 */
 
 /*

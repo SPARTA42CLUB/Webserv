@@ -5,15 +5,24 @@ RequestMessage::RequestMessage()
 : mRequestLine()
 , mRequestHeaderFields()
 , mMessageBody()
+, mStatusCode(200)
 {
 }
 RequestMessage::RequestMessage(const std::string& request)
 : mRequestLine()
 , mRequestHeaderFields()
 , mMessageBody()
+, mStatusCode(200)
 {
-    parseRequestMessage(request);
-    verifyRequest(request);
+    try
+    {
+        parseRequestMessage(request);
+        verifyRequest();
+    }
+    catch (const HTTPException& e)
+    {
+        mStatusCode = e.getStatusCode();
+    }
 }
 RequestMessage::~RequestMessage()
 {
@@ -59,29 +68,43 @@ void RequestMessage::parseRequestLine(std::istringstream& reqStream)
 }
 void RequestMessage::parseRequestHeaderFields(std::istringstream& reqStream)
 {
-    mRequestHeaderFields.parseHeaderFields(reqStream);
-}
-void RequestMessage::parseMessageBody(std::istringstream& reqStream)
-{
-    mMessageBody.parseMessageBody(reqStream);
-}
-void RequestMessage::verifyRequest(const RequestMessage& req)
-{
     try
     {
-        verifyRequestLine(req.getRequestLine());
-        verifyRequestHeaderFields(req.getRequestHeaderFields());
+        mRequestHeaderFields.parseHeaderFields(reqStream);
     }
     catch (const HTTPException& e)
     {
         throw e;
     }
 }
-void RequestMessage::verifyRequestLine(const StartLine& reqLine)
+void RequestMessage::parseMessageBody(std::istringstream& reqStream)
 {
-    const std::string method = reqLine.getMethod();
-    const std::string reqTarget = reqLine.getRequestTarget();
-    const std::string ver = reqLine.getHTTPVersion();
+    try
+    {
+        mMessageBody.parseMessageBody(reqStream);
+    }
+    catch (const HTTPException& e)
+    {
+        throw e;
+    }
+}
+void RequestMessage::verifyRequest(void)
+{
+    try
+    {
+        verifyRequestLine();
+        verifyRequestHeaderFields();
+    }
+    catch (const HTTPException& e)
+    {
+        throw e;
+    }
+}
+void RequestMessage::verifyRequestLine(void)
+{
+    const std::string method = mRequestLine.getMethod();
+    const std::string reqTarget = mRequestLine.getRequestTarget();
+    const std::string ver = mRequestLine.getHTTPVersion();
     if (method != "GET" && method != "HEAD" && method != "POST" && method != "DELETE")
     {
         throw HTTPException(METHOD_NOT_ALLOWED);
@@ -99,9 +122,9 @@ void RequestMessage::verifyRequestLine(const StartLine& reqLine)
         throw HTTPException(URI_TOO_LONG);
     }
 }
-void RequestMessage::verifyRequestHeaderFields(const HeaderFields& reqHeaderFields)
+void RequestMessage::verifyRequestHeaderFields(void)
 {
-    if (reqHeaderFields.hasField("Host") == false)
+    if (mRequestHeaderFields.hasField("Host") == false)
     {
         throw HTTPException(BAD_REQUEST);
     }
@@ -109,6 +132,10 @@ void RequestMessage::verifyRequestHeaderFields(const HeaderFields& reqHeaderFiel
 std::string RequestMessage::toString(void) const
 {
     std::ostringstream oss;
-    oss << mRequestLine.toString() << mRequestHeaderFields.toString() << "\r\n" << mMessageBody.toString();
     return oss.str();
+}
+
+int RequestMessage::getStatusCode() const
+{
+    return mStatusCode;
 }

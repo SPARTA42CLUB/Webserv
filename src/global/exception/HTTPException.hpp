@@ -92,6 +92,7 @@ public:
     HTTPException(const int statusCode);
     virtual ~HTTPException() _NOEXCEPT;
     int getStatusCode() const;
+    const char* what() const _NOEXCEPT;
 };
 
 #endif

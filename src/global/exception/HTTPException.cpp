@@ -11,3 +11,11 @@ int HTTPException::getStatusCode() const
 {
     return mStatusCode;
 }
+#include <iostream>
+#include <cstdio>
+const char* HTTPException::what() const _NOEXCEPT
+{
+    char* str = new char[20];
+    sprintf(str, "%d", mStatusCode);
+    return str;
+}

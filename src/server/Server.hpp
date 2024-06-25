@@ -26,14 +26,15 @@ private:
     bool isServerSocket(int socket);
 
     // 커넥션한테서 옮겨온애들
-    ssize_t executeByRecv(Connection& connection);
+    void recvData(Connection& connection);
 
-    void handleNormalRequest(Connection& connection);
+    void makeCompleteRequest(Connection& connection);
+
+    std::string getChunkData(std::string& recvedData);
+    std::string getRequest(std::string& recvedData);
+    void makeChunk(Connection& connection);
+    void makeRequest(Connection& connection);
     void updateLastActivity(Connection& connection);
-
-    void handleChunkedRequest();
-    std::string getCompleteChunk(Connection& connection);
-    std::string getCompleteRequest(Connection& connection);
 
     ssize_t sendToSocket(Connection* connection);
 
@@ -43,5 +44,7 @@ public:
 
     void run();
 };
+
+bool isLastChunk(std::string& chunk);
 
 #endif

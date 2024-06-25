@@ -2,6 +2,9 @@
 #include "Config.hpp"
 #include "Logger.hpp"
 #include "Server.hpp"
+#include "ConfigException.hpp"
+#include "HTTPException.hpp"
+#include "SysException.hpp"
 
 static std::string makeConfigPath(int argc, char* argv[], bool& isOption);
 
@@ -10,15 +13,15 @@ int main(int argc, char* argv[])
     bool isOption = false;
     const std::string ConfigPath = makeConfigPath(argc, argv, isOption);
 
+    const Config config(ConfigPath);
+    if (isOption)
+    {
+        config.print();
+        return 0;
+    }
+    Server server(config);
     try
     {
-        const Config config(ConfigPath);
-        if (isOption)
-        {
-            config.print();
-            return 0;
-        }
-        Server server(config);
         server.run();
     }
     catch (const std::exception& e)
@@ -43,7 +46,7 @@ static std::string makeConfigPath(int argc, char* argv[], bool& isOption)
                 configPath = argv[2];
             }
         }
-        else 
+        else
         {
             configPath = argv[1];
         }
