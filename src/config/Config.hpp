@@ -87,7 +87,7 @@ private:
     void parseCGI(LocationConfig& locationConfig, std::string& value);
     // Check Validity
     bool isValidValue(std::string& value);
-    bool isValidLocationPath(std::string& locationPath);
+    bool isValidLocationPath(std::string& locationPath, const ServerConfig& serverConfig);
 
     void verifyConfig(void);
     void makePrefix(const std::string& loc, LocationConfig& locConf);

@@ -5,7 +5,6 @@
 #include <vector>
 #include "Config.hpp"
 #include "Connection.hpp"
-#include "Logger.hpp"
 
 class Server
 {

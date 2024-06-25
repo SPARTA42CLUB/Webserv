@@ -127,7 +127,14 @@ void Config::parseServer(std::ifstream& file)
             else if (key == "index") parseIndex(serverConfig, value);
             else if (key == "client_max_body_size") parseClientMaxBodySize(serverConfig, value);
             else if (key == "error_page") parseErrorPage(serverConfig, value);
-            else if (key == "location") parseLocation(file, serverConfig, value);
+            else if (key == "location") 
+            {
+                if (!isValidLocationPath(value, serverConfig))
+                {
+                    throw ConfigException(INVALID_LOCATION_CONFIG);
+                }
+                parseLocation(file, serverConfig, value);
+            }
             else throw ConfigException(INVALID_SERVER_CONFIG);
         }
         catch(const ConfigException& e)
@@ -143,10 +150,6 @@ void Config::parseServer(std::ifstream& file)
 }
 void Config::parseLocation(std::ifstream& file, ServerConfig& serverConfig, std::string& locationPath)
 {
-    if (!isValidLocationPath(locationPath))
-    {
-        throw ConfigException(INVALID_LOCATION_CONFIG);
-    }
     LocationConfig locationConfig;
     std::string line;
     std::map<std::string, bool> duplicateCheck;
@@ -171,8 +174,14 @@ void Config::parseLocation(std::ifstream& file, ServerConfig& serverConfig, std:
             else if (key == "cgi_interpreter") parseCGI(locationConfig, value);
             else if (key == "location")
             {
-                trim(value);
-                value = locationPath + value;
+                if (!isValidLocationPath(value, serverConfig))
+                {
+                    throw ConfigException(INVALID_LOCATION_CONFIG);
+                }
+                if (value.find(locationPath) != 0)
+                {
+                    throw ConfigException(INVALID_LOCATION_CONFIG);
+                }
                 parseLocation(file, serverConfig, value);
             }
             else throw ConfigException(INVALID_LOCATION_CONFIG);
@@ -314,7 +323,7 @@ bool Config::isValidValue(std::string& value)
     }
     return true;
 }
-bool Config::isValidLocationPath(std::string& locationPath)
+bool Config::isValidLocationPath(std::string& locationPath, const ServerConfig& serverConfig)
 {
     if (locationPath.back() != '{' || locationPath.find("//") != std::string::npos)
     {
@@ -331,6 +340,10 @@ bool Config::isValidLocationPath(std::string& locationPath)
         return false;
     }
     if (locationPath.back() != '/' && locationPath.front() != '/' && locationPath.front() != '.')
+    {
+        return false;
+    }
+    if (serverConfig.locations.find(locationPath) != serverConfig.locations.end())
     {
         return false;
     }

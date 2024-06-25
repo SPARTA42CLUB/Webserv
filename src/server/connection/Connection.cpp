@@ -1,7 +1,6 @@
 #include "Connection.hpp"
 #include <unistd.h>
 #include <iostream>
-#include "ChunkedRequestReader.hpp"
 #include "EventManager.hpp"
 
 Connection::Connection(const int socket, const Connection* parentConnection)

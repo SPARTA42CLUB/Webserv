@@ -2,7 +2,6 @@
 #include "Config.hpp"
 #include "Logger.hpp"
 #include "Server.hpp"
-#include "SysException.hpp"
 
 static std::string makeConfigPath(int argc, char* argv[], bool& isOption);
 
@@ -13,7 +12,7 @@ int main(int argc, char* argv[])
 
     try
     {
-        Config config(ConfigPath);
+        const Config config(ConfigPath);
         if (isOption)
         {
             config.print();
