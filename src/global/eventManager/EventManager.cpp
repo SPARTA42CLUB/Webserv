@@ -3,6 +3,11 @@
 #include <iostream>
 #include "SysException.hpp"
 
+EventManager& EventManager::getInstance()
+{
+    static EventManager instance;
+    return instance;
+}
 EventManager::EventManager()
 : kq(kqueue())
 {
@@ -11,12 +16,10 @@ EventManager::EventManager()
         throw SysException(FAILED_TO_CREATE_KQUEUE);
     }
 }
-
 EventManager::~EventManager()
 {
     close(kq);
 }
-
 void EventManager::addReadEvent(int socket)
 {
     addEvent(socket, EVFILT_READ, EV_ADD | EV_ENABLE);

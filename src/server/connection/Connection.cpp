@@ -1,6 +1,8 @@
 #include "Connection.hpp"
 #include <unistd.h>
+#include <iostream>
 #include "ChunkedRequestReader.hpp"
+#include "EventManager.hpp"
 
 Connection::Connection(const int socket, const Connection* parentConnection)
 : socket(socket)
@@ -14,6 +16,8 @@ Connection::Connection(const int socket, const Connection* parentConnection)
 
 Connection::~Connection()
 {
+    std::cout << "Connection closed: " << socket << std::endl;
+    EventManager::getInstance().deleteReadEvent(socket);
     close(socket);
 
     if (parentConnection)

@@ -5,14 +5,12 @@
 #include <vector>
 #include "Config.hpp"
 #include "Connection.hpp"
-#include "EventManager.hpp"
 #include "Logger.hpp"
 
 class Server
 {
 private:
     const Config& config;
-    EventManager eventManager;
     std::vector<int> serverSockets;
     std::map<int, Connection*> connectionsMap;
 

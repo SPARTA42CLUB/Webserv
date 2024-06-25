@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <iostream>
 #include "ChunkedRequestReader.hpp"
+#include "EventManager.hpp"
 #include "HTTPException.hpp"
 #include "Logger.hpp"
 #include "SysException.hpp"
@@ -11,7 +12,6 @@
 // ServerConfig 클래스 생성자
 Server::Server(const Config& config)
 : config(config)
-, eventManager()
 , serverSockets()
 , connectionsMap()
 {
@@ -54,7 +54,7 @@ void Server::setupServerSockets()
 
         serverSockets.push_back(serverSocket);
 
-        eventManager.addReadEvent(serverSocket);
+        EventManager::getInstance().addReadEvent(serverSocket);
     }
 }
 
@@ -104,7 +104,7 @@ void Server::run()
     // 이벤트 처리 루프
     while (true)
     {
-        std::vector<struct kevent> events = eventManager.getCurrentEvents();
+        std::vector<struct kevent> events = EventManager::getInstance().getCurrentEvents();
         for (std::vector<struct kevent>::iterator it = events.begin(); it != events.end(); ++it)
         {
             struct kevent& event = *it;
@@ -154,7 +154,7 @@ void Server::acceptClient(int serverSocket)
         return;
     }
 
-    eventManager.addReadEvent(connectionSocket);
+    EventManager::getInstance().addReadEvent(connectionSocket);
 
     setNonBlocking(connectionSocket);
 
@@ -172,12 +172,9 @@ void Server::handleClientReadEvent(struct kevent& event)
         closeConnection(event.ident);
         return;
     }
-
     Connection& connection = *connectionsMap[event.ident];
 
     const ssize_t recvBytes = executeByRecv(connection);
-
-    // const ssize_t recvBytes = connectionsMap[event.ident]->excuteByRecv();
     if (recvBytes < 0)
     {
         Logger::getInstance().logWarning("Recv error");
@@ -267,7 +264,7 @@ void Server::handleNormalRequest(Connection& connection)
 
     // // 리소스 효율을 위해 요청이 하나 완료되면 그 때 WRITE 이벤트 등록
     // if (!responses.empty()) {
-    //     eventManager.addWriteEvent(socket);
+    //     EventManager::getInstance().addWriteEvent(socket);
     // }
 }
 
@@ -289,14 +286,12 @@ void Server::handleClientWriteEvent(struct kevent& event)
     }
 
     if (bytesSend == 0)
-        eventManager.deleteWriteEvent(socket);
+        EventManager::getInstance().deleteWriteEvent(socket);
 }
 
 // 커넥션 종료에 필요한 작업들 처리
 void Server::closeConnection(int socket)
 {
-    std::cout << "Connection closed: " << socket << std::endl;
-    eventManager.deleteReadEvent(socket);
     delete connectionsMap[socket];
     connectionsMap.erase(socket);
 }

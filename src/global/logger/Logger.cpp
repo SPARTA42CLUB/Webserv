@@ -28,7 +28,7 @@ void Logger::logError(const std::string& logMessage) const
 void Logger::logAccept(int socket, struct sockaddr_in addr) const
 {
     std::ostringstream oss;
-    oss << "[ Accept Client ] \n"
+    oss << "[ Accept Client ]\n"
         << "IP: " << inet_ntoa(addr.sin_addr) << "\n"
         << "Port: " << ntohs(addr.sin_port) << "\n"
         << "Socket: " << socket << "\n";
