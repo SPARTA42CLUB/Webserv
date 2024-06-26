@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <iostream>
 #include "EventManager.hpp"
+#include "Logger.hpp"
 
 Connection::Connection(const int socket, const Connection* parentConnection)
 : socket(socket)
@@ -17,7 +18,7 @@ Connection::Connection(const int socket, const Connection* parentConnection)
 
 Connection::~Connection()
 {
-    std::cout << "Connection closed: " << socket << std::endl;
+    Logger::getInstance().logInfo("Connection closed\n");
     EventManager::getInstance().deleteReadEvent(socket);
     close(socket);
     while (!requests.empty())
@@ -122,7 +123,7 @@ void Connection::handleNormalRequest()
     //         return ;
     //     }
 
-    //     logger.logHTTPMessage(*res, completeRequest);
+    //     logger.logHttpMessage(*res, completeRequest);
     // }
     // catch (const HttpException& e)
     // {

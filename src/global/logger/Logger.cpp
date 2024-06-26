@@ -36,12 +36,33 @@ void Logger::logAccept(int socket, struct sockaddr_in addr) const
     log(INFO, oss.str());
 }
 
-void Logger::logHTTPMessage(const ResponseMessage& res, const RequestMessage& req) const
+void Logger::logHttpMessage(const ResponseMessage& res, const RequestMessage& req) const
 {
     std::ostringstream oss;
-    oss << "Request:\n" << req.toString() << "Response:\n" << res.toString();
+    oss << "[ Request ]\n" << req.toString() << "[ Response ]\n" << res.toString();
 
     log(INFO, oss.str());
+}
+
+void Logger::logHttpMessage(const ResponseMessage& res) const
+{
+    std::ostringstream oss;
+    oss << "[ Response ]\n" << res.toString();
+
+    log(INFO, oss.str());
+}
+
+void Logger::logHttpMessage(const RequestMessage& req) const
+{
+    std::ostringstream oss;
+    oss << "[ Request ]\n" << req.toString();
+
+    log(INFO, oss.str());
+}
+
+void Logger::logInfo(const std::string& message) const
+{
+    log(INFO, message);
 }
 
 void Logger::log(eLogLevel level, const std::string& message) const
@@ -49,12 +70,13 @@ void Logger::log(eLogLevel level, const std::string& message) const
     const std::string logPath = (level == INFO) ? accessLogPath : errorLogPath;
     std::ofstream logFile(logPath, std::ios::app);
 
-    const std::string logMessage = "[ " + logLevelToString(level) + " ] " + getTimeStamp() + ' ' + message;
+    const std::string logMessage = "[ " + logLevelToString(level) + " ] " + getTimeStamp() + '\n'
+     + message + "\n-----------------------------------\n";
 
-    if (level == INFO)
-        std::cout << logMessage << std::endl;
-    else if (level == WARNING || level == ERROR)
-        std::cerr << logMessage << std::endl;
+    // if (level == INFO)
+    //     std::cout << logMessage << std::endl;
+    // else if (level == WARNING || level == ERROR)
+    //     std::cerr << logMessage << std::endl;
 
     if (logFile.is_open())
     {

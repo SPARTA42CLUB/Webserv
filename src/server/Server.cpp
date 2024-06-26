@@ -179,6 +179,8 @@ void Server::handleClientReadEvent(struct kevent& event)
         delete connection.requests.front();
         connection.requests.pop();
         connection.responses.push(res);
+
+        Logger::getInstance().logHttpMessage(*res);
     }
 
     EventManager::getInstance().addWriteEvent(event.ident);
@@ -262,6 +264,8 @@ bool Server::parseRequest(Connection& connection)
         RequestMessage* req = new RequestMessage(requestString);
 
         connection.requests.push(req);
+
+        Logger::getInstance().logHttpMessage(*req);
     }
 
     return hasData;
