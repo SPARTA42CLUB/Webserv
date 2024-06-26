@@ -15,6 +15,6 @@ struct Connection
     std::queue<ResponseMessage*> responses;
     time_t last_activity;
 
-    Connection(const int socket, const Connection* parentConnection = nullptr);
+    Connection(const int socket, const Connection* parentConnection = NULL);
     ~Connection();
 };

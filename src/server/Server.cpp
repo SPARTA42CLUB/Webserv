@@ -132,17 +132,6 @@ void Server::run()
     }
 }
 
-// Connection들의 keepAlive 관리
-void Server::checkKeepAlive()
-{
-    const time_t now = time(NULL);
-    for (std::map<int, Connection*>::const_iterator it = connectionsMap.begin(); it != connectionsMap.end(); ++it)
-    {
-        if (difftime(now, (it->second)->last_activity) > config.getKeepAliveTime())
-            closeConnection(it->first);
-    }
-}
-
 // 서버 소켓에서 읽기 이벤트가 발생했다는 것의 의미 : 새로운 클라이언트가 연결 요청을 보냈다는 것
 void Server::acceptClient(int serverSocket)
 {
@@ -178,8 +167,7 @@ void Server::handleClientReadEvent(struct kevent& event)
     Connection& connection = *connectionsMap[event.ident];
     recvData(connection);
 
-    // NOTE: 여기 정리해서 다시 시도
-    makeCompleteRequest(connection);
+    parseData(connection);
 
     if (connection.requests.empty())
         return ;
@@ -214,55 +202,93 @@ void Server::recvData(Connection& connection)
     updateLastActivity(connection);
 }
 
-void Server::makeCompleteRequest(Connection& connection)
+void Server::parseData(Connection& connection)
 {
-    if (connection.isChunked)
-        makeChunk(connection);
 
-    // 일반 요청 처리
-    makeRequest(connection);
-}
-
-void Server::makeChunk(Connection& connection)
-{
-    // NOTE: 청크 데이터만 가져와서 chunkBuffer에 붙이고, 마지막 청크면
-    std::string chunkData;
-    while ((chunkData = getChunkData(connection.recvedData)).length() > 0)
+    while (true)
     {
-        connection.chunkBuffer += chunkData;
-        connection.recvedData.erase(0, chunkData.length());
+        bool hasData = false;
 
-        if (isLastChunk(chunkData))
-        {
-            RequestMessage* req = new RequestMessage(connection.chunkBuffer);
-            connection.requests.push(req); // 완성된 청크를 completeRequests에 저장
-            connection.chunkBuffer.clear();
-            connection.isChunked = false;  // 마지막 청크 후 청크 상태 해제
+        if (connection.isChunked)
+            hasData |= parseChunk(connection);
+        else
+            hasData |= parseRequest(connection);
+
+        if (hasData == false)
             return ;
-        }
     }
 }
 
-// NOTE: 그냥 2 더하면 안되고 \r\n인지 검사해야 함.
-std::string Server::getChunkData(std::string& recvedData)
+bool Server::parseChunk(Connection& connection)
+{
+    bool hasData = false;
+    std::string chunk;
+
+    while ((chunk = getChunk(connection.recvedData)).length() > 0)
+    {
+        hasData = true;
+        connection.recvedData.erase(0, chunk.length());
+        connection.chunkBuffer += chunk;
+
+        if (isLastChunk(chunk))
+        {
+            connection.isChunked = false;  // 마지막 청크면 청크 상태 해제
+            RequestMessage* req = new RequestMessage(connection.chunkBuffer);
+            connection.chunkBuffer.clear();
+            connection.requests.push(req); // 완성된 청크를 completeRequests에 저장
+            break ;
+        }
+    }
+
+    return hasData;
+}
+
+bool Server::parseRequest(Connection& connection)
+{
+    bool hasData = false;
+    std::string requestString;
+
+    while ((requestString = getRequest(connection)).length() > 0)
+    {
+        hasData = true;
+        connection.recvedData.erase(0, requestString.length());
+
+        if (connection.isChunked)
+        {
+            connection.chunkBuffer += requestString;
+            break ;
+        }
+
+        RequestMessage* req = new RequestMessage(requestString);
+
+        connection.requests.push(req);
+    }
+
+    return hasData;
+}
+
+std::string Server::getChunk(std::string& recvedData)
 {
     size_t pos = 0;
-    size_t chunkSizeEnd = recvedData.find("\r\n", pos);
-    if (chunkSizeEnd == std::string::npos)
-        return "";  // 청크 크기가 아직 도착하지 않음""
+    size_t chunkSizeEndPos = recvedData.find("\r\n", pos);
+    if (chunkSizeEndPos == std::string::npos)
+        return "";  // 청크 크기가 아직 도착하지 않음
 
-    size_t chunkSize = std::strtoul(recvedData.substr(pos, chunkSizeEnd - pos).c_str(), NULL, 16);
-    pos = chunkSizeEnd + 2;  // 청크 크기 끝을 지나서 데이터 시작
+    size_t chunkSize = std::strtoul(recvedData.substr(pos, chunkSizeEndPos - pos).c_str(), NULL, 16);
+    pos = chunkSizeEndPos + 2;  // 청크 크기 끝을 지나서 데이터 시작
 
-    if (pos + chunkSize + 2 > recvedData.size())
+    size_t chunkEndPos = recvedData.find("\r\n", pos);
+    if (chunkEndPos == std::string::npos)
+        return ""; // 청크 데이터가 아직 도착하지 않음
+
+    if (pos + chunkSize != chunkEndPos)
         return "";  // 청크 데이터가 아직 도착하지 않음
 
-    recvedData.erase(0, pos); // 헤더 지우기
+    recvedData.erase(0, chunkSizeEndPos + 2); // 청크 헤더 제거
     return recvedData.substr(0, chunkSize + 2); // 청크 데이터만 반환
 }
 
-// NOTE: 수정해야 함.
-// 대충 이 청크가 마지막 청크인지 확인하는 로직
+// 이 청크가 마지막 청크인지 확인하는 로직
 bool isLastChunk(std::string& chunk)
 {
     if (chunk == "0\r\n\r\n")
@@ -270,50 +296,16 @@ bool isLastChunk(std::string& chunk)
     return false;
 }
 
-// // NOTE: 여기는 RequestHandler 손보고 고쳐야 할듯..
-void Server::makeRequest(Connection& connection)
+// 청크면 헤더까지만 잘라서 반환.
+std::string Server::getRequest(Connection& connection)
 {
-    std::string requestString;
-    while ((requestString = getRequest(connection.recvedData)).length() > 0)
-    {
-        RequestMessage* req = new RequestMessage(requestString);
-        connection.recvedData.erase(0, requestString.length());
-
-        if (req->getRequestHeaderFields().getField("Transfer-Encoding") == "chunked")
-        {
-            connection.chunkBuffer += requestString;
-            connection.isChunked = true;
-            delete req;
-            return ;
-        }
-        connection.requests.push(req);
-    }
-
-
-    //         //  NOTE: 헤더를 connection의 chunkBuffer에 넣어주면 됨
-
-
-    // responses.push_back(res);
-
-    // recvedData.erase(0, requestLength);
-
-    // // 리소스 효율을 위해 요청이 하나 완료되면 그 때 WRITE 이벤트 등록
-    // if (!responses.empty()) {
-    //     EventManager::getInstance().addWriteEvent(socket);
-    // }
-}
-
-// NOTE:그냥 4 더 하면 안 되고 \r\n\r\n인지 확인해야 함
-std::string Server::getRequest(std::string& recvedData)
-{
-    size_t headerEnd = recvedData.find("\r\n\r\n");
+    size_t headerEnd = connection.recvedData.find("\r\n\r\n");
     if (headerEnd == std::string::npos)
-        return "";
+        return ""; // \r\n\r\n 없으면 리턴
 
-    size_t requestLength = headerEnd + 4;
-
-    std::istringstream headerStream(recvedData.substr(0, headerEnd + 4));
+    std::istringstream headerStream(connection.recvedData.substr(0, headerEnd + 4)); // 헤더만 짤라옴
     std::string headerLine;
+    size_t requestLength = headerEnd + 4; // 본문 시작 위치. 청크면 헤더까지만 자름
     while (std::getline(headerStream, headerLine) && headerLine != "\r")
     {
         if (headerLine.find("Content-Length:") != std::string::npos)
@@ -321,16 +313,16 @@ std::string Server::getRequest(std::string& recvedData)
             requestLength += std::strtoul(headerLine.substr(16).c_str(), NULL, 10);
             break ;
         }
+        else if (headerLine.find("Transfer-Encoding: chunked") != std::string::npos)
+        {
+            connection.isChunked = true;
+            break ;
+        }
     }
 
-    if (recvedData.length() >= requestLength)
-        return recvedData.substr(0, requestLength);
+    if (connection.recvedData.length() >= requestLength)
+        return connection.recvedData.substr(0, requestLength);
     return "";
-}
-
-void Server::updateLastActivity(Connection& connection)
-{
-    connection.last_activity = time(NULL);
 }
 
 // 보낸 데이터가 0일 때 write event 삭제
@@ -365,6 +357,25 @@ ssize_t Server::sendToSocket(Connection* connection)
     updateLastActivity(*connection);
 
     return bytesSend;
+}
+
+// Connection들의 keepAlive 관리
+void Server::checkKeepAlive()
+{
+    const time_t now = time(NULL);
+    for (std::map<int, Connection*>::const_iterator it = connectionsMap.begin(); it != connectionsMap.end(); ++it)
+    {
+        if ((it->second)->parentConnection != NULL) // pipe 커넥션이면 패스
+            continue ;
+
+        if (difftime(now, (it->second)->last_activity) > config.getKeepAliveTime())
+            closeConnection(it->first);
+    }
+}
+
+void Server::updateLastActivity(Connection& connection)
+{
+    connection.last_activity = time(NULL);
 }
 
 // 커넥션 종료에 필요한 작업들 처리

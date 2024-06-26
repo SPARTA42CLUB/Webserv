@@ -20,6 +20,11 @@ Connection::~Connection()
     std::cout << "Connection closed: " << socket << std::endl;
     EventManager::getInstance().deleteReadEvent(socket);
     close(socket);
+    while (!requests.empty())
+    {
+        delete requests.front();
+        requests.pop();
+    }
     while (!responses.empty())
     {
         delete responses.front();

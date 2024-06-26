@@ -28,6 +28,19 @@ ResponseMessage* RequestHandler::handleRequest(void)
     std::string method = mRequestMessage->getRequestLine().getMethod();
     std::map<std::string, LocationConfig>::const_iterator targetFindIter = mServerConfig.locations.find(reqTarget);
 
+    // connection = new Connection()->parentConnection = mConnection;
+
+    // request -> CGI -> CGIHandler(connection)
+    // {
+    //     connection.socket = pipe() : socket;
+    //     EventManager::getInstance().addReadEvent(socket);
+
+    //     fork()
+    //     execve()
+    // }
+    // ConnectionMap[connection.socket] = connection;
+
+
     /*
     // NOTE: 될 수 있는 조합
     GET

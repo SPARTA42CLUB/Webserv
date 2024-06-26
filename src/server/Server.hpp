@@ -28,12 +28,12 @@ private:
     // 커넥션한테서 옮겨온애들
     void recvData(Connection& connection);
 
-    void makeCompleteRequest(Connection& connection);
+    void parseData(Connection& connection);
+    bool parseChunk(Connection& connection);
+    bool parseRequest(Connection& connection);
+    std::string getChunk(std::string& recvedData);
+    std::string getRequest(Connection& connection);
 
-    std::string getChunkData(std::string& recvedData);
-    std::string getRequest(std::string& recvedData);
-    void makeChunk(Connection& connection);
-    void makeRequest(Connection& connection);
     void updateLastActivity(Connection& connection);
 
     ssize_t sendToSocket(Connection* connection);
