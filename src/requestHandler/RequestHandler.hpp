@@ -2,7 +2,7 @@
 
 #include <string>
 #include "Config.hpp"
-#include "HTTPException.hpp"
+#include "HttpException.hpp"
 #include "RequestMessage.hpp"
 #include "ResponseMessage.hpp"
 #include "Connection.hpp"
@@ -14,16 +14,22 @@ private:
     const RequestMessage* mRequestMessage;
     ResponseMessage* mResponseMessage; // 동적할당 해서 반환
     const ServerConfig& mServerConfig;
+    LocationConfig mLocConfig;
     // MethodExecuter methodExecuter; // 얘가 분배 이후 메소드를 실제로 실행하는 함수를 모두 지님
     // CGIHandler cgiHandler;
     std::string mPath;
 
+    int setPath();
+
+    int handleMethod();
+
     // Response (Success)
-    void getRequest(void);
-	void rangeRequest(void);
-    void headRequest(void);
-    void postRequest(void);
-    void deleteRequest(void);
+    int getRequest(void);
+	int rangeRequest(void);
+    int headRequest(void);
+    int postRequest(void);
+    int deleteRequest(void);
+
     void addSemanticHeaderFields(void);
     void addContentType(void);
 
@@ -40,6 +46,8 @@ private:
     void httpVersionNotSupported(void);
 
     bool checkStatusCode(const int statusCode);
+
+    void addConnectionHeader();
 
 public:
     RequestHandler(Connection& connection, const Config& config);

@@ -1,5 +1,5 @@
 #include "RequestMessage.hpp"
-#include "HTTPException.hpp"
+#include "HttpException.hpp"
 
 RequestMessage::RequestMessage()
 : mRequestLine()
@@ -19,7 +19,7 @@ RequestMessage::RequestMessage(const std::string& request)
         parseRequestMessage(request);
         verifyRequest();
     }
-    catch (const HTTPException& e)
+    catch (const HttpException& e)
     {
         mStatusCode = e.getStatusCode();
     }
@@ -48,7 +48,7 @@ void RequestMessage::parseRequestMessage(const std::string& request)
         parseRequestHeaderFields(reqStream);
         parseMessageBody(reqStream);
     }
-    catch (const HTTPException& e)
+    catch (const HttpException& e)
     {
         throw e;
     }
@@ -61,7 +61,7 @@ void RequestMessage::parseRequestLine(std::istringstream& reqStream)
     {
         mRequestLine.parseRequestLine(requestLine);
     }
-    catch (const HTTPException& e)
+    catch (const HttpException& e)
     {
         throw e;
     }
@@ -72,7 +72,7 @@ void RequestMessage::parseRequestHeaderFields(std::istringstream& reqStream)
     {
         mRequestHeaderFields.parseHeaderFields(reqStream);
     }
-    catch (const HTTPException& e)
+    catch (const HttpException& e)
     {
         throw e;
     }
@@ -83,7 +83,7 @@ void RequestMessage::parseMessageBody(std::istringstream& reqStream)
     {
         mMessageBody.parseMessageBody(reqStream);
     }
-    catch (const HTTPException& e)
+    catch (const HttpException& e)
     {
         throw e;
     }
@@ -95,7 +95,7 @@ void RequestMessage::verifyRequest(void)
         verifyRequestLine();
         verifyRequestHeaderFields();
     }
-    catch (const HTTPException& e)
+    catch (const HttpException& e)
     {
         throw e;
     }
@@ -107,26 +107,26 @@ void RequestMessage::verifyRequestLine(void)
     const std::string ver = mRequestLine.getHTTPVersion();
     if (method != "GET" && method != "HEAD" && method != "POST" && method != "DELETE")
     {
-        throw HTTPException(METHOD_NOT_ALLOWED);
+        throw HttpException(METHOD_NOT_ALLOWED);
     }
     if (ver != "HTTP/1.1")
     {
-        throw HTTPException(HTTP_VERSION_NOT_SUPPORTED);
+        throw HttpException(HTTP_VERSION_NOT_SUPPORTED);
     }
     if (reqTarget[0] != '/')
     {
-        throw HTTPException(NOT_FOUND);
+        throw HttpException(NOT_FOUND);
     }
     if (reqTarget.size() >= 8200)  // nginx max uri length
     {
-        throw HTTPException(URI_TOO_LONG);
+        throw HttpException(URI_TOO_LONG);
     }
 }
 void RequestMessage::verifyRequestHeaderFields(void)
 {
     if (mRequestHeaderFields.hasField("Host") == false)
     {
-        throw HTTPException(BAD_REQUEST);
+        throw HttpException(BAD_REQUEST);
     }
 }
 std::string RequestMessage::toString(void) const

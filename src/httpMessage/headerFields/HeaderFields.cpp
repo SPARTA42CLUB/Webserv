@@ -1,6 +1,6 @@
 #include "HeaderFields.hpp"
 #include <sstream>
-#include "HTTPException.hpp"
+#include "HttpException.hpp"
 
 HeaderFields::HeaderFields()
 : mFields()
@@ -22,7 +22,7 @@ void HeaderFields::parseHeaderFields(std::istringstream& headerFields)
     // FIXME: 원래는 무조건 양식을 지키는 string을 받는 경우에만 reqMsg, resMsg가 생성되었지만 chunked인 경우 양식을 지키지 않아도 객체가 생성되므로 수정 필요
     if (line.empty() || line == CR)
     {
-        throw HTTPException(BAD_REQUEST);
+        throw HttpException(BAD_REQUEST);
     }
     while (!line.empty() && line != CR)  // "\r\n"이나 "\n"이 나올때까지 반복
     {
@@ -34,7 +34,7 @@ void HeaderFields::parseHeaderFields(std::istringstream& headerFields)
         std::getline(lineStream, value, *LF);
         if (value.empty() || value.back() != *CR)
         {
-            throw HTTPException(BAD_REQUEST);
+            throw HttpException(BAD_REQUEST);
         }
         value.pop_back();
         addField(key, value);

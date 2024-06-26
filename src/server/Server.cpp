@@ -5,7 +5,7 @@
 #include <iostream>
 #include "ChunkedRequestReader.hpp"
 #include "EventManager.hpp"
-#include "HTTPException.hpp"
+#include "HttpException.hpp"
 #include "Logger.hpp"
 #include "SysException.hpp"
 #include "RequestHandler.hpp"

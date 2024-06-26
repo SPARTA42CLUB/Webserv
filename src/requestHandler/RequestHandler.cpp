@@ -1,5 +1,6 @@
 #include "RequestHandler.hpp"
 #include "RangeRequestReader.hpp"
+#include "HttpStatusCode.hpp"
 #include <unistd.h>
 #include <ctime>
 #include <fstream>
@@ -14,34 +15,8 @@ RequestHandler::RequestHandler(Connection& connection, const Config& config)
 , mPath("")
 {
 }
-ResponseMessage* RequestHandler::handleRequest(void)
-{
-    (void)mConnection;
-    int statusCode = mRequestMessage->getStatusCode();
 
-    // 에러면 미리 던지기. 내부에서 response 설정해줌
-
-    if (checkStatusCode(statusCode) == false)
-        return mResponseMessage;
-
-    std::string reqTarget = mRequestMessage->getRequestLine().getRequestTarget();
-    std::string method = mRequestMessage->getRequestLine().getMethod();
-    std::map<std::string, LocationConfig>::const_iterator targetFindIter = mServerConfig.locations.find(reqTarget);
-
-    // connection = new Connection()->parentConnection = mConnection;
-
-    // request -> CGI -> CGIHandler(connection)
-    // {
-    //     connection.socket = pipe() : socket;
-    //     EventManager::getInstance().addReadEvent(socket);
-
-    //     fork()
-    //     execve()
-    // }
-    // ConnectionMap[connection.socket] = connection;
-
-
-    /*
+/*
     // NOTE: 될 수 있는 조합
     GET
     1. URI == Location이며 URI가 디렉토리(/로 끝남)
@@ -60,6 +35,46 @@ ResponseMessage* RequestHandler::handleRequest(void)
     POST
     DELETE
      */
+ResponseMessage* RequestHandler::handleRequest(void)
+{
+    (void)mConnection;
+    int statusCode = mRequestMessage->getStatusCode();
+
+    // Request 에러면 미리 던지기. 내부에서 response 설정해줌
+    if (checkStatusCode(statusCode) == false)
+        return mResponseMessage;
+
+    // CGI 부분 의사 코드
+    // connection = new Connection()->parentConnection = mConnection;
+
+    // request -> CGI -> CGIHandler(connection)
+    // {
+    //     connection.socket = pipe() : socket;
+    //     EventManager::getInstance().addReadEvent(socket);
+
+    //     fork()
+    //     execve()
+    // }
+
+    // ConnectionMap[connection.socket] = connection;
+
+    statusCode = setPath();
+    if (checkStatusCode(statusCode) == false)
+        return mResponseMessage;
+
+    statusCode = handleMethod();
+    if (checkStatusCode(statusCode) == false)
+        return mResponseMessage;
+
+    addConnectionHeader();
+
+    return mResponseMessage;
+}
+
+int RequestHandler::setPath()
+{
+    std::string reqTarget = mRequestMessage->getRequestLine().getRequestTarget();
+    std::map<std::string, LocationConfig>::const_iterator targetFindIter = mServerConfig.locations.find(reqTarget);
 
     // NOTE: 요청한 URI에 해당하는 LocationConfig 찾기
     // 만약 URI에 해당하는 Location이 있다면 해당 Location의 root 경로에 index 파일을 찾음
@@ -69,9 +84,10 @@ ResponseMessage* RequestHandler::handleRequest(void)
         {
             if (it->first.back() == '/')
             {
-                std::string tmp = it->second.root + mRequestMessage->getRequestLine().getRequestTarget();
+                std::string tmp = it->second.root + reqTarget;
                 if (access(tmp.c_str(), F_OK) == 0)
                 {
+                    mLocConfig = it->second;
                     mPath = tmp;
                     break;
                 }
@@ -79,44 +95,57 @@ ResponseMessage* RequestHandler::handleRequest(void)
         }
         if (mPath == "")
         {
-            throw HTTPException(NOT_FOUND);
+            return NOT_FOUND;
         }
     }
     else
     {
-        mPath = targetFindIter->second.root + mRequestMessage->getRequestLine().getRequestTarget() + targetFindIter->second.index;
+        mLocConfig = targetFindIter->second;
+        mPath = mLocConfig.root + reqTarget + mLocConfig.index;
     }
 
-    // NOTE: allow_methods 블록이 없을 경우 모든 메소드 허용
-    // WARNING: segment fault 발생
-    /*
-    ==12581==ERROR: AddressSanitizer: heap-buffer-overflow on address 0x000107b03567 at pc 0x0001043c3520 bp 0x00016ba486b0 sp 0x00016ba486a8
-    READ of size 1 at 0x000107b03567 thread T0
-    #0 0x1043c351c in std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>::__is_long[abi:ue170006]() const string:1734
-    #1 0x1043ba13c in std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>::size[abi:ue170006]() const string:1168
-    #2 0x1043c87a0 in bool std::__1::operator==[abi:ue170006]<std::__1::allocator<char>>(std::__1::basic_string<char, std::__1::char_traits<char>,
-    std::__1::allocator<char>> const&, std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const&) string:3897 #3 0x1043c7ae4
-    in std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const*
-    std::__1::__find_impl[abi:ue170006]<std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const*,
-    std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const*, std::__1::basic_string<char, std::__1::char_traits<char>,
-    std::__1::allocator<char>>, std::__1::__identity>(std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const*,
-    std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const*, std::__1::basic_string<char, std::__1::char_traits<char>,
-    std::__1::allocator<char>> const&, std::__1::__identity&) find.h:34 #4 0x1043baadc in std::__1::__wrap_iter<std::__1::basic_string<char,
-    std::__1::char_traits<char>, std::__1::allocator<char>> const*> std::__1::find[abi:ue170006]<std::__1::__wrap_iter<std::__1::basic_string<char,
-    std::__1::char_traits<char>, std::__1::allocator<char>> const*>, std::__1::basic_string<char, std::__1::char_traits<char>,
-    std::__1::allocator<char>>>(std::__1::__wrap_iter<std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const*>,
-    std::__1::__wrap_iter<std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const*>, std::__1::basic_string<char,
-    std::__1::char_traits<char>, std::__1::allocator<char>> const&) find.h:81 #5 0x1043b8ffc in RequestHandler::handleRequest(RequestMessage const&,
-    ResponseMessage&, ServerConfig const&) RequestHandler.cpp:35 #6 0x1043e2890 in Server::handleClientReadEvent(kevent&) Server.cpp:192 #7 0x1043e03f8 in
-    Server::run() Server.cpp:111 #8 0x10440f528 in main main.cpp:18 #9 0x18351a0dc  (<unknown module>)
-     */
-    // const LocationConfig& locConfig = targetFindIter->second;
-    // if (std::find(locConfig.allow_methods.begin(), locConfig.allow_methods.end(), method) == locConfig.allow_methods.end())
-    // {
-    //     throw HTTPException(METHOD_NOT_ALLOWED);
-    // }
+    return OK;
+}
 
-    // Connection 헤더 필드 추가
+// method에 따른 분기 처리
+int RequestHandler::handleMethod()
+{
+    std::string method = mRequestMessage->getRequestLine().getMethod();
+
+    // NOTE: allow_methods 블록이 없을 경우 모든 메소드 허용
+    if (mLocConfig.allow_methods.empty() == false)
+    {
+        if (mLocConfig.allow_methods.find(method) == mLocConfig.allow_methods.end())
+        {
+            return METHOD_NOT_ALLOWED;
+        }
+    }
+
+    if (method == "GET")
+    {
+        return getRequest();
+    }
+    else if (method == "HEAD")
+    {
+        return headRequest();
+    }
+    else if (method == "POST")
+    {
+        return postRequest();
+    }
+    else if (method == "DELETE")
+    {
+        return deleteRequest();
+    }
+    else
+    {
+        return METHOD_NOT_ALLOWED;
+    }
+}
+
+// Connection 헤더 필드 추가
+void RequestHandler::addConnectionHeader()
+{
     if (mRequestMessage->getRequestHeaderFields().hasField("Connection") == true)
     {
         mResponseMessage->addResponseHeaderField("Connection", mRequestMessage->getRequestHeaderFields().getField("Connection"));
@@ -125,40 +154,14 @@ ResponseMessage* RequestHandler::handleRequest(void)
     {
         mResponseMessage->addResponseHeaderField("Connection", "keep-alive");
     }
-
-    // Method에 따른 처리
-    try
-    {
-        if (method == "GET")
-        {
-            getRequest();
-        }
-        else if (method == "HEAD")
-        {
-            headRequest();
-        }
-        else if (method == "POST")
-        {
-            postRequest();
-        }
-        else if (method == "DELETE")
-        {
-            deleteRequest();
-        }
-    }
-    catch (const HTTPException& e)
-    {
-        throw e;
-    }
-
-    return mResponseMessage;
 }
-void RequestHandler::getRequest()
+
+int RequestHandler::getRequest()
 {
     std::ifstream file(mPath);
     if (file.is_open() == false)
     {
-        throw HTTPException(FORBIDDEN);
+        return FORBIDDEN;
     }
 	// Range 요청 판별
 	if (mRequestMessage->getRequestHeaderFields().hasField("Range")) {
@@ -166,8 +169,7 @@ void RequestHandler::getRequest()
 		// Check if the header starts with "bytes="
 		if (rangeHeader.substr(0, 6) == "bytes=") {
 			file.close();
-			rangeRequest();
-			return;
+			return rangeRequest();
 		}
 	}
 	// 그 외 요청 처리
@@ -181,9 +183,11 @@ void RequestHandler::getRequest()
     file.close();
     addSemanticHeaderFields();
     addContentType();
+
+    return OK;
 }
 
-void RequestHandler::rangeRequest()
+int RequestHandler::rangeRequest()
 {
 	// Extract range values
 	std::string rangeHeader = mRequestMessage->getRequestHeaderFields().getField("Range");
@@ -220,37 +224,45 @@ void RequestHandler::rangeRequest()
 	mResponseMessage->addResponseHeaderField("Content-Type", "multipart/byteranges; boundary=BOUNDARY_STRING");
 	mResponseMessage->addMessageBody(responseBody);
 
-	return;
+	return OK;
 }
 
-void RequestHandler::headRequest()
+
+int RequestHandler::headRequest()
 {
-    getRequest();
+    int statusCode = getRequest();
     mResponseMessage->clearMessageBody();
+
+    return statusCode;
 }
-void RequestHandler::postRequest()
+int RequestHandler::postRequest()
 {
     mResponseMessage->setStatusLine(mRequestMessage->getRequestLine().getHTTPVersion(), OK, "OK");
     mResponseMessage->addResponseHeaderField("Content-Type", "text/html");
     mResponseMessage->addMessageBody("<html><body><h1>POST Request</h1></body></html>");
     addSemanticHeaderFields();
+
+    return OK;
 }
 // https://www.rfc-editor.org/rfc/rfc9110.html#name-delete
-void RequestHandler::deleteRequest()
+int RequestHandler::deleteRequest()
 {
     if (mPath == "")
     {
-        throw HTTPException(NOT_FOUND);
+        return NOT_FOUND;
     }
     if (std::remove(mPath.c_str()) != 0)
     {
-        throw HTTPException(METHOD_NOT_ALLOWED);
+        return METHOD_NOT_ALLOWED;
     }
     mResponseMessage->setStatusLine(mRequestMessage->getRequestLine().getHTTPVersion(), OK, "OK");
     mResponseMessage->addResponseHeaderField("Content-Type", "text/html");
     mResponseMessage->addMessageBody("<html><body><h1>File deleted.</h1></body></html>");
     addSemanticHeaderFields();
+
+    return OK;
 }
+
 void RequestHandler::addSemanticHeaderFields()
 {
     time_t now = time(0);

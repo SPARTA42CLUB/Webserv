@@ -124,7 +124,7 @@ void Connection::handleNormalRequest()
 
     //     logger.logHTTPMessage(*res, completeRequest);
     // }
-    // catch (const HTTPException& e)
+    // catch (const HttpException& e)
     // {
     //     requestHandler.handleException(e);
     // }
