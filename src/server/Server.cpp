@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <iostream>
+#include <vector>
 #include "ChunkedRequestReader.hpp"
 #include "EventManager.hpp"
 #include "HttpException.hpp"
@@ -366,6 +367,7 @@ ssize_t Server::sendToSocket(Connection* connection)
 // Connection들의 keepAlive 관리
 void Server::checkKeepAlive()
 {
+	std::vector<int> closeSockeks;
     const time_t now = time(NULL);
     for (std::map<int, Connection*>::const_iterator it = connectionsMap.begin(); it != connectionsMap.end(); ++it)
     {
@@ -373,8 +375,12 @@ void Server::checkKeepAlive()
             continue ;
 
         if (difftime(now, (it->second)->last_activity) > config.getKeepAliveTime())
+		{
             closeConnection(it->first);
+			closeSockeks.push_back(it->first);
+		}
     }
+	eraseCloseSockets(closeSockeks);
 }
 
 void Server::updateLastActivity(Connection& connection)
@@ -386,7 +392,6 @@ void Server::updateLastActivity(Connection& connection)
 void Server::closeConnection(int socket)
 {
     delete connectionsMap[socket];
-    connectionsMap.erase(socket);
 }
 
 bool Server::isServerSocket(int socket)
@@ -395,4 +400,12 @@ bool Server::isServerSocket(int socket)
         return true;
 
     return false;
+}
+
+void Server::eraseCloseSockets(std::vector<int>& closeSockets)
+{
+	for (size_t i = 0; i < closeSockets.size(); ++i)
+	{
+		connectionsMap.erase(closeSockets[i]);
+	}
 }
