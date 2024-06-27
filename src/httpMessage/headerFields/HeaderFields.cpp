@@ -17,9 +17,6 @@ void HeaderFields::parseHeaderFields(std::istringstream& headerFields)
      */
     std::string line;
     std::getline(headerFields, line, *LF);
-    // NOTE: 테스트를 위해 "\n"으로 헤더가 끝나는 경우도 허용
-    // FIXME: "\n"으로 헤더가 끝나는 경우 삭제 + telnet으로 테스트 시 34행에서 stack-buffer-overflow 발생
-    // FIXME: 원래는 무조건 양식을 지키는 string을 받는 경우에만 reqMsg, resMsg가 생성되었지만 chunked인 경우 양식을 지키지 않아도 객체가 생성되므로 수정 필요
     if (line.empty() || line == CR)
     {
         throw HttpException(BAD_REQUEST);

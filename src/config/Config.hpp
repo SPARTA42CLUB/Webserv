@@ -14,7 +14,6 @@ private:
     void parseKeepAliveTimeout(std::string& line);
     void parseServer(std::ifstream& file);
     void verifyConfig(void);
-    void makeAffix(const std::string& loc, LocationConfig& locConf);
 
     const ServerConfig& getDefaultServerConfig() const;
 

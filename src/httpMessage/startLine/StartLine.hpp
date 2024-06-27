@@ -102,7 +102,6 @@ public:
     ~StartLine();
     const std::string& getHTTPVersion() const;
     const std::string& getStatusCode() const;
-    const std::string& getReasonPhrase() const;
     const std::string& getMethod() const;
     const std::string& getRequestTarget() const;
     void setHTTPVersion(const std::string& httpVersion);
@@ -110,7 +109,8 @@ public:
     void setStatusCode(const int statusCode);
     void setReasonPhrase(const std::string& reasonPhrase);
     void parseRequestLine(const std::string& requestLine);
-    const std::string toString() const;
+    const std::string toRequestLine() const;
+    const std::string toStatusLine() const;
 };
 
 #endif

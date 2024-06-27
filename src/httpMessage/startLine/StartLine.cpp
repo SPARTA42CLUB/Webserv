@@ -18,10 +18,6 @@ const std::string& StartLine::getStatusCode() const
 {
     return mElements[STATUS_CODE];
 }
-const std::string& StartLine::getReasonPhrase() const
-{
-    return mElements[REASON_PHRASE];
-}
 const std::string& StartLine::getMethod() const
 {
     return mElements[METHOD];
@@ -46,7 +42,11 @@ void StartLine::setReasonPhrase(const std::string& reasonPhrase)
 {
     mElements[REASON_PHRASE] = reasonPhrase;
 }
-const std::string StartLine::toString() const
+const std::string StartLine::toRequestLine() const
+{
+    return mElements[METHOD] + " " + mElements[REQUEST_TARGET] + " " + mElements[HTTP_VERSION] + "\r\n";
+}
+const std::string StartLine::toStatusLine() const
 {
     return mElements[HTTP_VERSION] + " " + mElements[STATUS_CODE] + " " + mElements[REASON_PHRASE] + "\r\n";
 }

@@ -132,7 +132,7 @@ void RequestMessage::verifyRequestHeaderFields(void)
 std::string RequestMessage::toString(void) const
 {
     std::ostringstream oss;
-    oss << mRequestLine.toString()
+    oss << mRequestLine.toRequestLine()
     << mRequestHeaderFields.toString()
     << mMessageBody.toString();
     return oss.str();

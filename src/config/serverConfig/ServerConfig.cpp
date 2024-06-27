@@ -39,11 +39,13 @@ ServerConfig& ServerConfig::operator=(const ServerConfig& rhs)
     locations = rhs.locations;
     return *this;
 }
-void ServerConfig::parseLocation(std::ifstream& file, std::string& locationPath)
+void ServerConfig::parseLocation(std::ifstream& file, std::string& locationPath, LocationConfig* parentsLocation)
 {
     LocationConfig locationConfig;
     std::string line;
     std::map<std::string, bool> duplicateCheck;
+    if (parentsLocation)
+        locationConfig = *parentsLocation;
 
     while (std::getline(file, line) && line.find("}") == std::string::npos)
     {
@@ -73,7 +75,7 @@ void ServerConfig::parseLocation(std::ifstream& file, std::string& locationPath)
                 {
                     throw ConfigException(INVALID_LOCATION_CONFIG);
                 }
-                parseLocation(file, value);
+                parseLocation(file, value, &locationConfig);
             }
             else
                 throw ConfigException(INVALID_LOCATION_CONFIG);
@@ -127,22 +129,22 @@ void ServerConfig::parseErrorPage(std::string& value)
     trim(value);
     std::istringstream iss(value);
     std::vector<int> statuses;
-    std::string prefix;
-    while (getline(iss, prefix, ' '))
+    std::string tmp;
+    while (getline(iss, tmp, ' '))
     {
         if (iss.eof())
             break;
-        if (!isDigitStr(prefix) || prefix.empty())
+        if (!isDigitStr(tmp) || tmp.empty())
             throw ConfigException(INVALID_SERVER_CONFIG);
-        size_t status = atoi(prefix.c_str());
+        size_t status = atoi(tmp.c_str());
         if (status < 100 || status > 599)
             throw ConfigException(INVALID_SERVER_CONFIG);
         statuses.push_back(status);
     }
-    if (!isValidValue(prefix))
+    if (!isValidValue(tmp))
         throw ConfigException(INVALID_SERVER_CONFIG);
     for (std::vector<int>::iterator it = statuses.begin(); it != statuses.end(); ++it)
-        error_pages[*it] = prefix;
+        error_pages[*it] = tmp;
 }
 bool ServerConfig::isValidLocationPath(std::string& locationPath)
 {
