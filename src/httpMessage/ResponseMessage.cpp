@@ -43,10 +43,6 @@ size_t ResponseMessage::getMessageBodySize() const
 {
     return mMessageBody.size();
 }
-bool ResponseMessage::isKeepAlive() const
-{
-    return mResponseHeaderFields.getField("Connection") == "keep-alive";
-}
 void ResponseMessage::clearMessageBody()
 {
     mMessageBody.clear();

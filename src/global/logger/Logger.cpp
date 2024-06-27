@@ -70,13 +70,7 @@ void Logger::log(eLogLevel level, const std::string& message) const
     const std::string logPath = (level == INFO) ? accessLogPath : errorLogPath;
     std::ofstream logFile(logPath, std::ios::app);
 
-    const std::string logMessage = "[ " + logLevelToString(level) + " ] " + getTimeStamp() + '\n'
-     + message + "\n-----------------------------------\n";
-
-    // if (level == INFO)
-    //     std::cout << logMessage << std::endl;
-    // else if (level == WARNING || level == ERROR)
-    //     std::cerr << logMessage << std::endl;
+    const std::string logMessage = "[ " + logLevelToString(level) + " ] " + getTimeStamp() + '\n' + message + "\n-----------------------------------\n";
 
     if (logFile.is_open())
     {
