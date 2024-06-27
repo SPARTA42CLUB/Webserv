@@ -1,6 +1,6 @@
 #include "StartLine.hpp"
 #include <sstream>
-#include "HTTPException.hpp"
+#include "HttpException.hpp"
 
 StartLine::StartLine()
 : mElements()
@@ -68,5 +68,5 @@ void StartLine::parseRequestLine(const std::string& requestLine)
     mElements[METHOD].clear();
     mElements[REQUEST_TARGET].clear();
     mElements[HTTP_VERSION].clear();
-    throw HTTPException(BAD_REQUEST);
+    throw HttpException(BAD_REQUEST);
 }

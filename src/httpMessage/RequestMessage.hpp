@@ -12,15 +12,16 @@ private:
     StartLine mRequestLine;
     HeaderFields mRequestHeaderFields;
     MessageBody mMessageBody;
+    size_t mStatusCode;
     void parseRequestMessage(const std::string& request);
     void parseRequestLine(std::istringstream& reqStream);
     void parseRequestHeaderFields(std::istringstream& reqStream);
     void parseMessageBody(std::istringstream& reqStream);
     RequestMessage(const RequestMessage& rhs);
     RequestMessage& operator=(const RequestMessage& rhs);
-    void verifyRequest(const RequestMessage& req);
-    void verifyRequestLine(const StartLine& reqLine);
-    void verifyRequestHeaderFields(const HeaderFields& reqHeaderFields);
+    void verifyRequest(void);
+    void verifyRequestLine(void);
+    void verifyRequestHeaderFields(void);
 
 public:
     RequestMessage();
@@ -30,6 +31,7 @@ public:
     const HeaderFields& getRequestHeaderFields() const;
     const MessageBody& getMessageBody() const;
     std::string toString(void) const;
+    int getStatusCode() const;
 };
 
 #endif

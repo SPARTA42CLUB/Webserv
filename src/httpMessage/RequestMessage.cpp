@@ -1,19 +1,28 @@
 #include "RequestMessage.hpp"
-#include "HTTPException.hpp"
+#include "HttpException.hpp"
 
 RequestMessage::RequestMessage()
 : mRequestLine()
 , mRequestHeaderFields()
 , mMessageBody()
+, mStatusCode(200)
 {
 }
 RequestMessage::RequestMessage(const std::string& request)
 : mRequestLine()
 , mRequestHeaderFields()
 , mMessageBody()
+, mStatusCode(200)
 {
-    parseRequestMessage(request);
-    verifyRequest(request);
+    try
+    {
+        parseRequestMessage(request);
+        verifyRequest();
+    }
+    catch (const HttpException& e)
+    {
+        mStatusCode = e.getStatusCode();
+    }
 }
 RequestMessage::~RequestMessage()
 {
@@ -39,7 +48,7 @@ void RequestMessage::parseRequestMessage(const std::string& request)
         parseRequestHeaderFields(reqStream);
         parseMessageBody(reqStream);
     }
-    catch (const HTTPException& e)
+    catch (const HttpException& e)
     {
         throw e;
     }
@@ -52,63 +61,84 @@ void RequestMessage::parseRequestLine(std::istringstream& reqStream)
     {
         mRequestLine.parseRequestLine(requestLine);
     }
-    catch (const HTTPException& e)
+    catch (const HttpException& e)
     {
         throw e;
     }
 }
 void RequestMessage::parseRequestHeaderFields(std::istringstream& reqStream)
 {
-    mRequestHeaderFields.parseHeaderFields(reqStream);
-}
-void RequestMessage::parseMessageBody(std::istringstream& reqStream)
-{
-    mMessageBody.parseMessageBody(reqStream);
-}
-void RequestMessage::verifyRequest(const RequestMessage& req)
-{
     try
     {
-        verifyRequestLine(req.getRequestLine());
-        verifyRequestHeaderFields(req.getRequestHeaderFields());
+        mRequestHeaderFields.parseHeaderFields(reqStream);
     }
-    catch (const HTTPException& e)
+    catch (const HttpException& e)
     {
         throw e;
     }
 }
-void RequestMessage::verifyRequestLine(const StartLine& reqLine)
+void RequestMessage::parseMessageBody(std::istringstream& reqStream)
 {
-    const std::string method = reqLine.getMethod();
-    const std::string reqTarget = reqLine.getRequestTarget();
-    const std::string ver = reqLine.getHTTPVersion();
+    try
+    {
+        mMessageBody.parseMessageBody(reqStream);
+    }
+    catch (const HttpException& e)
+    {
+        throw e;
+    }
+}
+void RequestMessage::verifyRequest(void)
+{
+    try
+    {
+        verifyRequestLine();
+        verifyRequestHeaderFields();
+    }
+    catch (const HttpException& e)
+    {
+        throw e;
+    }
+}
+void RequestMessage::verifyRequestLine(void)
+{
+    const std::string method = mRequestLine.getMethod();
+    const std::string reqTarget = mRequestLine.getRequestTarget();
+    const std::string ver = mRequestLine.getHTTPVersion();
     if (method != "GET" && method != "HEAD" && method != "POST" && method != "DELETE")
     {
-        throw HTTPException(METHOD_NOT_ALLOWED);
+        throw HttpException(METHOD_NOT_ALLOWED);
     }
     if (ver != "HTTP/1.1")
     {
-        throw HTTPException(HTTP_VERSION_NOT_SUPPORTED);
+        throw HttpException(HTTP_VERSION_NOT_SUPPORTED);
     }
     if (reqTarget[0] != '/')
     {
-        throw HTTPException(NOT_FOUND);
+        throw HttpException(NOT_FOUND);
     }
     if (reqTarget.size() >= 8200)  // nginx max uri length
     {
-        throw HTTPException(URI_TOO_LONG);
+        throw HttpException(URI_TOO_LONG);
     }
 }
-void RequestMessage::verifyRequestHeaderFields(const HeaderFields& reqHeaderFields)
+void RequestMessage::verifyRequestHeaderFields(void)
 {
-    if (reqHeaderFields.hasField("Host") == false)
+    if (mRequestHeaderFields.hasField("Host") == false)
     {
-        throw HTTPException(BAD_REQUEST);
+        throw HttpException(BAD_REQUEST);
     }
 }
 std::string RequestMessage::toString(void) const
 {
     std::ostringstream oss;
-    oss << mRequestLine.toString() << mRequestHeaderFields.toString() << "\r\n" << mMessageBody.toString();
+    oss << mRequestLine.toString()
+    << mRequestHeaderFields.toString()
+    << mMessageBody.toString();
     return oss.str();
+}
+
+int RequestMessage::getStatusCode() const
+{
+    return mStatusCode;
 }

@@ -1,13 +1,13 @@
-#include "HTTPException.hpp"
+#include "HttpException.hpp"
 
-HTTPException::HTTPException(const int statusCode)
+HttpException::HttpException(const int statusCode)
 : mStatusCode(statusCode)
 {
 }
-HTTPException::~HTTPException() _NOEXCEPT
+HttpException::~HttpException() _NOEXCEPT
 {
 }
-int HTTPException::getStatusCode() const
+int HttpException::getStatusCode() const
 {
     return mStatusCode;
 }
