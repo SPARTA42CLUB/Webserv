@@ -25,7 +25,7 @@ public:
     void parseIndex(std::string& value);
     void parseClientMaxBodySize(std::string& value);
     void parseErrorPage(std::string& value);
-    void parseLocation(std::ifstream& file, std::string& locationPath);
+    void parseLocation(std::ifstream& file, std::string& locationPath, LocationConfig* parentsLocation = NULL);
 
     bool isValidLocationPath(std::string& locationPath);
 };

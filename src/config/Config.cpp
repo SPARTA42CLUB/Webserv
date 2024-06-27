@@ -168,11 +168,15 @@ void Config::verifyConfig(void)
             {
                 locIt->CONFIG.root = serverConfigs[i].root;
             }
+            if (locIt->CONFIG.root.back() == '/')
+            {
+                locIt->CONFIG.root.pop_back();
+            }
             if (serverConfigs[i].root.empty() && locIt->CONFIG.root.empty())
             {
                 throw ConfigException(ROOT_NOT_EXIST);
             }
-            if (locIt->CONFIG.index.empty())
+            if (!serverConfigs[i].index.empty() && locIt->CONFIG.index.empty())
             {
                 locIt->CONFIG.index = serverConfigs[i].index;
             }
@@ -183,30 +187,7 @@ void Config::verifyConfig(void)
                     locIt->CONFIG.allow_methods[LocationConfig::implementMethods[j]] = true;
                 }
             }
-            makeAffix(locIt->LOCATION, locIt->CONFIG);
         }
-    }
-}
-void Config::makeAffix(const std::string& loc, LocationConfig& locConf)
-{
-    if (loc.front() == '.')
-    {
-        locConf.prefix = locConf.root;
-        locConf.suffix = loc;
-        return;
-    }
-    if (locConf.root.back() == '/' && loc.front() == '/')
-    {
-        locConf.root.pop_back();
-        locConf.prefix = locConf.root + loc;
-    }
-    else if (locConf.root.back() != '/' && loc.front() != '/')
-    {
-        locConf.prefix = locConf.root + "/" + loc;
-    }
-    else
-    {
-        locConf.prefix = locConf.root + loc;
     }
 }
 const std::vector<ServerConfig>& Config::getServerConfigs() const
@@ -242,9 +223,7 @@ void Config::print(void) const
             }
             std::cout << "\n    " << "directory_listing: " << (it->CONFIG.directory_listing ? "on" : "off") << '\n'
             << "    " << "redirect: " << it->CONFIG.redirect << '\n'
-            << "    " << "cgi_interpreter: " << it->CONFIG.cgi_interpreter << '\n'
-            << "    " << "prefix: " << it->CONFIG.prefix << '\n'
-            << "    " << "suffix: " << it->CONFIG.suffix << '\n';
+            << "    " << "cgi_interpreter: " << it->CONFIG.cgi_interpreter << '\n';
         }
         std::cout << std::endl;
     }
