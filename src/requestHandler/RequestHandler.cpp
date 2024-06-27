@@ -119,13 +119,9 @@ int RequestHandler::handleMethod()
 {
     std::string method = mRequestMessage->getRequestLine().getMethod();
 
-    // NOTE: allow_methods 블록이 없을 경우 모든 메소드 허용
-    if (mLocConfig.allow_methods.empty() == false)
+    if (mLocConfig.allow_methods.find(method) == mLocConfig.allow_methods.end())
     {
-        if (mLocConfig.allow_methods.find(method) == mLocConfig.allow_methods.end())
-        {
-            return METHOD_NOT_ALLOWED;
-        }
+        return METHOD_NOT_ALLOWED;
     }
 
     if (method == "GET")
