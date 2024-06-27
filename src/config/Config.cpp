@@ -183,15 +183,16 @@ void Config::verifyConfig(void)
                     locIt->CONFIG.allow_methods[LocationConfig::implementMethods[j]] = true;
                 }
             }
-            makePrefix(locIt->LOCATION, locIt->CONFIG);
+            makeAffix(locIt->LOCATION, locIt->CONFIG);
         }
     }
 }
-void Config::makePrefix(const std::string& loc, LocationConfig& locConf)
+void Config::makeAffix(const std::string& loc, LocationConfig& locConf)
 {
     if (loc.front() == '.')
     {
         locConf.prefix = locConf.root;
+        locConf.suffix = loc;
         return;
     }
     if (locConf.root.back() == '/' && loc.front() == '/')
@@ -242,7 +243,8 @@ void Config::print(void) const
             std::cout << "\n    " << "directory_listing: " << (it->CONFIG.directory_listing ? "on" : "off") << '\n'
             << "    " << "redirect: " << it->CONFIG.redirect << '\n'
             << "    " << "cgi_interpreter: " << it->CONFIG.cgi_interpreter << '\n'
-            << "    " << "prefix: " << it->CONFIG.prefix << '\n';
+            << "    " << "prefix: " << it->CONFIG.prefix << '\n'
+            << "    " << "suffix: " << it->CONFIG.suffix << '\n';
         }
         std::cout << std::endl;
     }

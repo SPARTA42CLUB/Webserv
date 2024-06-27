@@ -1,10 +1,9 @@
 #ifndef HTTP_EXCEPTION_HPP
 #define HTTP_EXCEPTION_HPP
 
-#include "HttpStatusCode.hpp"
-
 #include <exception>
 #include <string>
+#include "StartLine.hpp"
 
 class HttpException : public std::exception
 {

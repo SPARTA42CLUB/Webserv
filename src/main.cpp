@@ -2,9 +2,6 @@
 #include "Config.hpp"
 #include "Logger.hpp"
 #include "Server.hpp"
-#include "ConfigException.hpp"
-#include "HttpException.hpp"
-#include "SysException.hpp"
 
 static std::string makeConfigPath(int argc, char* argv[], bool& isOption);
 

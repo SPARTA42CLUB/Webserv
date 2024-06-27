@@ -24,7 +24,7 @@ private:
 public:
     SysException(enum eReason reason);
     virtual ~SysException() _NOEXCEPT;
-    const char* what() const _NOEXCEPT;
+    virtual const char* what() const _NOEXCEPT;
 };
 
 #endif

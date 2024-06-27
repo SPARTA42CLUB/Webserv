@@ -14,6 +14,7 @@ LocationConfig::LocationConfig()
 , redirect()
 , cgi_interpreter()
 , prefix()
+, suffix()
 {
 }
 LocationConfig::~LocationConfig()
@@ -27,6 +28,7 @@ LocationConfig::LocationConfig(const LocationConfig& rhs)
 , redirect(rhs.redirect)
 , cgi_interpreter(rhs.cgi_interpreter)
 , prefix(rhs.prefix)
+, suffix(rhs.suffix)
 {
 }
 LocationConfig& LocationConfig::operator=(const LocationConfig& rhs)
@@ -40,6 +42,7 @@ LocationConfig& LocationConfig::operator=(const LocationConfig& rhs)
     redirect = rhs.redirect;
     cgi_interpreter = rhs.cgi_interpreter;
     prefix = rhs.prefix;
+    suffix = rhs.suffix;
     return *this;
 }
 void LocationConfig::parseRoot(std::string& value)

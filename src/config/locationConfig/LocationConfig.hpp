@@ -22,6 +22,7 @@ public:
     std::string redirect;
     std::string cgi_interpreter;
     std::string prefix;
+    std::string suffix;
 
     static const size_t implementMethodsSize;
     static const std::string implementMethods[];
