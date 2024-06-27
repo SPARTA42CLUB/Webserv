@@ -51,6 +51,6 @@ private:
     void addConnectionHeader();
 
 public:
-    RequestHandler(std::map<int, Connection*>& connectionsMap, const Config& config, int socket);
+    RequestHandler(std::map<int, Connection*>& connectionsMap, const Config& config, const int socket);
     ResponseMessage* handleRequest(void);
 };

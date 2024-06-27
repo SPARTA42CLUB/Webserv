@@ -6,7 +6,7 @@
 
 // DELETE: 테스트용
 #include <iostream>
-RequestHandler::RequestHandler(std::map<int, Connection*>& connectionsMap, const Config& config, int socket)
+RequestHandler::RequestHandler(std::map<int, Connection*>& connectionsMap, const Config& config, const int socket)
 : mConnectionsMap(connectionsMap)
 , mSocket(socket)
 , mRequestMessage(connectionsMap[socket]->requests.front())
