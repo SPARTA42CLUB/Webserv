@@ -22,6 +22,7 @@ Server::Server(const Config& config)
 
 Server::~Server()
 {
+    std::vector<int> closeSockets;
     for (size_t i = 0; i < serverSockets.size(); ++i)
     {
         close(serverSockets[i]);
@@ -30,7 +31,9 @@ Server::~Server()
     for (std::map<int, Connection*>::const_iterator it = connectionsMap.begin(); it != connectionsMap.end(); ++it)
     {
         closeConnection(it->first);
+        closeSockets.push_back(it->first);
     }
+    eraseCloseSockets(closeSockets);
 }
 
 // Server 소켓 생성 및 설정
@@ -162,12 +165,14 @@ void Server::handleClientReadEvent(struct kevent& event)
     if (event.flags & EV_EOF)
     {
         closeConnection(event.ident);
+        connectionsMap.erase(event.ident);
         return;
     }
 
-    Connection& connection = *connectionsMap[event.ident];
+    int socket = event.ident;
+    Connection& connection = *connectionsMap[socket];
+    
     recvData(connection);
-
     parseData(connection);
 
     if (connection.requests.empty())
@@ -175,7 +180,7 @@ void Server::handleClientReadEvent(struct kevent& event)
 
     while (!connection.requests.empty())
     {
-        RequestHandler requestHandler(connection, config);
+        RequestHandler requestHandler(connectionsMap, config, socket);
         ResponseMessage* res = requestHandler.handleRequest();
         delete connection.requests.front();
         connection.requests.pop();
@@ -184,7 +189,7 @@ void Server::handleClientReadEvent(struct kevent& event)
         Logger::getInstance().logHttpMessage(*res);
     }
 
-    EventManager::getInstance().addWriteEvent(event.ident);
+    EventManager::getInstance().addWriteEvent(socket);
 }
 
 // connection의 소켓으로부터 데이터를 읽어 옴
@@ -197,6 +202,7 @@ void Server::recvData(Connection& connection)
     {
         Logger::getInstance().logWarning("Recv error");
         closeConnection(connection.socket);
+        connectionsMap.erase(connection.socket);
     }
 
     buffer[bytesRead] = '\0';
@@ -341,6 +347,7 @@ void Server::handleClientWriteEvent(struct kevent& event)
         Logger::getInstance().logWarning("Send error");
         EventManager::getInstance().deleteWriteEvent(socket);
         closeConnection(socket);
+        connectionsMap.erase(socket);
     }
 
     if (bytesSend == 0)
@@ -367,20 +374,20 @@ ssize_t Server::sendToSocket(Connection* connection)
 // Connection들의 keepAlive 관리
 void Server::checkKeepAlive()
 {
-	std::vector<int> closeSockeks;
+	std::vector<int> closeSockets;
     const time_t now = time(NULL);
     for (std::map<int, Connection*>::const_iterator it = connectionsMap.begin(); it != connectionsMap.end(); ++it)
     {
-        if ((it->second)->parentConnection != NULL) // pipe 커넥션이면 패스
+        if ((it->second)->parentSocket != -1) // pipe 커넥션이면 패스
             continue ;
 
         if (difftime(now, (it->second)->last_activity) > config.getKeepAliveTime())
 		{
             closeConnection(it->first);
-			closeSockeks.push_back(it->first);
+			closeSockets.push_back(it->first);
 		}
     }
-	eraseCloseSockets(closeSockeks);
+	eraseCloseSockets(closeSockets);
 }
 
 void Server::updateLastActivity(Connection& connection)

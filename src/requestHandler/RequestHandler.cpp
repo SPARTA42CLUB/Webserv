@@ -6,18 +6,22 @@
 
 // DELETE: 테스트용
 #include <iostream>
-RequestHandler::RequestHandler(Connection& connection, const Config& config)
-: mConnection(connection)
-, mRequestMessage(connection.requests.front())
+RequestHandler::RequestHandler(std::map<int, Connection*>& connectionsMap, const Config& config, int socket)
+: mConnectionsMap(connectionsMap)
+, mSocket(socket)
+, mRequestMessage(connectionsMap[socket]->requests.front())
 , mResponseMessage(new ResponseMessage())
 , mServerConfig(config.getServerConfigByHost(mRequestMessage->getRequestHeaderFields().getField("Host")))
+, mLocConfig()
 , mPath("")
 {
 }
 
 ResponseMessage* RequestHandler::handleRequest(void)
 {
-    (void)mConnection;
+    Connection& connection = *(mConnectionsMap[mSocket]);
+    (void)connection;
+
     int statusCode = mRequestMessage->getStatusCode();
 
     // Request 에러면 미리 던지기. 내부에서 response 설정해줌

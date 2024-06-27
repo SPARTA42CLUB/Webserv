@@ -4,10 +4,11 @@
 #include "EventManager.hpp"
 #include "Logger.hpp"
 
-Connection::Connection(const int socket, const Connection* parentConnection)
+Connection::Connection(const int socket)
 : socket(socket)
 , isChunked(false)
-, parentConnection(parentConnection)
+, parentSocket(-1)
+, childSocket(-1)
 , recvedData()
 , chunkBuffer()
 , requests()

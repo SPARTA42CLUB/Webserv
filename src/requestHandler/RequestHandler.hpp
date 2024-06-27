@@ -10,7 +10,8 @@
 class RequestHandler
 {
 private:
-    Connection& mConnection;
+    std::map<int, Connection*>& mConnectionsMap;
+    const int mSocket;
     const RequestMessage* mRequestMessage;
     ResponseMessage* mResponseMessage; // 동적할당 해서 반환
     const ServerConfig& mServerConfig;
@@ -50,6 +51,6 @@ private:
     void addConnectionHeader();
 
 public:
-    RequestHandler(Connection& connection, const Config& config);
+    RequestHandler(std::map<int, Connection*>& connectionsMap, const Config& config, int socket);
     ResponseMessage* handleRequest(void);
 };
