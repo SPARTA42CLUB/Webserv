@@ -20,7 +20,9 @@ private:
 
     void acceptClient(int serverSocket);
     void handleClientReadEvent(struct kevent& event);
+    void handlePipeReadEvent(struct kevent& event);
     void handleClientWriteEvent(struct kevent& event);
+    void handlePipeWriteEvent(struct kevent& event);
 
     void closeConnection(int socket);
 	void eraseCloseSockets(std::vector<int>& closeSockets);
@@ -37,7 +39,7 @@ private:
 
     void updateLastActivity(Connection& connection);
 
-    ssize_t sendToSocket(Connection* connection);
+    ssize_t sendToSocket(Connection& connection);
 
 public:
     Server(const Config& config);

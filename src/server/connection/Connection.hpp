@@ -13,9 +13,11 @@ struct Connection
     std::string recvedData;
     std::string chunkBuffer;
     std::queue<RequestMessage*> requests;
-    std::queue<ResponseMessage*> responses;
+    std::queue<std::string> responses;
     time_t last_activity;
 
     Connection(const int socket, const int parentSocket = -1, const int childSocket = -1);
     ~Connection();
 };
+
+bool isCgiConnection(Connection& connection);

@@ -29,9 +29,15 @@ Connection::~Connection()
     }
     while (!responses.empty())
     {
-        delete responses.front();
         responses.pop();
     }
+}
+
+bool isCgiConnection(Connection& connection)
+{
+    if (connection.parentSocket != -1)
+        return true;
+    return false;
 }
 
 /*
