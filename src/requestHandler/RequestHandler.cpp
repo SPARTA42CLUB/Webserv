@@ -1,11 +1,11 @@
 #include "RequestHandler.hpp"
-#include "RangeRequestReader.hpp"
-#include <unistd.h>
 #include <ctime>
 #include <fstream>
+#include "RangeRequestReader.hpp"
+#include "FileChecker.hpp"
 
+// DELETE: 테스트용
 #include <iostream>
-
 RequestHandler::RequestHandler(Connection& connection, const Config& config)
 : mConnection(connection)
 , mRequestMessage(connection.requests.front())
@@ -15,31 +15,18 @@ RequestHandler::RequestHandler(Connection& connection, const Config& config)
 {
 }
 
-/*
-    // NOTE: 될 수 있는 조합
-    GET
-    1. URI == Location이며 URI가 디렉토리(/로 끝남)
-        a. index 파일이 있을 경우 index 파일을 읽음
-        b. index 파일이 없을 경우 404
-        c. redirect가 있을 경우
-            1. redirect <location> : 302(기본값) 반환, Location 헤더에 <Location> 추가 (nginx는 상태코드 추가 가능)
-    2. URI == Location이며 URI가 파일
-        a. 파일이 있을 경우 파일을 읽음
-        b. 파일이 없을 경우 404
-        x. redirect가 있을 경우
-
-    3. URI != Location
-        a. 모든 location 블록에서 root + index 파일을 찾음
-    HEAD: GET과 동일하나 body가 없음
-    POST
-    DELETE
-     */
 ResponseMessage* RequestHandler::handleRequest(void)
 {
     (void)mConnection;
     int statusCode = mRequestMessage->getStatusCode();
 
     // Request 에러면 미리 던지기. 내부에서 response 설정해줌
+    if (checkStatusCode(statusCode) == false)
+        return mResponseMessage;
+
+    statusCode = setPath();
+    // std::cout << mPath << std::endl;
+
     if (checkStatusCode(statusCode) == false)
         return mResponseMessage;
 
@@ -57,10 +44,6 @@ ResponseMessage* RequestHandler::handleRequest(void)
 
     // ConnectionMap[connection.socket] = connection;
 
-    statusCode = setPath();
-    if (checkStatusCode(statusCode) == false)
-        return mResponseMessage;
-
     statusCode = handleMethod();
     if (checkStatusCode(statusCode) == false)
         return mResponseMessage;
@@ -70,37 +53,58 @@ ResponseMessage* RequestHandler::handleRequest(void)
     return mResponseMessage;
 }
 
+size_t countMatchingCharacters(const std::string& target, const std::string& loc)
+{
+    if (target.find(loc) == 0)
+    {
+        return loc.size();
+    }
+    return 0;
+}
 int RequestHandler::setPath()
 {
-    std::string reqTarget = mRequestMessage->getRequestLine().getRequestTarget();
-    std::map<std::string, LocationConfig>::const_iterator targetFindIter = mServerConfig.locations.find(reqTarget);
+    const std::string& reqTarget = mRequestMessage->getRequestLine().getRequestTarget();
+    const std::map<std::string, LocationConfig>& locations = mServerConfig.locations;
+    std::map<std::string, LocationConfig>::const_iterator it = locations.find(reqTarget);
 
-    // NOTE: 요청한 URI에 해당하는 LocationConfig 찾기
-    // 만약 URI에 해당하는 Location이 있다면 해당 Location의 root 경로에 index 파일을 찾음
-    if (targetFindIter == mServerConfig.locations.end())
+    if (locations.size() == 0)
     {
-        for (std::map<std::string, LocationConfig>::const_iterator it = mServerConfig.locations.begin(); it != mServerConfig.locations.end(); it++)
-        {
-            if (it->first.back() == '/')
-            {
-                std::string tmp = it->second.root + reqTarget;
-                if (access(tmp.c_str(), F_OK) == 0)
-                {
-                    mLocConfig = it->second;
-                    mPath = tmp;
-                    break;
-                }
-            }
-        }
-        if (mPath == "")
-        {
-            return NOT_FOUND;
-        }
+        mPath = mServerConfig.root + reqTarget;
+    }
+    else if (it != locations.end())
+    {
+        mLocConfig = it->CONFIG;
+        mPath = mLocConfig.root + it->LOCATION;
     }
     else
     {
-        mLocConfig = targetFindIter->second;
-        mPath = mLocConfig.root + reqTarget + mLocConfig.index;
+        const LocationConfig* locConf;
+        size_t maxMatch = 0;
+        for (it = locations.begin(); it != locations.end(); ++it)
+        {
+            if (it->LOCATION.back() != '/')
+                continue;
+            size_t matchCnt = countMatchingCharacters(reqTarget, it->LOCATION);
+            if (matchCnt > maxMatch)
+            {
+                maxMatch = matchCnt;
+                locConf = &(it->CONFIG);
+            }
+        }
+        if (maxMatch == 0)
+        {
+            return NOT_FOUND;
+        }
+        mPath = locConf->root + reqTarget;
+        mLocConfig = *locConf;
+    }
+    if (FileChecker::getFileStatus(mPath) == FileChecker::DIRECTORY)
+    {
+        mPath += mLocConfig.index;
+    }
+    if (FileChecker::getFileStatus(mPath) == FileChecker::NONE)
+    {
+        return NOT_FOUND;
     }
 
     return OK;
@@ -158,20 +162,22 @@ void RequestHandler::addConnectionHeader()
 int RequestHandler::getRequest()
 {
     std::ifstream file(mPath);
-    if (file.is_open() == false)
+    if (!file.good())
     {
         return FORBIDDEN;
     }
-	// Range 요청 판별
-	if (mRequestMessage->getRequestHeaderFields().hasField("Range")) {
-		std::string rangeHeader = mRequestMessage->getRequestHeaderFields().getField("Range");
-		// Check if the header starts with "bytes="
-		if (rangeHeader.substr(0, 6) == "bytes=") {
-			file.close();
-			return rangeRequest();
-		}
-	}
-	// 그 외 요청 처리
+    // Range 요청 판별
+    if (mRequestMessage->getRequestHeaderFields().hasField("Range"))
+    {
+        std::string rangeHeader = mRequestMessage->getRequestHeaderFields().getField("Range");
+        // Check if the header starts with "bytes="
+        if (rangeHeader.substr(0, 6) == "bytes=")
+        {
+            file.close();
+            return rangeRequest();
+        }
+    }
+    // 그 외 요청 처리
     mResponseMessage->setStatusLine(mRequestMessage->getRequestLine().getHTTPVersion(), OK, "OK");
     std::string line;
     while (std::getline(file, line))
@@ -188,44 +194,46 @@ int RequestHandler::getRequest()
 
 int RequestHandler::rangeRequest()
 {
-	// Extract range values
-	std::string rangeHeader = mRequestMessage->getRequestHeaderFields().getField("Range");
-	std::vector<std::pair<size_t, size_t> > ranges; // 벡터 타입 명시적으로 지정
+    // Extract range values
+    std::string rangeHeader = mRequestMessage->getRequestHeaderFields().getField("Range");
+    std::vector<std::pair<size_t, size_t> > ranges;  // 벡터 타입 명시적으로 지정
 
-	// Remove "bytes=" from the header
-	rangeHeader = rangeHeader.substr(6);
+    // Remove "bytes=" from the header
+    rangeHeader = rangeHeader.substr(6);
 
-	// Split the header by commas to handle multiple ranges
-	std::istringstream iss(rangeHeader);
-	std::string rangePart;
-	while (std::getline(iss, rangePart, ',')) {
-		size_t dashPos = rangePart.find('-');
-		if (dashPos != std::string::npos) {
-			size_t rangeStart = std::stoul(rangePart.substr(0, dashPos));
-			size_t rangeEnd = std::stoul(rangePart.substr(dashPos + 1));
-			ranges.push_back(std::make_pair(rangeStart, rangeEnd));
-		}
-	}
+    // Split the header by commas to handle multiple ranges
+    std::istringstream iss(rangeHeader);
+    std::string rangePart;
+    while (std::getline(iss, rangePart, ','))
+    {
+        size_t dashPos = rangePart.find('-');
+        if (dashPos != std::string::npos)
+        {
+            size_t rangeStart = std::stoul(rangePart.substr(0, dashPos));
+            size_t rangeEnd = std::stoul(rangePart.substr(dashPos + 1));
+            ranges.push_back(std::make_pair(rangeStart, rangeEnd));
+        }
+    }
 
-	// Create a RangeRequestReader instance
-	RangeRequestReader reader(mPath);
+    // Create a RangeRequestReader instance
+    RangeRequestReader reader(mPath);
 
-	// Add all ranges to the reader
-	for (std::vector<std::pair<size_t, size_t> >::const_iterator it = ranges.begin(); it != ranges.end(); ++it) {
-		reader.addRange((*it).first, (*it).second); // 반복자 사용하여 요소 접근
-	}
+    // Add all ranges to the reader
+    for (std::vector<std::pair<size_t, size_t> >::const_iterator it = ranges.begin(); it != ranges.end(); ++it)
+    {
+        reader.addRange(it->LOCATION, it->CONFIG);  // 반복자 사용하여 요소 접근
+    }
 
-	// Process the request and get the response body
-	std::string responseBody = reader.processRequest();
+    // Process the request and get the response body
+    std::string responseBody = reader.processRequest();
 
-	// Set HTTP response status line and headers
-	mResponseMessage->setStatusLine(mRequestMessage->getRequestLine().getHTTPVersion(), PARTIAL_CONTENT, "Partial Content");
-	mResponseMessage->addResponseHeaderField("Content-Type", "multipart/byteranges; boundary=BOUNDARY_STRING");
-	mResponseMessage->addMessageBody(responseBody);
+    // Set HTTP response status line and headers
+    mResponseMessage->setStatusLine(mRequestMessage->getRequestLine().getHTTPVersion(), PARTIAL_CONTENT, "Partial Content");
+    mResponseMessage->addResponseHeaderField("Content-Type", "multipart/byteranges; boundary=BOUNDARY_STRING");
+    mResponseMessage->addMessageBody(responseBody);
 
-	return OK;
+    return OK;
 }
-
 
 int RequestHandler::headRequest()
 {
@@ -273,7 +281,7 @@ void RequestHandler::addSemanticHeaderFields()
     std::string date = buffer;
 
     // NOTE: expression result unused
-    // mServerConfig.locations.find(mLocation)->second.cgi;
+    // mServerConfig.locations.find(mLocation)->CONFIG.cgi;
 
     mResponseMessage->addResponseHeaderField("Content-Length", mResponseMessage->getMessageBodySize());
     mResponseMessage->addResponseHeaderField("Server", "webserv");
@@ -393,7 +401,8 @@ void RequestHandler::uriTooLong(void)
 void RequestHandler::httpVersionNotSupported(void)
 {
     mResponseMessage->setStatusLine("HTTP/1.1", HTTP_VERSION_NOT_SUPPORTED, "HTTP Version Not Supported");
-    mResponseMessage->addMessageBody("<html><head><title>505 HTTP Version Not Supported</title></head><body><h1>505 HTTP Version Not Supported</h1></body></html>");
+    mResponseMessage->addMessageBody(
+        "<html><head><title>505 HTTP Version Not Supported</title></head><body><h1>505 HTTP Version Not Supported</h1></body></html>");
     mResponseMessage->addResponseHeaderField("Content-Type", "text/html");
     mResponseMessage->addResponseHeaderField("Connection", "keep-alive");
     addSemanticHeaderFields();

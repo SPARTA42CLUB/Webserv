@@ -36,7 +36,7 @@ void ResponseMessage::addMessageBody(const std::string& body)
 std::string ResponseMessage::toString(void) const
 {
     std::ostringstream oss;
-    oss << mStatusLine.toString() << mResponseHeaderFields.toString() << "\r\n" << mMessageBody.toString();
+    oss << mStatusLine.toStatusLine() << mResponseHeaderFields.toString() << "\r\n" << mMessageBody.toString();
     return oss.str();
 }
 size_t ResponseMessage::getMessageBodySize() const

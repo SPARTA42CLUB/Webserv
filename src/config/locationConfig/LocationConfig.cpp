@@ -13,8 +13,6 @@ LocationConfig::LocationConfig()
 , directory_listing(false)
 , redirect()
 , cgi_interpreter()
-, prefix()
-, suffix()
 {
 }
 LocationConfig::~LocationConfig()
@@ -27,8 +25,6 @@ LocationConfig::LocationConfig(const LocationConfig& rhs)
 , directory_listing(rhs.directory_listing)
 , redirect(rhs.redirect)
 , cgi_interpreter(rhs.cgi_interpreter)
-, prefix(rhs.prefix)
-, suffix(rhs.suffix)
 {
 }
 LocationConfig& LocationConfig::operator=(const LocationConfig& rhs)
@@ -41,8 +37,6 @@ LocationConfig& LocationConfig::operator=(const LocationConfig& rhs)
     directory_listing = rhs.directory_listing;
     redirect = rhs.redirect;
     cgi_interpreter = rhs.cgi_interpreter;
-    prefix = rhs.prefix;
-    suffix = rhs.suffix;
     return *this;
 }
 void LocationConfig::parseRoot(std::string& value)

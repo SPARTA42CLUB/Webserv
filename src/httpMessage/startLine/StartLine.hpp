@@ -110,7 +110,8 @@ public:
     void setStatusCode(const int statusCode);
     void setReasonPhrase(const std::string& reasonPhrase);
     void parseRequestLine(const std::string& requestLine);
-    const std::string toString() const;
+    const std::string toRequestLine() const;
+    const std::string toStatusLine() const;
 };
 
 #endif
