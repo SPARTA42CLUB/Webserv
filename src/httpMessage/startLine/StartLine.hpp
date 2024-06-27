@@ -102,7 +102,6 @@ public:
     ~StartLine();
     const std::string& getHTTPVersion() const;
     const std::string& getStatusCode() const;
-    const std::string& getReasonPhrase() const;
     const std::string& getMethod() const;
     const std::string& getRequestTarget() const;
     void setHTTPVersion(const std::string& httpVersion);

@@ -18,10 +18,6 @@ const std::string& StartLine::getStatusCode() const
 {
     return mElements[STATUS_CODE];
 }
-const std::string& StartLine::getReasonPhrase() const
-{
-    return mElements[REASON_PHRASE];
-}
 const std::string& StartLine::getMethod() const
 {
     return mElements[METHOD];
