@@ -23,6 +23,7 @@ private:
     void handleClientWriteEvent(struct kevent& event);
 
     void closeConnection(int socket);
+	void eraseCloseSockets(std::vector<int>& closeSockets);
     bool isServerSocket(int socket);
 
     // 커넥션한테서 옮겨온애들
