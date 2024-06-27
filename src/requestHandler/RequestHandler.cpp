@@ -1,6 +1,5 @@
 #include "RequestHandler.hpp"
 #include "RangeRequestReader.hpp"
-#include "HttpStatusCode.hpp"
 #include <unistd.h>
 #include <ctime>
 #include <fstream>

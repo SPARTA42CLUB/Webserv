@@ -2,7 +2,7 @@
 
 NAME			:= webserv
 CXX				:= c++
-CFLAGS			:= -std=c++98
+CFLAGS			:= -std=c++98 -Werror -Wall -Wextra
 DEBUG			:= -g
 MEMORY			:= -g3 -fsanitize=address
 

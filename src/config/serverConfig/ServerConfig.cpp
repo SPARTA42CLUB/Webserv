@@ -2,7 +2,6 @@
 #include <sstream>
 #include "ConfigException.hpp"
 #include "parse.hpp"
-#include <vector>
 
 ServerConfig::ServerConfig()
 : host()
