@@ -15,6 +15,8 @@ private:
     ResponseMessage(const ResponseMessage& rhs);
     ResponseMessage& operator=(const ResponseMessage& rhs);
 
+    void addSemanticHeaderFields();
+
 public:
     ResponseMessage();
     ~ResponseMessage();
@@ -26,6 +28,19 @@ public:
     std::string toString(void) const;
     size_t getMessageBodySize() const;
     void clearMessageBody();
+
+
+    void setByStatusCode(const int statusCode);
+
+    // 4xx
+    void badRequest(void);
+    void forbidden(void);
+    void notFound(void);
+    void methodNotAllowed(void);
+    void uriTooLong(void);
+    void payloadTooLarge();
+    // 5xx
+    void httpVersionNotSupported(void);
 };
 
 #endif

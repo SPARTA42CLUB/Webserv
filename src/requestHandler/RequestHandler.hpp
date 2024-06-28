@@ -38,16 +38,6 @@ private:
     // Response (Exception)
     // 3xx
     void found(void); // Require 'Location' header field
-    // 4xx
-    void badRequest(void);
-    void forbidden(void);
-    void notFound(void);
-    void methodNotAllowed(void);
-    void uriTooLong(void);
-    // 5xx
-    void httpVersionNotSupported(void);
-
-    bool checkStatusCode(const int statusCode);
 
     void addConnectionHeader();
 

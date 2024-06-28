@@ -23,10 +23,7 @@ RequestHandler::RequestHandler(std::map<int, Connection*>& connectionsMap, const
 
 std::string RequestHandler::handleRequest(void)
 {
-    int statusCode = mRequestMessage->getStatusCode();
-    // Request 에러면 미리 던지기. 내부에서 response 설정해줌
-    if (checkStatusCode(statusCode) == false)
-        return mResponseMessage.toString();
+    int statusCode;
 
     if (checkCGI())
     {
@@ -39,11 +36,17 @@ std::string RequestHandler::handleRequest(void)
     // std::cout << mPath << std::endl;
 
     if (checkStatusCode(statusCode) == false)
+    {
+        mResponseMessage.setByStatusCode(statusCode);
         return mResponseMessage.toString();
+    }
 
     statusCode = handleMethod();
     if (checkStatusCode(statusCode) == false)
+    {
+        mResponseMessage.setByStatusCode(statusCode);
         return mResponseMessage.toString();
+    }
 
     addConnectionHeader();
 
@@ -406,94 +409,12 @@ void RequestHandler::addContentType()
         mResponseMessage.addResponseHeaderField("Content-Type", "application/octet-stream");
     }
 }
-bool RequestHandler::checkStatusCode(const int statusCode)
-{
-    if (statusCode == BAD_REQUEST)
-    {
-        badRequest();
-        return false;
-    }
-    else if (statusCode == FORBIDDEN)
-    {
-        forbidden();
-        return false;
-    }
-    else if (statusCode == NOT_FOUND)
-    {
-        notFound();
-        return false;
-    }
-    else if (statusCode == METHOD_NOT_ALLOWED)
-    {
-        methodNotAllowed();
-        return false;
-    }
-    else if (statusCode == URI_TOO_LONG)
-    {
-        uriTooLong();
-        return false;
-    }
-    else if (statusCode == HTTP_VERSION_NOT_SUPPORTED)
-    {
-        httpVersionNotSupported();
-        return false;
-    }
-    return true;
-}
+
 void RequestHandler::found(void)
 {
     const std::string& location = mServerConfig.locations.find(mPath)->second.redirect;
     mResponseMessage.setStatusLine("HTTP/1.1", FOUND, "Found");
     mResponseMessage.addResponseHeaderField("Location", location);
     mResponseMessage.addResponseHeaderField("Connection", "close");
-    addSemanticHeaderFields();
-}
-void RequestHandler::badRequest(void)
-{
-    mResponseMessage.setStatusLine("HTTP/1.1", BAD_REQUEST, "Bad Request");
-    mResponseMessage.addMessageBody("<html><head><title>400 Bad Request</title></head><body><h1>400 Bad Request</h1></body></html>");
-    mResponseMessage.addResponseHeaderField("Content-Type", "text/html");
-    mResponseMessage.addResponseHeaderField("Connection", "close");
-    addSemanticHeaderFields();
-}
-void RequestHandler::forbidden(void)
-{
-    mResponseMessage.setStatusLine("HTTP/1.1", FORBIDDEN, "Forbidden");
-    mResponseMessage.addMessageBody("<html><head><title>403 Forbidden</title></head><body><h1>403 Forbidden</h1></body></html>");
-    mResponseMessage.addResponseHeaderField("Content-Type", "text/html");
-    mResponseMessage.addResponseHeaderField("Connection", "keep-alive");
-    addSemanticHeaderFields();
-}
-void RequestHandler::notFound(void)
-{
-    mResponseMessage.setStatusLine("HTTP/1.1", NOT_FOUND, "Not Found");
-    mResponseMessage.addMessageBody("<html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1></body></html>");
-    mResponseMessage.addResponseHeaderField("Content-Type", "text/html");
-    mResponseMessage.addResponseHeaderField("Connection", "keep-alive");
-    addSemanticHeaderFields();
-}
-void RequestHandler::methodNotAllowed(void)
-{
-    mResponseMessage.setStatusLine("HTTP/1.1", METHOD_NOT_ALLOWED, "Method Not Allowed");
-    mResponseMessage.addMessageBody("<html><head><title>405 Method Not Allowed</title></head><body><h1>405 Method Not Allowed</h1></body></html>");
-    mResponseMessage.addResponseHeaderField("Content-Type", "text/html");
-    mResponseMessage.addResponseHeaderField("Connection", "keep-alive");
-    addSemanticHeaderFields();
-}
-void RequestHandler::uriTooLong(void)
-{
-    mResponseMessage.setStatusLine("HTTP/1.1", URI_TOO_LONG, "Request-URI Too Long");
-    mResponseMessage.addMessageBody("<html><head><title>414 Request-URI Too Long</title></head><body><h1>414 Request-URI Too Long</h1></body></html>");
-    mResponseMessage.addResponseHeaderField("Content-Type", "text/html");
-    mResponseMessage.addResponseHeaderField("Connection", "keep-alive");
-    addSemanticHeaderFields();
-}
-void RequestHandler::httpVersionNotSupported(void)
-{
-    mResponseMessage.setStatusLine("HTTP/1.1", HTTP_VERSION_NOT_SUPPORTED, "HTTP Version Not Supported");
-    mResponseMessage.addMessageBody(
-        "<html><head><title>505 HTTP Version Not Supported</title></head><body><h1>505 HTTP Version Not Supported</h1></body></html>");
-    mResponseMessage.addResponseHeaderField("Content-Type", "text/html");
-    mResponseMessage.addResponseHeaderField("Connection", "keep-alive");
     addSemanticHeaderFields();
 }

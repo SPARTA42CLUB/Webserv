@@ -15,6 +15,7 @@ Connection::Connection(const int socket, const int parentSocket, std::string rec
 , requests()
 , responses()
 , last_activity(time(NULL))
+, serverConfig()
 {
     Logger::getInstance().logInfo(std::to_string(socket) + " Connection created\n");
     childSocket[READ_END] = -1;
@@ -24,8 +25,6 @@ Connection::Connection(const int socket, const int parentSocket, std::string rec
 Connection::~Connection()
 {
     Logger::getInstance().logInfo(std::to_string(socket) + " Connection closed\n");
-    if (parentSocket == -1)
-        // EventManager::getInstance().deleteReadEvent(socket);
     close(socket);
     while (!requests.empty())
     {

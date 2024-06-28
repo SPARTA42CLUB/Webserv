@@ -111,6 +111,9 @@ public:
     void parseRequestLine(const std::string& requestLine);
     const std::string toRequestLine() const;
     const std::string toStatusLine() const;
+
 };
+
+bool checkStatusCode(int statusCode);
 
 #endif

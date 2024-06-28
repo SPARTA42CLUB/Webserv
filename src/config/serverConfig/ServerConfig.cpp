@@ -173,3 +173,8 @@ bool ServerConfig::isValidLocationPath(std::string& locationPath)
     }
     return true;
 }
+
+size_t ServerConfig::getClientMaxBodySize() const
+{
+    return client_max_body_size;
+}

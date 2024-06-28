@@ -70,3 +70,19 @@ void StartLine::parseRequestLine(const std::string& requestLine)
     mElements[HTTP_VERSION].clear();
     throw HttpException(BAD_REQUEST);
 }
+
+bool checkStatusCode(int statusCode)
+{
+    switch (statusCode) {
+        case BAD_REQUEST:
+        case FORBIDDEN:
+        case NOT_FOUND:
+        case METHOD_NOT_ALLOWED:
+        case URI_TOO_LONG:
+        case PAYLOAD_TOO_LARGE:
+        case HTTP_VERSION_NOT_SUPPORTED:
+            return false;
+        default:
+            return true;
+    }
+}
