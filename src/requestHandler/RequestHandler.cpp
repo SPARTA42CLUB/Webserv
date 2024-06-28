@@ -35,7 +35,7 @@ std::string RequestHandler::handleRequest(void)
         return "";
     }
     statusCode = setPath();
-    std::cout << mPath << std::endl;
+    // std::cout << mPath << std::endl;
 
     if (checkStatusCode(statusCode) == false)
         return mResponseMessage.toString();
@@ -123,8 +123,8 @@ void RequestHandler::executeCGI(void)
         close(pipe_in[READ_END]);
         close(pipe_out[WRITE_END]);
         
-        mConnectionsMap[mSocket]->childSocket[READ_END] = pipe_out[READ_END];
         mConnectionsMap[mSocket]->childSocket[WRITE_END] = pipe_in[WRITE_END];
+        mConnectionsMap[mSocket]->childSocket[READ_END] = pipe_out[READ_END];
         mConnectionsMap[pipe_in[WRITE_END]] = new Connection(pipe_in[WRITE_END], mSocket, mRequestMessage->getMessageBody().toString());
         mConnectionsMap[pipe_out[READ_END]] = new Connection(pipe_out[READ_END], mSocket);
 

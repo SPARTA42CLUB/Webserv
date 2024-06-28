@@ -159,7 +159,7 @@ for ((i=0; i<${#requests[@]}; i+=2)); do
     fi
 done
 
-rm -rf ../../www/permission_denied access.log
+sudo rm -rf ../../www/permission_denied access.log
 
 # webserv 프로그램 종료
 kill -9 $WEBSERV_PID > /dev/null 2>&1

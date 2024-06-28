@@ -214,11 +214,11 @@ void Server::handlePipeWriteEvent(struct kevent& event)
     updateLastActivity(cgiConnection);
     if (data.empty())
     {  
+        int readSocket = connectionsMap[cgiConnection.parentSocket]->childSocket[READ_END];
+        EventManager::getInstance().addReadEvent(readSocket);
         EventManager::getInstance().deleteWriteEvent(pipe);
         closeConnection(pipe);
         connectionsMap.erase(pipe);
-        int readSocket = connectionsMap[cgiConnection.parentSocket]->childSocket[READ_END];
-        EventManager::getInstance().addReadEvent(readSocket);
     }
 }
 
