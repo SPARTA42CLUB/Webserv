@@ -19,3 +19,5 @@ struct Connection
     Connection(const int socket, const int parentSocket = -1);
     ~Connection();
 };
+
+bool isCgiConnection(Connection& connection);

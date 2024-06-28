@@ -124,11 +124,25 @@ void Server::run()
             }
             else if (event.filter == EVFILT_READ)
             {
-                handleClientReadEvent(event);
+                if (isCgiConnection(*connectionsMap[event.ident]))
+                {
+                    handlePipeReadEvent(event);
+                }
+                else
+                {
+                    handleClientReadEvent(event);
+                }
             }
             else if (event.filter == EVFILT_WRITE)
             {
-                handleClientWriteEvent(event);
+                if (isCgiConnection(*connectionsMap[event.ident]))
+                {
+                    handlePipeWriteEvent(event);
+                }
+                else
+                {
+                    handleClientWriteEvent(event);
+                }
             }
         }
 
@@ -159,8 +173,7 @@ void Server::acceptClient(int serverSocket)
     Logger::getInstance().logAccept(connectionSocket, clientAddr);
 }
 
-// 소켓에 read event 발생시 소켓에서 데이터 읽음
-void Server::handleClientReadEvent(struct kevent& event)
+void Server::handlePipeReadEvent(struct kevent& event)
 {
 /* 
 NOTE: nginx에
@@ -173,16 +186,65 @@ Connection: Close 로직을 추가하고 if (event.flags & EV_EOF)&& !isKeepAliv
 
 또, 이거 주석 처리하면 if ((bytesRead = recv(connection.socket, buffer, sizeof(buffer) - 1, 0)) < 0)이 줄에서 이중 free 에러가 발생함
 */
+    Connection& cgiConnection = *(connectionsMap[event.ident]);
+
     if (event.flags & EV_EOF)
     {
+        std::string& response = cgiConnection.recvedData; // 저장된 데이터 들고 오기
+        Connection& parentConnection = *connectionsMap[cgiConnection.parentSocket]; // 부모 커넥션 가져오기
+        parentConnection.responses.push(response); // 부모 커넥션의 responses에다 pipe에서 읽어 온 데이터 넣음
+        EventManager::getInstance().addWriteEvent(cgiConnection.parentSocket);
+        cgiConnection.recvedData.clear(); // 데이터 버퍼 클리어.
+
         closeConnection(event.ident);
         connectionsMap.erase(event.ident);
         return;
     }
 
+    recvData(cgiConnection);
+}
+
+void Server::handlePipeWriteEvent(struct kevent& event)
+{
+    int pipe = event.ident;
+
+    Connection& cgiConnection = *connectionsMap[pipe];
+    if (cgiConnection.requests.empty())
+    {
+        EventManager::getInstance().deleteWriteEvent(pipe);
+        return ;
+    }
+
+    std::string data = cgiConnection.requests.front()->toString();
+    if (write(pipe, data.c_str(), data.length()) < 0)
+    {
+        Logger::getInstance().logWarning("Failed Write to pipe");
+        EventManager::getInstance().deleteWriteEvent(pipe);
+        closeConnection(pipe);
+        connectionsMap.erase(pipe);
+    }
+
+    delete cgiConnection.requests.front();
+    cgiConnection.requests.pop();
+
+    updateLastActivity(cgiConnection);
+}
+
+
+// 소켓에 read event 발생시 소켓에서 데이터 읽음
+void Server::handleClientReadEvent(struct kevent& event)
+{
     int socket = event.ident;
+
+    if (event.flags & EV_EOF)
+    {
+        closeConnection(socket);
+        connectionsMap.erase(socket);
+        return;
+    }
+
     Connection& connection = *connectionsMap[socket];
-    
+
     recvData(connection);
     parseData(connection);
 
@@ -193,12 +255,15 @@ Connection: Close 로직을 추가하고 if (event.flags & EV_EOF)&& !isKeepAliv
     while (!connection.requests.empty())
     {
         RequestHandler requestHandler(connectionsMap, config, socket);
-        ResponseMessage* res = requestHandler.handleRequest();
+        std::string res = requestHandler.handleRequest();
         delete connection.requests.front();
         connection.requests.pop();
-        if (res == NULL)
-            continue ;
+
+        // if (res.empty())
+        //     break ;
+
         connection.responses.push(res);
+
         Logger::getInstance().logHttpMessage(*res);
     }
 
@@ -234,7 +299,7 @@ void Server::parseData(Connection& connection)
 
         if (connection.isChunked)
             hasData |= parseChunk(connection);
-        else
+        else if (connection.parentSocket == -1) // CGI connection이 아니면
             hasData |= parseRequest(connection);
 
         if (hasData == false)
@@ -355,7 +420,7 @@ void Server::handleClientWriteEvent(struct kevent& event)
 {
     int socket = event.ident;
 
-    const ssize_t bytesSend = sendToSocket(connectionsMap[socket]);
+    const ssize_t bytesSend = sendToSocket(*connectionsMap[socket]);
     if (bytesSend < 0)
     {
         Logger::getInstance().logWarning("Send error");
@@ -368,19 +433,17 @@ void Server::handleClientWriteEvent(struct kevent& event)
         EventManager::getInstance().deleteWriteEvent(socket);
 }
 
-ssize_t Server::sendToSocket(Connection* connection)
+ssize_t Server::sendToSocket(Connection& connection)
 {
-    std::queue<ResponseMessage*>& responses = connection->responses;
-    if (responses.empty())
+    if (connection.responses.empty())
         return 0;
 
-    std::string data = responses.front()->toString();
-    ssize_t bytesSend = send(connection->socket, data.c_str(), data.length(), 0);
+    std::string data = connection.responses.front();
+    ssize_t bytesSend = send(connection.socket, data.c_str(), data.length(), 0);
 
-    delete responses.front();
-    responses.pop();
+    connection.responses.pop();
 
-    updateLastActivity(*connection);
+    updateLastActivity(connection);
 
     return bytesSend;
 }

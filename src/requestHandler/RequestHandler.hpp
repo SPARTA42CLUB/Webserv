@@ -13,7 +13,7 @@ private:
     std::map<int, Connection*>& mConnectionsMap;
     const int mSocket;
     const RequestMessage* mRequestMessage;
-    ResponseMessage* mResponseMessage; // 동적할당 해서 반환
+    ResponseMessage mResponseMessage; // 동적할당 해서 반환
     const ServerConfig& mServerConfig;
     LocationConfig mLocConfig;
     std::string mPath;
@@ -53,5 +53,5 @@ private:
 
 public:
     RequestHandler(std::map<int, Connection*>& connectionsMap, const Config& config, const int socket);
-    ResponseMessage* handleRequest(void);
+    std::string handleRequest(void);
 };
