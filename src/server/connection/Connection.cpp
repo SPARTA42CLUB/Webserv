@@ -5,17 +5,18 @@
 #include "EventManager.hpp"
 #include "Logger.hpp"
 
-Connection::Connection(const int socket, const int parentSocket)
+Connection::Connection(const int socket, const int parentSocket, std::string recvedData)
 : socket(socket)
 , parentSocket(parentSocket)
 , childSocket()
 , isChunked(false)
-, recvedData()
+, recvedData(recvedData)
 , chunkBuffer()
 , requests()
 , responses()
 , last_activity(time(NULL))
 {
+    Logger::getInstance().logInfo(std::to_string(socket) + " Connection created\n");
     childSocket[READ_END] = -1;
     childSocket[WRITE_END] = -1;
 }
@@ -23,7 +24,8 @@ Connection::Connection(const int socket, const int parentSocket)
 Connection::~Connection()
 {
     Logger::getInstance().logInfo(std::to_string(socket) + " Connection closed\n");
-    EventManager::getInstance().deleteReadEvent(socket);
+    if (parentSocket == -1)
+        EventManager::getInstance().deleteReadEvent(socket);
     close(socket);
     while (!requests.empty())
     {
@@ -36,9 +38,9 @@ Connection::~Connection()
     }
 }
 
-bool isCgiConnection(Connection& connection)
+bool isCgiConnection(Connection* connection)
 {
-    if (connection.parentSocket != -1)
+    if (connection->parentSocket != -1)
         return true;
     return false;
 }

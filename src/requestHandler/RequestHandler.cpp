@@ -22,11 +22,7 @@ RequestHandler::RequestHandler(std::map<int, Connection*>& connectionsMap, const
 
 std::string RequestHandler::handleRequest(void)
 {
-    Connection& connection = *(mConnectionsMap[mSocket]);
-    (void)connection;
-
     int statusCode = mRequestMessage->getStatusCode();
-
     // Request 에러면 미리 던지기. 내부에서 response 설정해줌
     if (checkStatusCode(statusCode) == false)
         return mResponseMessage.toString();
@@ -36,11 +32,10 @@ std::string RequestHandler::handleRequest(void)
         // std::cout << "path: " << mPath << std::endl;
         // std::cout << "query: " << mQueryString << std::endl;
         executeCGI();
-        delete mResponseMessage;
-        return NULL;
+        return "";
     }
     statusCode = setPath();
-    // std::cout << mPath << std::endl;
+    std::cout << mPath << std::endl;
 
     if (checkStatusCode(statusCode) == false)
         return mResponseMessage.toString();
@@ -58,6 +53,10 @@ bool RequestHandler::checkCGI(void)
     const std::string& reqTarget = mRequestMessage->getRequestLine().getRequestTarget();
     const std::map<std::string, LocationConfig>& locations = mServerConfig.locations;
 
+    if (reqTarget.find('.') == std::string::npos)
+    {
+        return false;
+    }
     for (std::map<std::string, LocationConfig>::const_iterator it = locations.begin(); it != locations.end(); ++it)
     {
         if (it->LOCATION.front() == '.')
@@ -68,6 +67,10 @@ bool RequestHandler::checkCGI(void)
             {
                 mLocConfig = it->CONFIG;
                 mPath = mLocConfig.root + reqTarget.substr(0, idx + it->LOCATION.size());
+                if (query_idx == std::string::npos)
+                {
+                    return true;
+                }
                 mQueryString = reqTarget.substr(query_idx + 1);
                 return true;
             }
@@ -82,12 +85,12 @@ void RequestHandler::executeCGI(void)
 	int pipe_in[2], pipe_out[2];
 	if(pipe(pipe_in) == -1 || pipe(pipe_out) == -1)
     {
-        throw SysException(FAILED_TO_CREATE_PIPE);
+        // throw SysException(FAILED_TO_CREATE_PIPE);
     }
 	pid_t pid = fork();
 	if(pid == -1)
     {
-        throw SysException(FAILED_TO_FORK);
+        // throw SysException(FAILED_TO_FORK);
     }
 	if (pid == 0) 
     {
@@ -112,7 +115,7 @@ void RequestHandler::executeCGI(void)
 		char* envp[] = {queryStringEnv_cstr.data(), requestMethodEnv_cstr.data(), NULL};
 
 		execve(argv[READ_END], argv, envp);
-		throw SysException(FAILED_TO_EXEC);
+		// throw SysException(FAILED_TO_EXEC);
 	}
 	else
 	{
@@ -120,17 +123,16 @@ void RequestHandler::executeCGI(void)
         close(pipe_in[READ_END]);
         close(pipe_out[WRITE_END]);
         
-        mConnectionsMap[mSocket]->childSocket[READ_END] = pipe_in[WRITE_END];
-        mConnectionsMap[mSocket]->childSocket[WRITE_END] = pipe_out[READ_END];
-        mConnectionsMap[pipe_in[WRITE_END]] = new Connection(pipe_in[WRITE_END], mSocket);
+        mConnectionsMap[mSocket]->childSocket[READ_END] = pipe_out[READ_END];
+        mConnectionsMap[mSocket]->childSocket[WRITE_END] = pipe_in[WRITE_END];
+        mConnectionsMap[pipe_in[WRITE_END]] = new Connection(pipe_in[WRITE_END], mSocket, mRequestMessage->getMessageBody().toString());
         mConnectionsMap[pipe_out[READ_END]] = new Connection(pipe_out[READ_END], mSocket);
-        
+
         // write(pipe_in[1], mRequestMessage->getMessageBody().toString().c_str(), mRequestMessage->getMessageBody().size());
         // wait(NULL);
         // char buf[4096];
         // read(pipe_out[READ_END], buf, sizeof(buf));
         // std::cout << buf << std::endl;
-        EventManager::getInstance().addReadEvent(pipe_out[READ_END]);
 		EventManager::getInstance().addWriteEvent(pipe_in[WRITE_END]);
 
         // https://codetravel.tistory.com/42

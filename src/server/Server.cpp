@@ -124,7 +124,7 @@ void Server::run()
             }
             else if (event.filter == EVFILT_READ)
             {
-                if (isCgiConnection(*connectionsMap[event.ident]))
+                if (isCgiConnection(connectionsMap[event.ident]))
                 {
                     handlePipeReadEvent(event);
                 }
@@ -135,7 +135,7 @@ void Server::run()
             }
             else if (event.filter == EVFILT_WRITE)
             {
-                if (isCgiConnection(*connectionsMap[event.ident]))
+                if (isCgiConnection(connectionsMap[event.ident]))
                 {
                     handlePipeWriteEvent(event);
                 }
@@ -175,17 +175,6 @@ void Server::acceptClient(int serverSocket)
 
 void Server::handlePipeReadEvent(struct kevent& event)
 {
-/* 
-NOTE: nginx에
-(echo -en "GET / HTTP/1.1\r\nHost: localhost:8080\r\nConnection: keep-alive\r\n\r\n" && sleep 0.1) | nc localhost 9090 
-를 실행하면 Connection 헤더와 상관없이 EOF로 인해 Connection이 종료됨
-
-근데 여기를 주석 처리하면 Connection이 종료되지 않음
-Connection: Close 로직을 추가하고 if (event.flags & EV_EOF)&& !isKeepAlive) 로 수정해야할 듯
-그리고 위의 명령어는 nginx가 예상대로 동작하지 않는 걸로 간주하고 테스트시 Conncection: Close로 테스트
-
-또, 이거 주석 처리하면 if ((bytesRead = recv(connection.socket, buffer, sizeof(buffer) - 1, 0)) < 0)이 줄에서 이중 free 에러가 발생함
-*/
     Connection& cgiConnection = *(connectionsMap[event.ident]);
 
     if (event.flags & EV_EOF)
@@ -209,33 +198,45 @@ void Server::handlePipeWriteEvent(struct kevent& event)
     int pipe = event.ident;
 
     Connection& cgiConnection = *connectionsMap[pipe];
-    if (cgiConnection.requests.empty())
-    {
-        EventManager::getInstance().deleteWriteEvent(pipe);
-        return ;
-    }
 
-    std::string data = cgiConnection.requests.front()->toString();
-    if (write(pipe, data.c_str(), data.length()) < 0)
+    ssize_t bytesSend = 0;
+    std::string& data = cgiConnection.recvedData;
+    if ((bytesSend = write(pipe, data.c_str(), data.length())) < 0)
     {
         Logger::getInstance().logWarning("Failed Write to pipe");
         EventManager::getInstance().deleteWriteEvent(pipe);
         closeConnection(pipe);
         connectionsMap.erase(pipe);
+        return ;
     }
 
-    delete cgiConnection.requests.front();
-    cgiConnection.requests.pop();
-
+    data.erase(0, bytesSend);
     updateLastActivity(cgiConnection);
+    if (data.empty())
+    {  
+        EventManager::getInstance().deleteWriteEvent(pipe);
+        closeConnection(pipe);
+        connectionsMap.erase(pipe);
+        int readSocket = connectionsMap[cgiConnection.parentSocket]->childSocket[READ_END];
+        EventManager::getInstance().addReadEvent(readSocket);
+    }
 }
-
 
 // 소켓에 read event 발생시 소켓에서 데이터 읽음
 void Server::handleClientReadEvent(struct kevent& event)
 {
     int socket = event.ident;
+/* 
+NOTE: nginx에
+(echo -en "GET / HTTP/1.1\r\nHost: localhost:8080\r\nConnection: keep-alive\r\n\r\n" && sleep 0.1) | nc localhost 9090 
+를 실행하면 Connection 헤더와 상관없이 EOF로 인해 Connection이 종료됨
 
+근데 여기를 주석 처리하면 Connection이 종료되지 않음
+Connection: Close 로직을 추가하고 if (event.flags & EV_EOF)&& !isKeepAlive) 로 수정해야할 듯
+그리고 위의 명령어는 nginx가 예상대로 동작하지 않는 걸로 간주하고 테스트시 Conncection: Close로 테스트
+
+또, 이거 주석 처리하면 if ((bytesRead = recv(connection.socket, buffer, sizeof(buffer) - 1, 0)) < 0)이 줄에서 이중 free 에러가 발생함
+*/
     if (event.flags & EV_EOF)
     {
         closeConnection(socket);
@@ -251,22 +252,19 @@ void Server::handleClientReadEvent(struct kevent& event)
     if (connection.requests.empty())
         return ;
 
-    size_t responseCnt = connection.responses.size();
+    size_t responseCnt = connection.responses.size(); // 1
     while (!connection.requests.empty())
     {
         RequestHandler requestHandler(connectionsMap, config, socket);
         std::string res = requestHandler.handleRequest();
         delete connection.requests.front();
         connection.requests.pop();
-
-        // if (res.empty())
-        //     break ;
+        if (res.empty())
+            break;
 
         connection.responses.push(res);
-
-        Logger::getInstance().logHttpMessage(*res);
+        Logger::getInstance().logHttpMessage(res);
     }
-
     if (connection.responses.size() > responseCnt)
         EventManager::getInstance().addWriteEvent(socket);
 }
@@ -276,12 +274,14 @@ void Server::recvData(Connection& connection)
 {
     char buffer[4096];
     ssize_t bytesRead;
+    int socket = connection.socket;
 
-    if ((bytesRead = recv(connection.socket, buffer, sizeof(buffer) - 1, 0)) < 0)
+    if ((bytesRead = recv(socket, buffer, sizeof(buffer) - 1, 0)) < 0)
     {
         Logger::getInstance().logWarning("Recv error");
-        closeConnection(connection.socket);
-        connectionsMap.erase(connection.socket);
+        closeConnection(socket);
+        connectionsMap.erase(socket);
+        return;
     }
 
     buffer[bytesRead] = '\0';

@@ -16,8 +16,8 @@ struct Connection
     std::queue<std::string> responses;
     time_t last_activity;
 
-    Connection(const int socket, const int parentSocket = -1);
+    Connection(const int socket, const int parentSocket = -1, std::string recvedData = "");
     ~Connection();
 };
 
-bool isCgiConnection(Connection& connection);
+bool isCgiConnection(Connection* connection);
