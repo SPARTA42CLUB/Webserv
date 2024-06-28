@@ -11,6 +11,8 @@
 #include "SysException.hpp"
 #include "RequestHandler.hpp"
 
+#include <errno.h>
+
 // ServerConfig 클래스 생성자
 Server::Server(const Config& config)
 : config(config)
@@ -116,7 +118,8 @@ void Server::run()
 
             if (event.flags & EV_ERROR)
             {
-                throw SysException(KEVENT_ERROR);
+                // throw SysException(KEVENT_ERROR);
+                continue ;
             }
             if (isServerSocket(event.ident))
             {
@@ -124,7 +127,7 @@ void Server::run()
             }
             else if (event.filter == EVFILT_READ)
             {
-                if (isCgiConnection(connectionsMap[event.ident]))
+                if (isCgiConnection(*connectionsMap[event.ident]))
                 {
                     handlePipeReadEvent(event);
                 }
@@ -135,7 +138,7 @@ void Server::run()
             }
             else if (event.filter == EVFILT_WRITE)
             {
-                if (isCgiConnection(connectionsMap[event.ident]))
+                if (isCgiConnection(*connectionsMap[event.ident]))
                 {
                     handlePipeWriteEvent(event);
                 }
@@ -179,17 +182,20 @@ void Server::handlePipeReadEvent(struct kevent& event)
 
     if (event.flags & EV_EOF)
     {
+        std::cout << "pipe read eof!!\n\n\n\n" << std::endl;
         std::string& response = cgiConnection.recvedData; // 저장된 데이터 들고 오기
         Connection& parentConnection = *connectionsMap[cgiConnection.parentSocket]; // 부모 커넥션 가져오기
         parentConnection.responses.push(response); // 부모 커넥션의 responses에다 pipe에서 읽어 온 데이터 넣음
         EventManager::getInstance().addWriteEvent(cgiConnection.parentSocket);
         cgiConnection.recvedData.clear(); // 데이터 버퍼 클리어.
 
+        EventManager::getInstance().deleteReadEvent(event.ident);
         closeConnection(event.ident);
         connectionsMap.erase(event.ident);
         return;
     }
 
+    std::cout << "pipe reading~~~\n\n" << std::endl;
     recvData(cgiConnection);
 }
 
@@ -210,25 +216,28 @@ void Server::handlePipeWriteEvent(struct kevent& event)
         return ;
     }
 
+
     data.erase(0, bytesSend);
     updateLastActivity(cgiConnection);
+
     if (data.empty())
-    {  
+    {
         int readSocket = connectionsMap[cgiConnection.parentSocket]->childSocket[READ_END];
         EventManager::getInstance().addReadEvent(readSocket);
         EventManager::getInstance().deleteWriteEvent(pipe);
         closeConnection(pipe);
         connectionsMap.erase(pipe);
     }
+    // EventManager::getInstance().deleteWriteEvent(pipe);
 }
 
 // 소켓에 read event 발생시 소켓에서 데이터 읽음
 void Server::handleClientReadEvent(struct kevent& event)
 {
     int socket = event.ident;
-/* 
+/*
 NOTE: nginx에
-(echo -en "GET / HTTP/1.1\r\nHost: localhost:8080\r\nConnection: keep-alive\r\n\r\n" && sleep 0.1) | nc localhost 9090 
+(echo -en "GET / HTTP/1.1\r\nHost: localhost:8080\r\nConnection: keep-alive\r\n\r\n" && sleep 0.1) | nc localhost 9090
 를 실행하면 Connection 헤더와 상관없이 EOF로 인해 Connection이 종료됨
 
 근데 여기를 주석 처리하면 Connection이 종료되지 않음
@@ -260,7 +269,7 @@ Connection: Close 로직을 추가하고 if (event.flags & EV_EOF)&& !isKeepAliv
         delete connection.requests.front();
         connection.requests.pop();
         if (res.empty())
-            break;
+            continue;
 
         connection.responses.push(res);
         Logger::getInstance().logHttpMessage(res);
@@ -276,11 +285,15 @@ void Server::recvData(Connection& connection)
     ssize_t bytesRead;
     int socket = connection.socket;
 
-    if ((bytesRead = recv(socket, buffer, sizeof(buffer) - 1, 0)) < 0)
+    if ((bytesRead = read(socket, buffer, sizeof(buffer) - 1)) < 0)
     {
+        std::cout << errno << std::endl;
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+            std::cout << "EAGAIN" << std::endl;
         Logger::getInstance().logWarning("Recv error");
-        closeConnection(socket);
+        EventManager::getInstance().deleteReadEvent(socket);
         connectionsMap.erase(socket);
+        closeConnection(socket);
         return;
     }
 

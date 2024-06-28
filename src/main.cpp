@@ -24,6 +24,7 @@ int main(int argc, char* argv[])
     }
     catch (const std::exception& e)
     {
+        std::cout << "throw!" << std::endl;
         // 서버 실행 중 에러 발생 시 종료
         Logger::getInstance().logError(e.what());
     }

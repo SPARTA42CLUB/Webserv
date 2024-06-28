@@ -36,7 +36,9 @@ def handle_delete():
 def main():
     request_method = os.environ.get("REQUEST_METHOD")
     # Print HTTP headers
+    print("HTTP/1.1 200 OK")
     print("Content-Type: text/plain")
+    print("Content-Length: 2")
     if request_method == "HEAD":
         # Content-Length 헤더를 설정하여 본문이 없음을 알림
         print("Content-Length: 0")

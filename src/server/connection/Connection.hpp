@@ -20,4 +20,4 @@ struct Connection
     ~Connection();
 };
 
-bool isCgiConnection(Connection* connection);
+bool isCgiConnection(Connection& connection);

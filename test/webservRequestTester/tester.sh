@@ -117,7 +117,7 @@ chmod 544 ../../www/permission_denied/
 # webserv 프로그램을 백그라운드에서 실행
 clear && echo -e "${WHITE}webserv tester$NC" && \
 echo -e "${BLUE}webserver building...$NC" && \
-make -C ../../ mem > /dev/null 2>&1 && \
+make -C ../../ mem -j > /dev/null 2>&1 && \
 echo -e "${BLUE}webserver running...$NC"
 
 ../../webserv test.conf & WEBSERV_PID=$! && sleep $WEBSERVER_CREATE_TIME

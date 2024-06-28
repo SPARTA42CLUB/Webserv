@@ -25,7 +25,7 @@ Connection::~Connection()
 {
     Logger::getInstance().logInfo(std::to_string(socket) + " Connection closed\n");
     if (parentSocket == -1)
-        EventManager::getInstance().deleteReadEvent(socket);
+        // EventManager::getInstance().deleteReadEvent(socket);
     close(socket);
     while (!requests.empty())
     {
@@ -38,9 +38,9 @@ Connection::~Connection()
     }
 }
 
-bool isCgiConnection(Connection* connection)
+bool isCgiConnection(Connection& connection)
 {
-    if (connection->parentSocket != -1)
+    if (connection.parentSocket != -1)
         return true;
     return false;
 }

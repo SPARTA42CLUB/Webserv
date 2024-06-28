@@ -13,8 +13,14 @@ const char* SysException::what() const _NOEXCEPT
     {
         case FAILED_TO_CREATE_KQUEUE:
             return "Failed to create kqueue";
-        case FAILED_TO_ADD_KEVENT:
-            return "Failed to add kevent";
+        case FAILED_TO_ADD_READ_KEVENT:
+            return "Failed to add read kevent";
+        case FAILED_TO_ADD_WRITE_KEVENT:
+            return "Failed to add write kevent";
+        case FAILED_TO_DELETE_READ_KEVENT:
+            return "Failed to delete read kevent";
+        case FAILED_TO_DELETE_WRITE_KEVENT:
+            return "Failed to delete write kevent";
         case FAILED_TO_GET_KEVENT:
             return "Failed to get kevent";
         case KEVENT_ERROR:

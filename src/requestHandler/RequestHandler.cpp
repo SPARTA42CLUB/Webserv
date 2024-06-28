@@ -1,6 +1,7 @@
 #include "RequestHandler.hpp"
 #include <ctime>
 #include <fstream>
+#include <fcntl.h>
 #include "RangeRequestReader.hpp"
 #include "EventManager.hpp"
 #include "SysException.hpp" // TODO: 에러 이걸로 던짐?????
@@ -53,15 +54,13 @@ bool RequestHandler::checkCGI(void)
     const std::string& reqTarget = mRequestMessage->getRequestLine().getRequestTarget();
     const std::map<std::string, LocationConfig>& locations = mServerConfig.locations;
 
-    if (reqTarget.find('.') == std::string::npos)
-    {
-        return false;
-    }
     for (std::map<std::string, LocationConfig>::const_iterator it = locations.begin(); it != locations.end(); ++it)
     {
         if (it->LOCATION.front() == '.')
         {
             size_t idx = reqTarget.find(it->LOCATION);
+            if (idx == std::string::npos)
+                continue;
             size_t query_idx = reqTarget.find('?');
             if (reqTarget.substr(idx, it->LOCATION.size()) == it->LOCATION)
             {
@@ -74,7 +73,7 @@ bool RequestHandler::checkCGI(void)
                 mQueryString = reqTarget.substr(query_idx + 1);
                 return true;
             }
-            
+
         }
     }
     return false;
@@ -85,14 +84,14 @@ void RequestHandler::executeCGI(void)
 	int pipe_in[2], pipe_out[2];
 	if(pipe(pipe_in) == -1 || pipe(pipe_out) == -1)
     {
-        // throw SysException(FAILED_TO_CREATE_PIPE);
+        throw SysException(FAILED_TO_CREATE_PIPE);
     }
 	pid_t pid = fork();
 	if(pid == -1)
     {
-        // throw SysException(FAILED_TO_FORK);
+        throw SysException(FAILED_TO_FORK);
     }
-	if (pid == 0) 
+	if (pid == 0)
     {
         // Child process
         close(pipe_in[WRITE_END]);
@@ -115,14 +114,24 @@ void RequestHandler::executeCGI(void)
 		char* envp[] = {queryStringEnv_cstr.data(), requestMethodEnv_cstr.data(), NULL};
 
 		execve(argv[READ_END], argv, envp);
-		// throw SysException(FAILED_TO_EXEC);
+		throw SysException(FAILED_TO_EXEC);
 	}
 	else
 	{
         // Parent process
         close(pipe_in[READ_END]);
         close(pipe_out[WRITE_END]);
-        
+        if (fcntl(pipe_in[WRITE_END], F_SETFL, O_NONBLOCK) == -1)
+        {
+            close(pipe_in[WRITE_END]);
+            throw SysException(FAILED_TO_SET_NON_BLOCKING);
+        }
+        if (fcntl(pipe_out[READ_END], F_SETFL, O_NONBLOCK) == -1)
+        {
+            close(pipe_out[READ_END]);
+            throw SysException(FAILED_TO_SET_NON_BLOCKING);
+        }
+
         mConnectionsMap[mSocket]->childSocket[WRITE_END] = pipe_in[WRITE_END];
         mConnectionsMap[mSocket]->childSocket[READ_END] = pipe_out[READ_END];
         mConnectionsMap[pipe_in[WRITE_END]] = new Connection(pipe_in[WRITE_END], mSocket, mRequestMessage->getMessageBody().toString());
@@ -134,6 +143,7 @@ void RequestHandler::executeCGI(void)
         // read(pipe_out[READ_END], buf, sizeof(buf));
         // std::cout << buf << std::endl;
 		EventManager::getInstance().addWriteEvent(pipe_in[WRITE_END]);
+        // EventManager::getInstance().addReadEvent(pipe_out[READ_END]);
 
         // https://codetravel.tistory.com/42
 		// waitpid(pid, NULL, WNOHANG);
@@ -185,15 +195,8 @@ int RequestHandler::setPath()
         mPath = locConf->root + reqTarget;
         mLocConfig = *locConf;
     }
-    if (FileChecker::getFileStatus(mPath) == FileChecker::DIRECTORY)
-    {
+    if (mPath.back() == '/')
         mPath += mLocConfig.index;
-    }
-    if (FileChecker::getFileStatus(mPath) == FileChecker::NONE)
-    {
-        return NOT_FOUND;
-    }
-
     return OK;
 }
 
@@ -245,7 +248,11 @@ void RequestHandler::addConnectionHeader()
 int RequestHandler::getRequest()
 {
     std::ifstream file(mPath);
-    if (!file.good())
+    if (access(mPath.c_str(), F_OK) != 0)
+    {
+        return NOT_FOUND;
+    }
+    if (!file.is_open())
     {
         return FORBIDDEN;
     }
@@ -337,13 +344,13 @@ int RequestHandler::postRequest()
 // https://www.rfc-editor.org/rfc/rfc9110.html#name-delete
 int RequestHandler::deleteRequest()
 {
-    if (mPath == "")
+    if (access(mPath.c_str(), F_OK) != 0)
     {
         return NOT_FOUND;
     }
     if (std::remove(mPath.c_str()) != 0)
     {
-        return METHOD_NOT_ALLOWED;
+        return FORBIDDEN;
     }
     mResponseMessage.setStatusLine(mRequestMessage->getRequestLine().getHTTPVersion(), OK, "OK");
     mResponseMessage.addResponseHeaderField("Content-Type", "text/html");

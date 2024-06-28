@@ -21,9 +21,9 @@
         <div class="popup-content">
             <button class="close-btn">&times;</button>
             <h2>Post Method</h2>
-            <form action="/" method="post">
-                <input type="text" name="username" placeholder="Username">
-                <input type="password" name="password" placeholder="Password">
+            <form action="/index.py" method="post">
+                <input id="name" type="text" name="name" placeholder="name">
+                <input id="age" type="text" name="age" placeholder="age">
                 <button type="submit">Submit</button>
             </form>
         </div>
@@ -52,5 +52,24 @@
     </div>
     <img src="http://picsum.photos/1920" alt="랜덤 이미지">
     <script src="script/script.js"></script>
+    <script>
+        document.getElementById('myForm').addEventListener('submit', function(event)
+        {
+            event.preventDefault(); // 기본 폼 제출을 막음
+
+            // 폼 데이터 수집
+            var name = document.getElementById('name').value;
+            var age = document.getElementById('age').value;
+
+            // 쿼리 스트링 생성
+            var queryString = `name=${encodeURIComponent(name)}&age=${encodeURIComponent(age)}`;
+
+            // 폼의 action 속성에 쿼리 스트링 추가
+            this.action = `/index.py?${queryString}`;
+
+            // 폼을 다시 제출
+            this.submit();
+        });
+    </script>
 </body>
 </html>
