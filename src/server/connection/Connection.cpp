@@ -1,13 +1,14 @@
 #include "Connection.hpp"
 #include <unistd.h>
 #include <iostream>
+#include <string>
 #include "EventManager.hpp"
 #include "Logger.hpp"
 
-Connection::Connection(const int socket, const int parentSocket, const int childSocket)
+Connection::Connection(const int socket, const int parentSocket)
 : socket(socket)
 , parentSocket(parentSocket)
-, childSocket(childSocket)
+, childSocket()
 , isChunked(false)
 , recvedData()
 , chunkBuffer()
@@ -15,11 +16,13 @@ Connection::Connection(const int socket, const int parentSocket, const int child
 , responses()
 , last_activity(time(NULL))
 {
+    childSocket[READ_END] = -1;
+    childSocket[WRITE_END] = -1;
 }
 
 Connection::~Connection()
 {
-    Logger::getInstance().logInfo("Connection closed\n");
+    Logger::getInstance().logInfo(std::to_string(socket) + " Connection closed\n");
     EventManager::getInstance().deleteReadEvent(socket);
     close(socket);
     while (!requests.empty())

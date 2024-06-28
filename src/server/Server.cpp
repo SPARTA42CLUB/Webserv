@@ -162,6 +162,17 @@ void Server::acceptClient(int serverSocket)
 // 소켓에 read event 발생시 소켓에서 데이터 읽음
 void Server::handleClientReadEvent(struct kevent& event)
 {
+/* 
+NOTE: nginx에
+(echo -en "GET / HTTP/1.1\r\nHost: localhost:8080\r\nConnection: keep-alive\r\n\r\n" && sleep 0.1) | nc localhost 9090 
+를 실행하면 Connection 헤더와 상관없이 EOF로 인해 Connection이 종료됨
+
+근데 여기를 주석 처리하면 Connection이 종료되지 않음
+Connection: Close 로직을 추가하고 if (event.flags & EV_EOF)&& !isKeepAlive) 로 수정해야할 듯
+그리고 위의 명령어는 nginx가 예상대로 동작하지 않는 걸로 간주하고 테스트시 Conncection: Close로 테스트
+
+또, 이거 주석 처리하면 if ((bytesRead = recv(connection.socket, buffer, sizeof(buffer) - 1, 0)) < 0)이 줄에서 이중 free 에러가 발생함
+*/
     if (event.flags & EV_EOF)
     {
         closeConnection(event.ident);
@@ -178,18 +189,21 @@ void Server::handleClientReadEvent(struct kevent& event)
     if (connection.requests.empty())
         return ;
 
+    size_t responseCnt = connection.responses.size();
     while (!connection.requests.empty())
     {
         RequestHandler requestHandler(connectionsMap, config, socket);
         ResponseMessage* res = requestHandler.handleRequest();
         delete connection.requests.front();
         connection.requests.pop();
+        if (res == NULL)
+            continue ;
         connection.responses.push(res);
-
         Logger::getInstance().logHttpMessage(*res);
     }
 
-    EventManager::getInstance().addWriteEvent(socket);
+    if (connection.responses.size() > responseCnt)
+        EventManager::getInstance().addWriteEvent(socket);
 }
 
 // connection의 소켓으로부터 데이터를 읽어 옴
@@ -198,7 +212,7 @@ void Server::recvData(Connection& connection)
     char buffer[4096];
     ssize_t bytesRead;
 
-    if ((bytesRead = recv(connection.socket, buffer, sizeof(buffer) - 1, 0)) <= 0)
+    if ((bytesRead = recv(connection.socket, buffer, sizeof(buffer) - 1, 0)) < 0)
     {
         Logger::getInstance().logWarning("Recv error");
         closeConnection(connection.socket);

@@ -2,6 +2,7 @@
 #include <arpa/inet.h>
 #include <fstream>
 #include <iostream>
+#include "color.hpp"
 
 Logger& Logger::getInstance()
 {
@@ -70,11 +71,16 @@ void Logger::log(eLogLevel level, const std::string& message) const
     const std::string logPath = (level == INFO) ? accessLogPath : errorLogPath;
     std::ofstream logFile(logPath, std::ios::app);
 
-    const std::string logMessage = "[ " + logLevelToString(level) + " ] " + getTimeStamp() + '\n' + message + "\n-----------------------------------\n";
+    const std::string logMessage = "[ " + logLevelToString(level) + " ] " + getTimeStamp() + '\n' + message;
+
+    if (level == INFO)
+        std::cout << logMessage << std::endl;
+    else
+        std::cerr << color::FG_RED << logMessage << color::RESET << std::endl;
 
     if (logFile.is_open())
     {
-        logFile << logMessage << std::endl;
+        logFile << logMessage << + "\n-----------------------------------\n" << std::endl;
         logFile.close();
     }
 }

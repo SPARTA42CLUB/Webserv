@@ -3,6 +3,9 @@
 #include <sys/event.h>
 #include <vector>
 
+const int READ_END = 0;
+const int WRITE_END = 1;
+
 class EventManager
 {
 private:

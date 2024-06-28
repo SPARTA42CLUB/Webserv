@@ -2,6 +2,8 @@
 #include <ctime>
 #include <fstream>
 #include "RangeRequestReader.hpp"
+#include "EventManager.hpp"
+#include "SysException.hpp" // TODO: 에러 이걸로 던짐?????
 #include "FileChecker.hpp"
 
 // DELETE: 테스트용
@@ -13,7 +15,8 @@ RequestHandler::RequestHandler(std::map<int, Connection*>& connectionsMap, const
 , mResponseMessage(new ResponseMessage())
 , mServerConfig(config.getServerConfigByHost(mRequestMessage->getRequestHeaderFields().getField("Host")))
 , mLocConfig()
-, mPath("")
+, mPath()
+, mQueryString()
 {
 }
 
@@ -28,25 +31,19 @@ ResponseMessage* RequestHandler::handleRequest(void)
     if (checkStatusCode(statusCode) == false)
         return mResponseMessage;
 
+    if (checkCGI())
+    {
+        // std::cout << "path: " << mPath << std::endl;
+        // std::cout << "query: " << mQueryString << std::endl;
+        executeCGI();
+        delete mResponseMessage;
+        return NULL;
+    }
     statusCode = setPath();
     // std::cout << mPath << std::endl;
 
     if (checkStatusCode(statusCode) == false)
         return mResponseMessage;
-
-    // CGI 부분 의사 코드
-    // connection = new Connection()->parentConnection = mConnection;
-
-    // request -> CGI -> CGIHandler(connection)
-    // {
-    //     connection.socket = pipe() : socket;
-    //     EventManager::getInstance().addReadEvent(socket);
-
-    //     fork()
-    //     execve()
-    // }
-
-    // ConnectionMap[connection.socket] = connection;
 
     statusCode = handleMethod();
     if (checkStatusCode(statusCode) == false)
@@ -55,6 +52,90 @@ ResponseMessage* RequestHandler::handleRequest(void)
     addConnectionHeader();
 
     return mResponseMessage;
+}
+bool RequestHandler::checkCGI(void)
+{
+    const std::string& reqTarget = mRequestMessage->getRequestLine().getRequestTarget();
+    const std::map<std::string, LocationConfig>& locations = mServerConfig.locations;
+
+    for (std::map<std::string, LocationConfig>::const_iterator it = locations.begin(); it != locations.end(); ++it)
+    {
+        if (it->LOCATION.front() == '.')
+        {
+            size_t idx = reqTarget.find(it->LOCATION);
+            size_t query_idx = reqTarget.find('?');
+            if (reqTarget.substr(idx, it->LOCATION.size()) == it->LOCATION)
+            {
+                mLocConfig = it->CONFIG;
+                mPath = mLocConfig.root + reqTarget.substr(0, idx + it->LOCATION.size());
+                mQueryString = reqTarget.substr(query_idx + 1);
+                return true;
+            }
+            
+        }
+    }
+    return false;
+}
+void RequestHandler::executeCGI(void)
+{
+    // extract query string from request body
+	int pipe_in[2], pipe_out[2];
+	if(pipe(pipe_in) == -1 || pipe(pipe_out) == -1)
+    {
+        throw SysException(FAILED_TO_CREATE_PIPE);
+    }
+	pid_t pid = fork();
+	if(pid == -1)
+    {
+        throw SysException(FAILED_TO_FORK);
+    }
+	if (pid == 0) 
+    {
+        // Child process
+        close(pipe_in[WRITE_END]);
+        close(pipe_out[READ_END]);
+        dup2(pipe_in[READ_END], STDIN_FILENO);
+        dup2(pipe_out[WRITE_END], STDOUT_FILENO);
+
+        std::vector<char> interpreter_cstr(mLocConfig.cgi_interpreter.begin(), mLocConfig.cgi_interpreter.end());
+        std::vector<char> path_cstr(mPath.begin(), mPath.end());
+        interpreter_cstr.push_back('\0');
+        path_cstr.push_back('\0');
+		char* argv[] = {interpreter_cstr.data(), path_cstr.data(), NULL};
+
+        std::string queryStringEnv = "QUERY_STRING=" + mQueryString;
+        std::string requestMethodEnv = "REQUEST_METHOD=" + mRequestMessage->getRequestLine().getMethod();
+        std::vector<char> queryStringEnv_cstr(queryStringEnv.begin(), queryStringEnv.end());
+        std::vector<char> requestMethodEnv_cstr(requestMethodEnv.begin(), requestMethodEnv.end());
+        queryStringEnv_cstr.push_back('\0');
+        requestMethodEnv_cstr.push_back('\0');
+		char* envp[] = {queryStringEnv_cstr.data(), requestMethodEnv_cstr.data(), NULL};
+
+		execve(argv[READ_END], argv, envp);
+		throw SysException(FAILED_TO_EXEC);
+	}
+	else
+	{
+        // Parent process
+        close(pipe_in[READ_END]);
+        close(pipe_out[WRITE_END]);
+        
+        mConnectionsMap[mSocket]->childSocket[READ_END] = pipe_in[WRITE_END];
+        mConnectionsMap[mSocket]->childSocket[WRITE_END] = pipe_out[READ_END];
+        mConnectionsMap[pipe_in[WRITE_END]] = new Connection(pipe_in[WRITE_END], mSocket);
+        mConnectionsMap[pipe_out[READ_END]] = new Connection(pipe_out[READ_END], mSocket);
+        
+        // write(pipe_in[1], mRequestMessage->getMessageBody().toString().c_str(), mRequestMessage->getMessageBody().size());
+        // wait(NULL);
+        // char buf[4096];
+        // read(pipe_out[READ_END], buf, sizeof(buf));
+        // std::cout << buf << std::endl;
+        EventManager::getInstance().addReadEvent(pipe_out[READ_END]);
+		EventManager::getInstance().addWriteEvent(pipe_in[WRITE_END]);
+
+        // https://codetravel.tistory.com/42
+		// waitpid(pid, NULL, WNOHANG);
+	}
 }
 
 size_t countMatchingCharacters(const std::string& target, const std::string& loc)

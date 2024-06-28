@@ -14,6 +14,9 @@ enum eReason
 	FAILED_TO_BIND_SOCKET,
 	FAILED_TO_LISTEN_SOCKET,
 	FAILED_TO_SET_NON_BLOCKING,
+    FAILED_TO_CREATE_PIPE,
+    FAILED_TO_FORK,
+    FAILED_TO_EXEC,
 };
 
 class SysException : public std::exception

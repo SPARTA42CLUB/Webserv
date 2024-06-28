@@ -16,20 +16,21 @@ private:
     ResponseMessage* mResponseMessage; // 동적할당 해서 반환
     const ServerConfig& mServerConfig;
     LocationConfig mLocConfig;
-    // MethodExecuter methodExecuter; // 얘가 분배 이후 메소드를 실제로 실행하는 함수를 모두 지님
-    // CGIHandler cgiHandler;
     std::string mPath;
+    std::string mQueryString;
 
-    int setPath();
+    int setPath(void);
 
-    int handleMethod();
-
+    int handleMethod(void);
     // Response (Success)
     int getRequest(void);
 	int rangeRequest(void);
     int headRequest(void);
     int postRequest(void);
     int deleteRequest(void);
+
+    bool checkCGI(void);
+    void executeCGI(void);
 
     void addSemanticHeaderFields(void);
     void addContentType(void);

@@ -7,6 +7,7 @@ static std::string makeConfigPath(int argc, char* argv[], bool& isOption);
 
 int main(int argc, char* argv[])
 {
+
     bool isOption = false;
     const std::string ConfigPath = makeConfigPath(argc, argv, isOption);
 
