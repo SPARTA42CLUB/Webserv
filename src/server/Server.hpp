@@ -14,6 +14,9 @@ private:
     std::map<int, Connection*> connectionsMap;
     std::vector<int> closeSockets;
 
+    void garbageCollector(struct kevent& event);
+    bool isConnection(int key);
+
     void setupServerSockets();
     int createServerSocket(ServerConfig serverConfig);
     void setNonBlocking(int socket);

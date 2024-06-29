@@ -145,12 +145,38 @@ void Server::run()
                     handleClientWriteEvent(event);
                 }
             }
+
+            garbageCollector(event);
         }
 
-        // 둘이 순서 바꾸면 안됨
-        eraseCloseSockets();
         checkKeepAlive();
     }
+}
+
+void Server::garbageCollector(struct kevent& event)
+{
+    eraseCloseSockets();
+
+    if (isServerSocket(event.ident))
+        return ;
+
+    if (isConnection(event.ident))
+        return ;
+
+    if (event.filter == EVFILT_READ)
+    {
+        EventManager::getInstance().deleteReadEvent(event.ident);
+    }
+    else if (event.filter == EVFILT_WRITE)
+    {
+        EventManager::getInstance().deleteWriteEvent(event.ident);
+    }
+}
+
+bool Server::isConnection(int key)
+{
+    std::map<int, Connection*>::iterator it = connectionsMap.find(key);
+    return (it != connectionsMap.end());
 }
 
 // 서버 소켓에서 읽기 이벤트가 발생했다는 것의 의미 : 새로운 클라이언트가 연결 요청을 보냈다는 것
