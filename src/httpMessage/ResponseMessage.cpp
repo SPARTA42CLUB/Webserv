@@ -1,4 +1,5 @@
 #include "ResponseMessage.hpp"
+#include "HttpException.hpp"
 
 ResponseMessage::ResponseMessage()
 : mStatusLine()
@@ -8,6 +9,43 @@ ResponseMessage::ResponseMessage()
 }
 ResponseMessage::~ResponseMessage()
 {
+}
+void ResponseMessage::parseResponseHeader(const std::string& response)
+{
+    std::istringstream resStream(response);
+    try
+    {
+        parseStatusLine(resStream);
+        parseResponseHeaderFields(resStream);
+    }
+    catch (const HttpException& e)
+    {
+        throw e;
+    }
+}
+void ResponseMessage::parseStatusLine(std::istringstream& resStream)
+{
+    std::string requestLine;
+    std::getline(resStream, requestLine);
+    try
+    {
+        mStatusLine.parseRequestLine(requestLine);
+    }
+    catch (const HttpException& e)
+    {
+        throw e;
+    }
+}
+void ResponseMessage::parseResponseHeaderFields(std::istringstream& resStream)
+{
+    try
+    {
+        mResponseHeaderFields.parseHeaderFields(resStream);
+    }
+    catch (const HttpException& e)
+    {
+        throw e;
+    }
 }
 void ResponseMessage::setStatusLine(const std::string& httpVersion, const std::string& statusCode, const std::string& reasonPhrase)
 {
@@ -35,9 +73,7 @@ void ResponseMessage::addMessageBody(const std::string& body)
 }
 std::string ResponseMessage::toString(void) const
 {
-    std::ostringstream oss;
-    oss << mStatusLine.toStatusLine() << mResponseHeaderFields.toString() << "\r\n" << mMessageBody.toString();
-    return oss.str();
+    return mStatusLine.toStatusLine() + mResponseHeaderFields.toString() + mMessageBody.toString();
 }
 size_t ResponseMessage::getMessageBodySize() const
 {

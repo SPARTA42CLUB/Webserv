@@ -71,5 +71,6 @@ std::string HeaderFields::toString() const
     {
         result += it->KEY + ": " + it->VALUE + "\r\n";
     }
+    result += "\r\n";
     return result;
 }
