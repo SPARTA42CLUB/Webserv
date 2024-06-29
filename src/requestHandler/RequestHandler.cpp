@@ -213,6 +213,8 @@ int RequestHandler::handleMethod()
         return METHOD_NOT_ALLOWED;
     }
 
+	// TODO(6/29 13:10): 여기서 Redirect 처리
+
     if (method == "GET")
     {
         return getRequest();
@@ -337,13 +339,71 @@ int RequestHandler::headRequest()
 }
 int RequestHandler::postRequest()
 {
-    mResponseMessage.setStatusLine(mRequestMessage->getRequestLine().getHTTPVersion(), OK, "OK");
-    mResponseMessage.addResponseHeaderField("Content-Type", "text/html");
-    mResponseMessage.addMessageBody("<html><body><h1>POST Request</h1></body></html>");
-    addSemanticHeaderFields();
+	// Content-Disposition 헤더 필드가 없으면 400 Bad Request
+	if (mRequestMessage->getRequestHeaderFields().hasField("Content-Disposition") == false && mRequestMessage->getRequestHeaderFields().hasField("content-disposition") == false )
+	{
+		return BAD_REQUEST;
+	}
 
-    return OK;
+	// Content-Disposition 헤더 필드에서 filename을 추출
+	std::string filename;
+	if (mRequestMessage->getRequestHeaderFields().hasField("Content-Disposition"))
+	{
+		filename = mRequestMessage->getRequestHeaderFields().getField("Content-Disposition");
+	}
+	else
+	{
+		filename = mRequestMessage->getRequestHeaderFields().getField("content-disposition");
+	}
+	size_t idx = filename.find("filename=");
+	if (idx == std::string::npos)
+	{
+		return BAD_REQUEST;
+	}
+	filename = filename.substr(idx + 10);
+	idx = filename.find("\"");
+	if (idx == std::string::npos)
+	{
+		return BAD_REQUEST;
+	}
+	filename = filename.substr(0, idx);
+
+	// mPath의 뒤에 filename을 붙여서 파일 경로를 만든다.
+	if (mPath.back() != '/')
+	{
+		mPath += '/';
+	}
+	mPath += filename;
+
+	// 파일이 존재하면 파일 뒤에 데이터를 추가하고, 파일이 없으면 파일을 생성하고 데이터를 추가함
+	if (access(mPath.c_str(), F_OK) != 0)
+	{
+		std::ofstream file(mPath);
+		if (!file.is_open())
+		{
+			return FORBIDDEN;
+		}
+		file << mRequestMessage->getMessageBody().toString();
+		file.close();
+	}
+	else
+	{
+		std::ofstream file(mPath, std::ios::app);
+		if (!file.is_open())
+		{
+			return FORBIDDEN;
+		}
+		file << mRequestMessage->getMessageBody().toString();
+		file.close();
+	}
+
+	mResponseMessage.setStatusLine(mRequestMessage->getRequestLine().getHTTPVersion(), CREATED, "CREATED");
+	mResponseMessage.addResponseHeaderField("Content-Type", "text/html");
+	mResponseMessage.addMessageBody("<html><body><h1>File uploaded.</h1><h2>path: " + mPath + "</h2></h3></body></html>");
+
+    return CREATED;
 }
+
 // https://www.rfc-editor.org/rfc/rfc9110.html#name-delete
 int RequestHandler::deleteRequest()
 {
