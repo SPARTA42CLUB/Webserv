@@ -13,7 +13,7 @@ private:
     std::map<int, Connection*>& mConnectionsMap;
     const int mSocket;
     const RequestMessage* mRequestMessage;
-    ResponseMessage mResponseMessage; // 동적할당 해서 반환
+    ResponseMessage* mResponseMessage; // 동적할당 해서 반환
     const ServerConfig& mServerConfig;
     LocationConfig mLocConfig;
     std::string mPath;
@@ -32,16 +32,15 @@ private:
     bool checkCGI(void);
     void executeCGI(void);
 
-    void addSemanticHeaderFields(void);
     void addContentType(void);
+
+    void addConnectionHeader();
 
     // Response (Exception)
     // 3xx
     void found(void); // Require 'Location' header field
 
-    void addConnectionHeader();
-
 public:
     RequestHandler(std::map<int, Connection*>& connectionsMap, const Config& config, const int socket);
-    std::string handleRequest(void);
+    ResponseMessage* handleRequest(void);
 };

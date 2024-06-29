@@ -11,11 +11,11 @@ struct Connection
     int parentSocket;
     int childSocket[2];
     bool isChunked;
+    bool isBodyReading;
     std::string recvedData;
-    std::string chunkBuffer;
-    size_t chunkBodySize;
-    std::queue<RequestMessage*> requests;
-    std::queue<std::string> responses;
+    RequestMessage* reqBuffer;
+    RequestMessage* request;
+    std::queue<ResponseMessage*> responses;
     time_t last_activity;
     ServerConfig serverConfig;
 

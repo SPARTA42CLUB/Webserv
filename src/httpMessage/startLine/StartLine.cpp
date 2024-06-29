@@ -70,7 +70,26 @@ void StartLine::parseRequestLine(const std::string& requestLine)
     mElements[HTTP_VERSION].clear();
     throw HttpException(BAD_REQUEST);
 }
+void StartLine::parseStatusLine(const std::string& statusLine)
+{
+    // <HTTP-version> SP <status-code> SP <reason-phrase> CRLF
 
+    std::istringstream iss(statusLine);
+    if (iss >> mElements[HTTP_VERSION] >> mElements[STATUS_CODE] >> mElements[REASON_PHRASE])
+    {
+        std::string remaining;
+        std::getline(iss, remaining);
+        if (remaining == "\r")  // CRLF 확인
+        {
+            return;
+        }
+    }
+    // 파싱 실패 시 예외 처리
+    mElements[HTTP_VERSION].clear();
+    mElements[STATUS_CODE].clear();
+    mElements[REASON_PHRASE].clear();
+    throw HttpException(BAD_GATEWAY);
+}
 bool checkStatusCode(int statusCode)
 {
     switch (statusCode) {
@@ -79,7 +98,7 @@ bool checkStatusCode(int statusCode)
         case NOT_FOUND:
         case METHOD_NOT_ALLOWED:
         case URI_TOO_LONG:
-        case PAYLOAD_TOO_LARGE:
+        case CONTENT_TOO_LARGE:
         case HTTP_VERSION_NOT_SUPPORTED:
             return false;
         default:

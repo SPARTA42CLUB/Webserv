@@ -20,20 +20,20 @@ void ResponseMessage::parseResponseHeader(const std::string& response)
     }
     catch (const HttpException& e)
     {
-        throw e;
+        throw HttpException(BAD_GATEWAY);
     }
 }
 void ResponseMessage::parseStatusLine(std::istringstream& resStream)
 {
-    std::string requestLine;
-    std::getline(resStream, requestLine);
+    std::string StatusLine;
+    std::getline(resStream, StatusLine);
     try
     {
-        mStatusLine.parseRequestLine(requestLine);
+        mStatusLine.parseStatusLine(StatusLine);
     }
     catch (const HttpException& e)
     {
-        throw e;
+        throw HttpException(BAD_GATEWAY);
     }
 }
 void ResponseMessage::parseResponseHeaderFields(std::istringstream& resStream)
@@ -44,7 +44,7 @@ void ResponseMessage::parseResponseHeaderFields(std::istringstream& resStream)
     }
     catch (const HttpException& e)
     {
-        throw e;
+        throw HttpException(BAD_GATEWAY);
     }
 }
 void ResponseMessage::setStatusLine(const std::string& httpVersion, const std::string& statusCode, const std::string& reasonPhrase)
@@ -79,13 +79,21 @@ size_t ResponseMessage::getMessageBodySize() const
 {
     return mMessageBody.size();
 }
+const HeaderFields& ResponseMessage::getResponseHeaderFields() const
+{
+    return mResponseHeaderFields;
+}
 void ResponseMessage::clearMessageBody()
 {
     mMessageBody.clear();
 }
 
-void ResponseMessage::setByStatusCode(const int statusCode)
+void ResponseMessage::setByStatusCode(const int statusCode, const ServerConfig& serverConfig)
 {
+    (void)serverConfig;
+    // default error page를 찾고 확장자명을 확인 -> Content-Type
+    // 컨텐츠를 읽고 string에 담아 -> String content
+    // 두 개를 매개변수로 전달
     if (statusCode == BAD_REQUEST)
     {
         badRequest();
@@ -106,16 +114,19 @@ void ResponseMessage::setByStatusCode(const int statusCode)
     {
         uriTooLong();
     }
-    else if (statusCode == PAYLOAD_TOO_LARGE)
+    else if (statusCode == CONTENT_TOO_LARGE)
     {
-        payloadTooLarge();
+        contentTooLarge();
+    }
+    else if (statusCode == BAD_GATEWAY)
+    {
+        badGateway();
     }
     else if (statusCode == HTTP_VERSION_NOT_SUPPORTED)
     {
         httpVersionNotSupported();
     }
 }
-
 void ResponseMessage::badRequest(void)
 {
     setStatusLine("HTTP/1.1", BAD_REQUEST, "Bad Request");
@@ -129,7 +140,7 @@ void ResponseMessage::forbidden(void)
     setStatusLine("HTTP/1.1", FORBIDDEN, "Forbidden");
     addMessageBody("<html><head><title>403 Forbidden</title></head><body><h1>403 Forbidden</h1></body></html>");
     addResponseHeaderField("Content-Type", "text/html");
-    addResponseHeaderField("Connection", "close");
+    addResponseHeaderField("Connection", "keep-alive");
     addSemanticHeaderFields();
 }
 void ResponseMessage::notFound(void)
@@ -137,7 +148,7 @@ void ResponseMessage::notFound(void)
     setStatusLine("HTTP/1.1", NOT_FOUND, "Not Found");
     addMessageBody("<html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1></body></html>");
     addResponseHeaderField("Content-Type", "text/html");
-    addResponseHeaderField("Connection", "close");
+    addResponseHeaderField("Connection", "keep-alive");
     addSemanticHeaderFields();
 }
 void ResponseMessage::methodNotAllowed(void)
@@ -145,7 +156,7 @@ void ResponseMessage::methodNotAllowed(void)
     setStatusLine("HTTP/1.1", METHOD_NOT_ALLOWED, "Method Not Allowed");
     addMessageBody("<html><head><title>405 Method Not Allowed</title></head><body><h1>405 Method Not Allowed</h1></body></html>");
     addResponseHeaderField("Content-Type", "text/html");
-    addResponseHeaderField("Connection", "close");
+    addResponseHeaderField("Connection", "keep-alive");
     addSemanticHeaderFields();
 }
 void ResponseMessage::uriTooLong(void)
@@ -153,24 +164,31 @@ void ResponseMessage::uriTooLong(void)
     setStatusLine("HTTP/1.1", URI_TOO_LONG, "Request-URI Too Long");
     addMessageBody("<html><head><title>414 Request-URI Too Long</title></head><body><h1>414 Request-URI Too Long</h1></body></html>");
     addResponseHeaderField("Content-Type", "text/html");
+    addResponseHeaderField("Connection", "keep-alive");
+    addSemanticHeaderFields();
+}
+void ResponseMessage::contentTooLarge(void)
+{
+    setStatusLine("HTTP/1.1", CONTENT_TOO_LARGE, "Content Too Large");
+    addMessageBody("<html><head><title>413 Content Too Large</title></head><body><h1>413 Content Too Large</h1></body></html>");
+    addResponseHeaderField("Content-Type", "text/html");
     addResponseHeaderField("Connection", "close");
     addSemanticHeaderFields();
 }
-void ResponseMessage::payloadTooLarge(void)
+void ResponseMessage::badGateway(void)
 {
-    setStatusLine("HTTP/1.1", PAYLOAD_TOO_LARGE, "Payload Too Large");
-    addMessageBody("<html><head><title>413 Payload Too Large</title></head><body><h1>413 Payload Too Large</h1></body></html>");
+    setStatusLine("HTTP/1.1", BAD_GATEWAY, "Bad Gateway");
+    addMessageBody("<html><head><title>502 Bad Gateway</title></head><body><h1>502 Bad Gateway</h1></body></html>");
     addResponseHeaderField("Content-Type", "text/html");
-    addResponseHeaderField("Connection", "close");
+    addResponseHeaderField("Connection", "keep-alive");
     addSemanticHeaderFields();
 }
 void ResponseMessage::httpVersionNotSupported(void)
 {
     setStatusLine("HTTP/1.1", HTTP_VERSION_NOT_SUPPORTED, "HTTP Version Not Supported");
-    addMessageBody(
-        "<html><head><title>505 HTTP Version Not Supported</title></head><body><h1>505 HTTP Version Not Supported</h1></body></html>");
+    addMessageBody("<html><head><title>505 HTTP Version Not Supported</title></head><body><h1>505 HTTP Version Not Supported</h1></body></html>");
     addResponseHeaderField("Content-Type", "text/html");
-    addResponseHeaderField("Connection", "close");
+    addResponseHeaderField("Connection", "keep-alive");
     addSemanticHeaderFields();
 }
 

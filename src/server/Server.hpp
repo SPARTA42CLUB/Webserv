@@ -12,12 +12,13 @@ private:
     const Config& config;
     std::vector<int> serverSockets;
     std::map<int, Connection*> connectionsMap;
-    std::vector<int> closeSockets;
 
     void setupServerSockets();
     int createServerSocket(ServerConfig serverConfig);
-    void setNonBlocking(int socket);
+
     void checkKeepAlive();
+
+    void handleEvents(struct kevent& event);
 
     void acceptClient(int serverSocket);
     void handleClientReadEvent(struct kevent& event);
@@ -26,19 +27,19 @@ private:
     void handlePipeWriteEvent(struct kevent& event);
 
     void recvData(Connection& connection);
-    ssize_t sendToSocket(Connection& connection);
 
-    void parseData(Connection& connection);
-    bool parseChunk(Connection& connection);
-    bool parseRequest(Connection& connection);
+    bool parseData(Connection& connection);
+    RequestMessage* getHeader(Connection& connection);
+    bool addContent(Connection& connection);
+    bool addChunk(Connection& connection);
     std::string getChunk(Connection& connection);
-    std::string getRequest(Connection& connection);
 
     void closeConnection(int socket);
-	void eraseCloseSockets();
+    bool isConnection(int key);
     bool isServerSocket(int socket);
-
     void updateLastActivity(Connection& connection);
+
+    void deleteGarbageEvent(struct kevent& event);
 
 public:
     Server(const Config& config);

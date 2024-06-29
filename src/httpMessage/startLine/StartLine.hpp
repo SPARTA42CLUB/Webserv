@@ -50,7 +50,7 @@ enum eClientError
     GONE = 410,
     LENGTH_REQUIRED = 411,
     PRECONDITION_FAILED = 412,
-    PAYLOAD_TOO_LARGE = 413,
+    CONTENT_TOO_LARGE = 413,
     URI_TOO_LONG = 414,
     UNSUPPORTED_MEDIA_TYPE = 415,
     RANGE_NOT_SATISFIABLE = 416,
@@ -109,6 +109,7 @@ public:
     void setStatusCode(const int statusCode);
     void setReasonPhrase(const std::string& reasonPhrase);
     void parseRequestLine(const std::string& requestLine);
+    void parseStatusLine(const std::string& statusLine);
     const std::string toRequestLine() const;
     const std::string toStatusLine() const;
 

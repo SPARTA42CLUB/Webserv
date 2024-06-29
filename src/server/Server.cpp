@@ -1,9 +1,9 @@
 #include "Server.hpp"
 #include <arpa/inet.h>
-#include <fcntl.h>
 #include <unistd.h>
 #include <iostream>
 #include <vector>
+#include "fileController.hpp"
 #include "ChunkedRequestReader.hpp"
 #include "EventManager.hpp"
 #include "HttpException.hpp"
@@ -31,10 +31,8 @@ Server::~Server()
 
     for (std::map<int, Connection*>::const_iterator it = connectionsMap.begin(); it != connectionsMap.end(); ++it)
     {
-        closeConnection(it->first);
+        delete it->second;
     }
-
-    eraseCloseSockets();
 }
 
 // Server 소켓 생성 및 설정
@@ -94,16 +92,6 @@ int Server::createServerSocket(ServerConfig serverConfig)
     return serverSocket;
 }
 
-// 소켓 논블로킹 설정
-void Server::setNonBlocking(int socket)
-{
-    if (fcntl(socket, F_SETFL, O_NONBLOCK) == -1)
-    {
-        close(socket);
-        throw SysException(FAILED_TO_SET_NON_BLOCKING);
-    }
-}
-
 // 서버 실행
 void Server::run()
 {
@@ -115,41 +103,48 @@ void Server::run()
         {
             struct kevent& event = *it;
 
-            if (event.flags & EV_ERROR)
+            handleEvents(event);
+        }
+
+        checkKeepAlive();
+    }
+}
+
+void Server::handleEvents(struct kevent& event)
+{
+    if (event.flags & EV_ERROR)
+        return ;
+
+    if (isServerSocket(event.ident))
+    {
+        acceptClient(event.ident);
+    }
+    else if (isConnection(event.ident))
+    {
+        if (event.filter == EVFILT_READ)
+        {
+            if (isCgiConnection(*connectionsMap[event.ident]))
             {
-                continue ;
+                handlePipeReadEvent(event);
             }
-            if (isServerSocket(event.ident))
+            else
             {
-                acceptClient(event.ident);
+                handleClientReadEvent(event);
             }
-            else if (event.filter == EVFILT_READ)
+        }
+        else if (event.filter == EVFILT_WRITE)
+        {
+            if (isCgiConnection(*connectionsMap[event.ident]))
             {
-                if (isCgiConnection(*connectionsMap[event.ident]))
-                {
-                    handlePipeReadEvent(event);
-                }
-                else
-                {
-                    handleClientReadEvent(event);
-                }
+                handlePipeWriteEvent(event);
             }
-            else if (event.filter == EVFILT_WRITE)
+            else
             {
-                if (isCgiConnection(*connectionsMap[event.ident]))
-                {
-                    handlePipeWriteEvent(event);
-                }
-                else
-                {
-                    handleClientWriteEvent(event);
-                }
+                handleClientWriteEvent(event);
             }
         }
 
-        // 둘이 순서 바꾸면 안됨
-        eraseCloseSockets();
-        checkKeepAlive();
+        deleteGarbageEvent(event);
     }
 }
 
@@ -182,13 +177,25 @@ void Server::handlePipeReadEvent(struct kevent& event)
 
     if (event.flags & EV_EOF)
     {
-        std::string& response = cgiConnection.recvedData; // 저장된 데이터 들고 오기
+        waitpid(-1, NULL, WNOHANG);
+        ResponseMessage* response = new ResponseMessage(); // 저장된 데이터 들고 오기
+        // 유효성 체크
+        try
+        {
+            // 필수적인 헤더가 있는 지 확인
+            // Status Line이나 Content-Length정도는 만들어야 할듯??
+            response->parseResponseHeader(cgiConnection.recvedData);
+        }
+        catch(const HttpException& e)
+        {
+            // NOTE: 이거 찾아야됨 그럼 req에서 host를 들고 있어야함 그래야 찾을 수 있어
+            response->setByStatusCode(e.getStatusCode(), config.getDefaultServerConfig());
+        }
         Connection& parentConnection = *connectionsMap[cgiConnection.parentSocket]; // 부모 커넥션 가져오기
         parentConnection.responses.push(response); // 부모 커넥션의 responses에다 pipe에서 읽어 온 데이터 넣음
         EventManager::getInstance().addWriteEvent(cgiConnection.parentSocket);
         cgiConnection.recvedData.clear(); // 데이터 버퍼 클리어.
 
-        EventManager::getInstance().deleteReadEvent(event.ident);
         closeConnection(event.ident);
         return;
     }
@@ -207,7 +214,6 @@ void Server::handlePipeWriteEvent(struct kevent& event)
     if ((bytesSend = write(pipe, data.c_str(), data.length())) < 0)
     {
         Logger::getInstance().logWarning("Failed Write to pipe");
-        EventManager::getInstance().deleteWriteEvent(pipe);
         closeConnection(pipe);
         return ;
     }
@@ -219,7 +225,6 @@ void Server::handlePipeWriteEvent(struct kevent& event)
     {
         int readSocket = connectionsMap[cgiConnection.parentSocket]->childSocket[READ_END];
         EventManager::getInstance().addReadEvent(readSocket);
-        EventManager::getInstance().deleteWriteEvent(pipe);
         closeConnection(pipe);
     }
 }
@@ -241,9 +246,7 @@ Connection: Close 로직을 추가하고 if (event.flags & EV_EOF)&& !isKeepAliv
 */
     if (event.flags & EV_EOF)
     {
-        EventManager::getInstance().deleteReadEvent(socket);
-        closeConnection(socket);
-        return;
+        return ;
     }
 
     Connection& connection = *connectionsMap[socket];
@@ -252,38 +255,35 @@ Connection: Close 로직을 추가하고 if (event.flags & EV_EOF)&& !isKeepAliv
 
     try
     {
-        parseData(connection); // req 헤더 확인하고 기본적인 HttpException throw
+        while (parseData(connection))
+        {
+            if (!connection.request)
+                return ;
+
+            size_t responseCnt = connection.responses.size(); // 1
+            Logger::getInstance().logHttpMessage(*connection.request);
+            RequestHandler requestHandler(connectionsMap, config, socket);
+            ResponseMessage* res = requestHandler.handleRequest();
+            delete connection.request;
+            if (res == NULL)
+                continue;
+
+            connection.responses.push(res);
+            if (connection.responses.size() > responseCnt)
+                EventManager::getInstance().addWriteEvent(socket);
+        }
     }
     catch(const HttpException& e)
     {
-        // 밑에 코드랑 중복이 있는데 일단 그냥 함
-        ResponseMessage res;
-        res.setByStatusCode(e.getStatusCode());
-        std::string resMsg = res.toString();
-        connection.responses.push(resMsg);
-        Logger::getInstance().logHttpMessage(resMsg);
-        EventManager::getInstance().addWriteEvent(socket);
-        return ;
-    }
-
-    if (connection.requests.empty())
-        return ;
-
-    size_t responseCnt = connection.responses.size(); // 1
-    while (!connection.requests.empty())
-    {
-        RequestHandler requestHandler(connectionsMap, config, socket);
-        std::string res = requestHandler.handleRequest();
-        delete connection.requests.front();
-        connection.requests.pop();
-        if (res.empty())
-            continue;
-
+        Logger::getInstance().logHttpMessage(*connection.reqBuffer);
+        ResponseMessage* res = new ResponseMessage();
+        // Default error page를 위해 server config 뽑고 넣기
+        const ServerConfig& serverConfig = config.getServerConfigByHost(connection.reqBuffer->getRequestHeaderFields().getField("Host"));
+        res->setByStatusCode(e.getStatusCode(), serverConfig);
         connection.responses.push(res);
-        Logger::getInstance().logHttpMessage(res);
-    }
-    if (connection.responses.size() > responseCnt)
         EventManager::getInstance().addWriteEvent(socket);
+        return ;
+    }
 }
 
 // connection의 소켓으로부터 데이터를 읽어 옴
@@ -296,7 +296,6 @@ void Server::recvData(Connection& connection)
     if ((bytesRead = read(socket, buffer, sizeof(buffer) - 1)) < 0)
     {
         Logger::getInstance().logWarning("Recv error");
-        EventManager::getInstance().deleteReadEvent(socket);
         closeConnection(socket);
         return;
     }
@@ -307,42 +306,99 @@ void Server::recvData(Connection& connection)
     updateLastActivity(connection);
 }
 
-// throwable PAYLOAD_TOO_LARGE
-void Server::parseData(Connection& connection)
+bool Server::parseData(Connection& connection)
 {
-
-    while (true)
+    if (connection.isChunked)
     {
-        bool hasData = false;
+        return addChunk(connection);
+    }
+    else if (connection.isBodyReading)
+    {
+        return addContent(connection);
+    }
+    else
+    {
+        RequestMessage *req = getHeader(connection);
+        if (req == NULL)
+            return false;
 
-        if (connection.isChunked)
-            hasData |= parseChunk(connection);
-        else if (connection.parentSocket == -1) // CGI connection이 아니면
-            hasData |= parseRequest(connection);
-
-        if (hasData == false)
-            return ;
+        if (!connection.isBodyReading && !connection.isChunked)
+        {
+            connection.reqBuffer = NULL;
+            connection.request = req;
+        }
+        return true;
     }
 }
 
-// throwable PAYLOAD_TOO_LARGE
-bool Server::parseChunk(Connection& connection)
+RequestMessage* Server::getHeader(Connection& connection)
 {
-    bool hasData = false;
+    size_t headerEnd = connection.recvedData.find("\r\n\r\n");
+    if (headerEnd == std::string::npos)
+        return NULL; // \r\n\r\n 없으면 리턴
+
+    size_t headerLen = headerEnd + 4;
+    RequestMessage* req = new RequestMessage();
+    connection.reqBuffer = req;
+    req->parseRequestHeader(connection.recvedData.substr(0, headerLen)); // 헤더 파싱
+    connection.recvedData.erase(0, headerLen);
+
+    if (req->getRequestHeaderFields().getField("Transfer-Encoding") == "chunked")
+        connection.isChunked = true;
+    else if (req->getRequestHeaderFields().hasField("Content-Length"))
+    {
+        // 요청 헤더를 보고 serverConfig 설정
+        const ServerConfig& serverConfig = config.getServerConfigByHost(req->getRequestHeaderFields().getField("Host"));
+        size_t contentLength = req->getContentLength();
+
+        if (contentLength > serverConfig.getClientMaxBodySize())
+        {
+            throw HttpException(CONTENT_TOO_LARGE);
+        }
+
+        if (contentLength > 0)
+            connection.isBodyReading = true;
+    }
+
+    return req;
+}
+
+bool Server::addContent(Connection& connection)
+{
+    RequestMessage* req = connection.reqBuffer;
+    size_t contentLength = req->getContentLength();
+
+    if (contentLength <= connection.recvedData.size())
+    {
+        req->addMessageBody(connection.recvedData.substr(0, contentLength));
+        connection.reqBuffer = NULL;
+        connection.request = req;
+        connection.recvedData.erase(0, contentLength);
+        connection.isBodyReading = false;
+
+        return true;
+    }
+    // buffer에 아직 body가 덜 온 경우는 다음으로 기약
+    return false;
+}
+
+// throwable CONTENT_TOO_LARGE
+bool Server::addChunk(Connection& connection)
+{
+    RequestMessage* req = connection.reqBuffer;
     std::string chunk;
+    bool hasData = false;
 
     while ((chunk = getChunk(connection)).length() > 0)
     {
         hasData = true;
-        connection.recvedData.erase(0, chunk.length());
-        connection.chunkBuffer += chunk;
+        req->addMessageBody(chunk);
 
         if (isLastChunk(chunk))
         {
             connection.isChunked = false;  // 마지막 청크면 청크 상태 해제
-            RequestMessage* req = new RequestMessage(connection.chunkBuffer);
-            connection.chunkBuffer.clear();
-            connection.requests.push(req); // 완성된 청크를 completeRequests에 저장
+            connection.reqBuffer = NULL;
+            connection.request = req; // 완성된 청크를 completeRequests에 저장
             break ;
         }
     }
@@ -350,33 +406,38 @@ bool Server::parseChunk(Connection& connection)
     return hasData;
 }
 
-// throwable PAYLOAD_TOO_LARGE
+// throwable CONTENT_TOO_LARGE
 std::string Server::getChunk(Connection& connection)
 {
     size_t pos = 0;
     size_t chunkSizeEndPos = connection.recvedData.find("\r\n", pos);
     if (chunkSizeEndPos == std::string::npos)
-        return "";  // 청크 크기가 아직 도착하지 않음
+        return "";  // 청크 헤더가 아직 도착하지 않음
 
     size_t chunkSize = std::strtoul(connection.recvedData.substr(pos, chunkSizeEndPos - pos).c_str(), NULL, 16);
     pos = chunkSizeEndPos + 2;  // 청크 크기 끝을 지나서 데이터 시작
 
-    size_t chunkEndPos = connection.recvedData.find("\r\n", pos);
-    if (chunkEndPos == std::string::npos)
+    size_t chunkEndPos = pos + chunkSize + 2;
+    if (chunkEndPos > connection.recvedData.size())
         return ""; // 청크 데이터가 아직 도착하지 않음
-
-    if (pos + chunkSize != chunkEndPos)
-        return "";  // 청크 데이터가 아직 도착하지 않음
 
     connection.recvedData.erase(0, chunkSizeEndPos + 2); // 청크 헤더 제거
 
-    connection.chunkBodySize += chunkSize;
-    if (connection.chunkBodySize > connection.serverConfig.getClientMaxBodySize())
+    RequestMessage* req = connection.reqBuffer;
+    if (req->getMessageBody().size() + chunkSize > connection.serverConfig.getClientMaxBodySize())
     {
-        throw HttpException(PAYLOAD_TOO_LARGE);
+        throw HttpException(CONTENT_TOO_LARGE);
     }
 
-    return connection.recvedData.substr(0, chunkSize + 2); // 청크 데이터만 반환
+    // 청크 형식 불만족
+    if (connection.recvedData[chunkSize] != '\r' || connection.recvedData[chunkSize + 1] != '\n')
+    {
+        throw HttpException(BAD_REQUEST);
+    }
+
+    std::string chunkData = connection.recvedData.substr(0, chunkSize);
+    connection.recvedData.erase(0, chunkSize + 2);
+    return chunkData; // 청크 데이터만 반환
 }
 
 // 이 청크가 마지막 청크인지 확인하는 로직
@@ -387,118 +448,48 @@ bool isLastChunk(std::string& chunk)
     return false;
 }
 
-bool Server::parseRequest(Connection& connection)
-{
-    bool hasData = false;
-    std::string requestString;
-
-    while ((requestString = getRequest(connection)).length() > 0)
-    {
-        hasData = true;
-        connection.recvedData.erase(0, requestString.length());
-
-        if (connection.isChunked)
-        {
-            connection.chunkBuffer += requestString;
-            break ;
-        }
-
-        RequestMessage* req = new RequestMessage(requestString);
-
-        connection.requests.push(req);
-
-        Logger::getInstance().logHttpMessage(*req);
-    }
-
-    return hasData;
-}
-
-// 청크면 헤더까지만 잘라서 반환. throwable HttpException
-std::string Server::getRequest(Connection& connection)
-{
-    size_t headerEnd = connection.recvedData.find("\r\n\r\n");
-    if (headerEnd == std::string::npos)
-        return ""; // \r\n\r\n 없으면 리턴
-
-    size_t contentLength = 0;
-    size_t headerLength = headerEnd + 4; // 본문 시작 위치. 청크면 헤더까지만 자름
-    std::string header = connection.recvedData.substr(0, headerLength);
-    RequestMessage req(header);
-    connection.serverConfig = config.getServerConfigByHost(req.getRequestHeaderFields().getField("Host")); // 요청 헤더를 보고 serverConfig 설정
-
-    std::istringstream headerStream(connection.recvedData.substr(0, headerEnd + 4)); // 헤더만 짤라옴
-    std::string headerLine;
-    while (std::getline(headerStream, headerLine) && headerLine != "\r")
-    {
-        if (headerLine.find("Content-Length:") != std::string::npos)
-        {
-            contentLength = std::strtoul(headerLine.substr(16).c_str(), NULL, 10);
-            break ;
-        }
-        else if (headerLine.find("Transfer-Encoding: chunked") != std::string::npos)
-        {
-            connection.isChunked = true;
-            break ;
-        }
-    }
-
-    // 청크가 아니면 content-length 검사
-    if (!connection.isChunked)
-    {
-        if (contentLength > connection.serverConfig.getClientMaxBodySize())
-        {
-            // 어차피 connectionClose 할거라 사후처리 불필요
-            // connection.recvedData.erase(0, headerLength + contentLength);
-            throw HttpException(PAYLOAD_TOO_LARGE);
-        }
-
-        return connection.recvedData.substr(0, headerLength + contentLength);
-    }
-    return "";
-}
-
 // 보낸 데이터가 0일 때 write event 삭제
 void Server::handleClientWriteEvent(struct kevent& event)
 {
     int socket = event.ident;
 
-    const ssize_t bytesSend = sendToSocket(*connectionsMap[socket]);
+    Connection& connection = *connectionsMap[socket];
+
+    if (connection.responses.empty())
+        return ;
+
+    ResponseMessage* res = connection.responses.front();
+    Logger::getInstance().logHttpMessage(*res);
+    std::string data = res->toString();
+    ssize_t bytesSend = send(connection.socket, data.c_str(), data.length(), 0);
     if (bytesSend < 0)
     {
         Logger::getInstance().logWarning("Send error");
-        EventManager::getInstance().deleteWriteEvent(socket);
         closeConnection(socket);
         return ;
     }
 
-    if (bytesSend == 0)
-        EventManager::getInstance().deleteWriteEvent(socket);
-}
+    if (res->getResponseHeaderFields().getField("Connection") == "close")
+    {
+        closeConnection(connection.socket);
+        return ;
+    }
 
-ssize_t Server::sendToSocket(Connection& connection)
-{
-    if (connection.responses.empty())
-        return 0;
-
-    std::string data = connection.responses.front();
-    ssize_t bytesSend = send(connection.socket, data.c_str(), data.length(), 0);
-
-    /*
-    response 보고 Connection: close면 closeConnection()하고 return;
-    ...
-    */
-
+    delete connection.responses.front();
     connection.responses.pop();
 
     updateLastActivity(connection);
 
-    return bytesSend;
+    // if (bytesSend == 0)
+        // EventManager::getInstance().deleteWriteEvent(socket);
 }
 
 // Connection들의 keepAlive 관리
 void Server::checkKeepAlive()
 {
     const time_t now = time(NULL);
+    std::queue<int> closeSockets;
+
     for (std::map<int, Connection*>::const_iterator it = connectionsMap.begin(); it != connectionsMap.end(); ++it)
     {
         if ((it->second)->parentSocket != -1) // pipe 커넥션이면 패스
@@ -506,10 +497,16 @@ void Server::checkKeepAlive()
 
         if (difftime(now, (it->second)->last_activity) > config.getKeepAliveTime())
 		{
-            EventManager::getInstance().deleteReadEvent(it->first);
-            closeConnection(it->first);
+            delete connectionsMap[it->first];
+            closeSockets.push(it->first);
 		}
     }
+
+    while (!closeSockets.empty())
+	{
+		connectionsMap.erase(closeSockets.front());
+        closeSockets.pop();
+	}
 }
 
 void Server::updateLastActivity(Connection& connection)
@@ -521,16 +518,7 @@ void Server::updateLastActivity(Connection& connection)
 void Server::closeConnection(int socket)
 {
     delete connectionsMap[socket];
-    closeSockets.push_back(socket);
-}
-
-void Server::eraseCloseSockets()
-{
-	for (size_t i = 0; i < closeSockets.size(); ++i)
-	{
-		connectionsMap.erase(closeSockets[i]);
-	}
-    closeSockets.clear();
+    connectionsMap.erase(socket);
 }
 
 bool Server::isServerSocket(int socket)
@@ -541,3 +529,23 @@ bool Server::isServerSocket(int socket)
     return false;
 }
 
+bool Server::isConnection(int key)
+{
+    std::map<int, Connection*>::iterator it = connectionsMap.find(key);
+    return (it != connectionsMap.end());
+}
+
+void Server::deleteGarbageEvent(struct kevent& event)
+{
+    if (isConnection(event.ident))
+        return ;
+
+    if (event.filter == EVFILT_READ)
+    {
+        EventManager::getInstance().deleteReadEvent(event.ident);
+    }
+    else if (event.filter == EVFILT_WRITE)
+    {
+        EventManager::getInstance().deleteWriteEvent(event.ident);
+    }
+}

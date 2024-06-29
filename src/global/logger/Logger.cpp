@@ -45,10 +45,10 @@ void Logger::logHttpMessage(const ResponseMessage& res, const RequestMessage& re
     log(INFO, oss.str());
 }
 
-void Logger::logHttpMessage(const std::string& res) const
+void Logger::logHttpMessage(const ResponseMessage& res) const
 {
     std::ostringstream oss;
-    oss << "[ Response ]\n" << res;
+    oss << "[ Response ]\n" << res.toString();
 
     log(INFO, oss.str());
 }
