@@ -7,21 +7,6 @@ RequestMessage::RequestMessage()
 , mMessageBody()
 {
 }
-RequestMessage::RequestMessage(const std::string& request)
-: mRequestLine()
-, mRequestHeaderFields()
-, mMessageBody()
-{
-    try
-    {
-        parseRequestMessage(request);
-        verifyRequest();
-    }
-    catch (const HttpException& e)
-    {
-        throw e;
-    }
-}
 RequestMessage::~RequestMessage()
 {
 }
@@ -37,14 +22,13 @@ const MessageBody& RequestMessage::getMessageBody() const
 {
     return mMessageBody;
 }
-void RequestMessage::parseRequestMessage(const std::string& request)
+void RequestMessage::parseRequestHeader(const std::string& request)
 {
     std::istringstream reqStream(request);
     try
     {
         parseRequestLine(reqStream);
         parseRequestHeaderFields(reqStream);
-        parseMessageBody(reqStream);
     }
     catch (const HttpException& e)
     {
@@ -75,11 +59,11 @@ void RequestMessage::parseRequestHeaderFields(std::istringstream& reqStream)
         throw e;
     }
 }
-void RequestMessage::parseMessageBody(std::istringstream& reqStream)
+void RequestMessage::addMessageBody(const std::string& body)
 {
-     mMessageBody.parseMessageBody(reqStream);
+    mMessageBody.addBody(body);
 }
-void RequestMessage::verifyRequest(void)
+void RequestMessage::verifyRequestMessage(void) const
 {
     try
     {
@@ -91,7 +75,7 @@ void RequestMessage::verifyRequest(void)
         throw e;
     }
 }
-void RequestMessage::verifyRequestLine(void)
+void RequestMessage::verifyRequestLine(void) const
 {
     const std::string method = mRequestLine.getMethod();
     const std::string reqTarget = mRequestLine.getRequestTarget();
@@ -108,12 +92,12 @@ void RequestMessage::verifyRequestLine(void)
     {
         throw HttpException(NOT_FOUND);
     }
-    if (reqTarget.size() >= 8200)  // nginx max uri length
+    if (reqTarget.size() >= MAX_URI_LENGTH)
     {
         throw HttpException(URI_TOO_LONG);
     }
 }
-void RequestMessage::verifyRequestHeaderFields(void)
+void RequestMessage::verifyRequestHeaderFields(void) const
 {
     if (mRequestHeaderFields.hasField("Host") == false)
     {
@@ -122,9 +106,5 @@ void RequestMessage::verifyRequestHeaderFields(void)
 }
 std::string RequestMessage::toString(void) const
 {
-    std::ostringstream oss;
-    oss << mRequestLine.toRequestLine()
-    << mRequestHeaderFields.toString()
-    << mMessageBody.toString();
-    return oss.str();
+    return mRequestLine.toRequestLine() + mRequestHeaderFields.toString() + mMessageBody.toString();
 }

@@ -6,29 +6,32 @@
 #include "MessageBody.hpp"
 #include "StartLine.hpp"
 
+// nginx max uri length
+const int MAX_URI_LENGTH = 8200;
+
 class RequestMessage
 {
 private:
     StartLine mRequestLine;
     HeaderFields mRequestHeaderFields;
     MessageBody mMessageBody;
-    void parseRequestMessage(const std::string& request);
     void parseRequestLine(std::istringstream& reqStream);
     void parseRequestHeaderFields(std::istringstream& reqStream);
-    void parseMessageBody(std::istringstream& reqStream);
+    void verifyRequestLine(void) const;
+    void verifyRequestHeaderFields(void) const;
+
     RequestMessage(const RequestMessage& rhs);
     RequestMessage& operator=(const RequestMessage& rhs);
-    void verifyRequest(void);
-    void verifyRequestLine(void);
-    void verifyRequestHeaderFields(void);
 
 public:
     RequestMessage();
-    RequestMessage(const std::string& request);
     ~RequestMessage();
     const StartLine& getRequestLine() const;
     const HeaderFields& getRequestHeaderFields() const;
     const MessageBody& getMessageBody() const;
+    void parseRequestHeader(const std::string& request);
+    void addMessageBody(const std::string& body);
+    void verifyRequestMessage(void) const;
     std::string toString(void) const;
 };
 
