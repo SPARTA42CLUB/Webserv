@@ -22,29 +22,26 @@ EventManager::~EventManager()
 }
 void EventManager::addReadEvent(int socket)
 {
-    if (addEvent(socket, EVFILT_READ, EV_ADD | EV_ENABLE) == false)
-        throw SysException(FAILED_TO_ADD_READ_KEVENT);
+    addEvent(socket, EVFILT_READ, EV_ADD | EV_ENABLE);
 }
 
 void EventManager::addWriteEvent(int socket)
 {
-    if (addEvent(socket, EVFILT_WRITE, EV_ADD | EV_ENABLE) == false)
-        throw SysException(FAILED_TO_ADD_WRITE_KEVENT);
+    addEvent(socket, EVFILT_WRITE, EV_ADD | EV_ENABLE);
 }
 
 void EventManager::deleteReadEvent(int socket)
 {
-    if (addEvent(socket, EVFILT_READ, EV_DELETE) == false)
-        throw SysException(FAILED_TO_DELETE_READ_KEVENT);
+    addEvent(socket, EVFILT_READ, EV_DELETE);
 }
 
 void EventManager::deleteWriteEvent(int socket)
 {
-    if (addEvent(socket, EVFILT_WRITE, EV_DELETE) == false)
-        throw SysException(FAILED_TO_DELETE_WRITE_KEVENT);
+    addEvent(socket, EVFILT_WRITE, EV_DELETE);
 }
 
-bool EventManager::addEvent(const int socket, const int16_t filter, const uint16_t flags)
+// throw-safe 함수 (에러 처리 해야 할 수도?)
+void EventManager::addEvent(const int socket, const int16_t filter, const uint16_t flags)
 {
     struct kevent evSet;
     EV_SET(&evSet, socket, filter, flags, 0, 0, NULL);
@@ -52,9 +49,7 @@ bool EventManager::addEvent(const int socket, const int16_t filter, const uint16
     if (kevent(kq, &evSet, 1, NULL, 0, NULL) == -1)
     {
         close(socket);
-        return false;
     }
-    return true;
 }
 
 std::vector<struct kevent> EventManager::getCurrentEvents()

@@ -10,9 +10,9 @@ Connection::Connection(const int socket, const int parentSocket, std::string rec
 , parentSocket(parentSocket)
 , childSocket()
 , isChunked(false)
+, isBodyReading(false)
 , recvedData(recvedData)
-, chunkBuffer()
-, chunkBodySize(0)
+, reqBuffer()
 , requests()
 , responses()
 , last_activity(time(NULL))
@@ -34,6 +34,7 @@ Connection::~Connection()
     }
     while (!responses.empty())
     {
+        delete responses.front();
         responses.pop();
     }
 }

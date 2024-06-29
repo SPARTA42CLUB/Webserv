@@ -31,8 +31,8 @@ public:
     const MessageBody& getMessageBody() const;
     void parseRequestHeader(const std::string& request);
     void addMessageBody(const std::string& body);
-    void verifyRequestMessage(void) const;
     std::string toString(void) const;
+    size_t getContentLength(void) const;
 };
 
 #endif

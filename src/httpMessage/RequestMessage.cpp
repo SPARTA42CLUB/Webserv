@@ -29,6 +29,8 @@ void RequestMessage::parseRequestHeader(const std::string& request)
     {
         parseRequestLine(reqStream);
         parseRequestHeaderFields(reqStream);
+        verifyRequestLine();
+        verifyRequestHeaderFields();
     }
     catch (const HttpException& e)
     {
@@ -63,18 +65,6 @@ void RequestMessage::addMessageBody(const std::string& body)
 {
     mMessageBody.addBody(body);
 }
-void RequestMessage::verifyRequestMessage(void) const
-{
-    try
-    {
-        verifyRequestLine();
-        verifyRequestHeaderFields();
-    }
-    catch (const HttpException& e)
-    {
-        throw e;
-    }
-}
 void RequestMessage::verifyRequestLine(void) const
 {
     const std::string method = mRequestLine.getMethod();
@@ -103,8 +93,32 @@ void RequestMessage::verifyRequestHeaderFields(void) const
     {
         throw HttpException(BAD_REQUEST);
     }
+    if (mRequestHeaderFields.hasField("Content-Length"))
+    {
+        std::string contentLengthStr = mRequestHeaderFields.getField("Content-Length");
+        try
+        {
+            std::stoul(contentLengthStr);
+        }
+        catch (const std::invalid_argument& ia)
+        {
+            throw HttpException(BAD_REQUEST);
+        }
+        catch (const std::out_of_range& oor)
+        {
+            throw HttpException(BAD_REQUEST);
+        }
+    }
 }
 std::string RequestMessage::toString(void) const
 {
     return mRequestLine.toRequestLine() + mRequestHeaderFields.toString() + mMessageBody.toString();
+}
+size_t RequestMessage::getContentLength(void) const
+{
+    std::string contentLengthStr = getRequestHeaderFields().getField("Content-Length");
+    if (contentLengthStr == "")
+        return 0;
+
+    return std::strtoul(contentLengthStr.c_str(), NULL, 10);
 }

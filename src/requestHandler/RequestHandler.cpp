@@ -22,7 +22,7 @@ RequestHandler::RequestHandler(std::map<int, Connection*>& connectionsMap, const
 {
 }
 
-std::string RequestHandler::handleRequest(void)
+ResponseMessage* RequestHandler::handleRequest(void)
 {
     int statusCode;
 
@@ -31,27 +31,28 @@ std::string RequestHandler::handleRequest(void)
         // std::cout << "path: " << mPath << std::endl;
         // std::cout << "query: " << mQueryString << std::endl;
         executeCGI();
-        return "";
+        return NULL;
     }
     statusCode = setPath();
     // std::cout << mPath << std::endl;
 
+    mResponseMessage = new ResponseMessage();
     if (checkStatusCode(statusCode) == false)
     {
-        mResponseMessage.setByStatusCode(statusCode);
-        return mResponseMessage.toString();
+        mResponseMessage->setByStatusCode(statusCode, mServerConfig);
+        return mResponseMessage;
     }
 
     statusCode = handleMethod();
     if (checkStatusCode(statusCode) == false)
     {
-        mResponseMessage.setByStatusCode(statusCode);
-        return mResponseMessage.toString();
+        mResponseMessage->setByStatusCode(statusCode, mServerConfig);
+        return mResponseMessage;
     }
 
     addConnectionHeader();
 
-    return mResponseMessage.toString();
+    return mResponseMessage;
 }
 bool RequestHandler::checkCGI(void)
 {
@@ -236,11 +237,11 @@ void RequestHandler::addConnectionHeader()
 {
     if (mRequestMessage->getRequestHeaderFields().hasField("Connection") == true)
     {
-        mResponseMessage.addResponseHeaderField("Connection", mRequestMessage->getRequestHeaderFields().getField("Connection"));
+        mResponseMessage->addResponseHeaderField("Connection", mRequestMessage->getRequestHeaderFields().getField("Connection"));
     }
     else
     {
-        mResponseMessage.addResponseHeaderField("Connection", "keep-alive");
+        mResponseMessage->addResponseHeaderField("Connection", "keep-alive");
     }
 }
 
@@ -267,15 +268,15 @@ int RequestHandler::getRequest()
         }
     }
     // 그 외 요청 처리
-    mResponseMessage.setStatusLine(mRequestMessage->getRequestLine().getHTTPVersion(), OK, "OK");
+    mResponseMessage->setStatusLine(mRequestMessage->getRequestLine().getHTTPVersion(), OK, "OK");
     std::string line;
     while (std::getline(file, line))
     {
         // TODO: 파일 마지막에 개행이 없는 경우 개행이 추가로 들어가는 문제
-        mResponseMessage.addMessageBody(line + "\n");
+        mResponseMessage->addMessageBody(line + "\n");
     }
     file.close();
-    addSemanticHeaderFields();
+    mResponseMessage->addSemanticHeaderFields();
     addContentType();
 
     return OK;
@@ -317,9 +318,9 @@ int RequestHandler::rangeRequest()
     std::string responseBody = reader.processRequest();
 
     // Set HTTP response status line and headers
-    mResponseMessage.setStatusLine(mRequestMessage->getRequestLine().getHTTPVersion(), PARTIAL_CONTENT, "Partial Content");
-    mResponseMessage.addResponseHeaderField("Content-Type", "multipart/byteranges; boundary=BOUNDARY_STRING");
-    mResponseMessage.addMessageBody(responseBody);
+    mResponseMessage->setStatusLine(mRequestMessage->getRequestLine().getHTTPVersion(), PARTIAL_CONTENT, "Partial Content");
+    mResponseMessage->addResponseHeaderField("Content-Type", "multipart/byteranges; boundary=BOUNDARY_STRING");
+    mResponseMessage->addMessageBody(responseBody);
 
     return OK;
 }
@@ -327,7 +328,7 @@ int RequestHandler::rangeRequest()
 int RequestHandler::headRequest()
 {
     int statusCode = getRequest();
-    mResponseMessage.clearMessageBody();
+    mResponseMessage->clearMessageBody();
 
     return statusCode;
 }
@@ -391,9 +392,9 @@ int RequestHandler::postRequest()
 		file.close();
 	}
 
-	mResponseMessage.setStatusLine(mRequestMessage->getRequestLine().getHTTPVersion(), CREATED, "CREATED");
-	mResponseMessage.addResponseHeaderField("Content-Type", "text/html");
-	mResponseMessage.addMessageBody("<html><body><h1>File uploaded.</h1><h2>path: " + mPath + "</h2></h3></body></html>");
+	mResponseMessage->setStatusLine(mRequestMessage->getRequestLine().getHTTPVersion(), CREATED, "CREATED");
+	mResponseMessage->addResponseHeaderField("Content-Type", "text/html");
+	mResponseMessage->addMessageBody("<html><body><h1>File uploaded.</h1><h2>path: " + mPath + "</h2></h3></body></html>");
 
     return CREATED;
 }
@@ -409,30 +410,12 @@ int RequestHandler::deleteRequest()
     {
         return FORBIDDEN;
     }
-    mResponseMessage.setStatusLine(mRequestMessage->getRequestLine().getHTTPVersion(), OK, "OK");
-    mResponseMessage.addResponseHeaderField("Content-Type", "text/html");
-    mResponseMessage.addMessageBody("<html><body><h1>File deleted.</h1></body></html>");
-    addSemanticHeaderFields();
+    mResponseMessage->setStatusLine(mRequestMessage->getRequestLine().getHTTPVersion(), OK, "OK");
+    mResponseMessage->addResponseHeaderField("Content-Type", "text/html");
+    mResponseMessage->addMessageBody("<html><body><h1>File deleted.</h1></body></html>");
+    mResponseMessage->addSemanticHeaderFields();
 
     return OK;
-}
-
-void RequestHandler::addSemanticHeaderFields()
-{
-    time_t now = time(0);
-    struct tm* timeinfo = localtime(&now);
-    char buffer[128];
-    // Date: Tue, 15 Nov 1994 08:12:31 GMT
-    // NOTE: strftime() 함수는 c함수라서 평가에 어긋남, 하지만 Date 헤더 필드가 필수가 아니라서 보너스 느낌으로 넣어둠
-    std::strftime(buffer, sizeof(buffer), "%a, %d %b %Y %H:%M:%S GMT", timeinfo);
-    std::string date = buffer;
-
-    // NOTE: expression result unused
-    // mServerConfig.locations.find(mLocation)->CONFIG.cgi;
-
-    mResponseMessage.addResponseHeaderField("Content-Length", mResponseMessage.getMessageBodySize());
-    mResponseMessage.addResponseHeaderField("Server", "webserv");
-    mResponseMessage.addResponseHeaderField("Date", date);
 }
 void RequestHandler::addContentType()
 {
@@ -440,35 +423,35 @@ void RequestHandler::addContentType()
     std::string ext = mPath.substr(mPath.find_last_of('.') + 1);
     if (ext == "html")
     {
-        mResponseMessage.addResponseHeaderField("Content-Type", "text/html");
+        mResponseMessage->addResponseHeaderField("Content-Type", "text/html");
     }
     else if (ext == "css")
     {
-        mResponseMessage.addResponseHeaderField("Content-Type", "text/css");
+        mResponseMessage->addResponseHeaderField("Content-Type", "text/css");
     }
     else if (ext == "js")
     {
-        mResponseMessage.addResponseHeaderField("Content-Type", "text/javascript");
+        mResponseMessage->addResponseHeaderField("Content-Type", "text/javascript");
     }
     else if (ext == "jpg" || ext == "jpeg")
     {
-        mResponseMessage.addResponseHeaderField("Content-Type", "image/jpeg");
+        mResponseMessage->addResponseHeaderField("Content-Type", "image/jpeg");
     }
     else if (ext == "png")
     {
-        mResponseMessage.addResponseHeaderField("Content-Type", "image/png");
+        mResponseMessage->addResponseHeaderField("Content-Type", "image/png");
     }
     else
     {
-        mResponseMessage.addResponseHeaderField("Content-Type", "application/octet-stream");
+        mResponseMessage->addResponseHeaderField("Content-Type", "application/octet-stream");
     }
 }
 
 void RequestHandler::found(void)
 {
     const std::string& location = mServerConfig.locations.find(mPath)->second.redirect;
-    mResponseMessage.setStatusLine("HTTP/1.1", FOUND, "Found");
-    mResponseMessage.addResponseHeaderField("Location", location);
-    mResponseMessage.addResponseHeaderField("Connection", "close");
-    addSemanticHeaderFields();
+    mResponseMessage->setStatusLine("HTTP/1.1", FOUND, "Found");
+    mResponseMessage->addResponseHeaderField("Location", location);
+    mResponseMessage->addResponseHeaderField("Connection", "close");
+    mResponseMessage->addSemanticHeaderFields();
 }

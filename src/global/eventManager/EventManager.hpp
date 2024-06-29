@@ -17,7 +17,7 @@ private:
     EventManager(const EventManager&);
     EventManager& operator=(const EventManager&);
 
-    bool addEvent(const int socket, const int16_t filter, const uint16_t flags);
+    void addEvent(const int socket, const int16_t filter, const uint16_t flags);
 
 public:
     // Singleton

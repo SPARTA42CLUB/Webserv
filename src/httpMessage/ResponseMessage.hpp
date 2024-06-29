@@ -5,6 +5,7 @@
 #include "HeaderFields.hpp"
 #include "MessageBody.hpp"
 #include "StartLine.hpp"
+#include "ServerConfig.hpp"
 
 class ResponseMessage
 {
@@ -12,7 +13,7 @@ private:
     StartLine mStatusLine;
     HeaderFields mResponseHeaderFields;
     MessageBody mMessageBody;
-    void addSemanticHeaderFields();
+
     void parseStatusLine(std::istringstream& resStream);
     void parseResponseHeaderFields(std::istringstream& resStream);
 
@@ -27,12 +28,17 @@ public:
     void setStatusLine(const std::string& httpVersion, const int statusCode, const std::string& reasonPhrase);
     void addResponseHeaderField(const std::string& key, const std::string& value);
     void addResponseHeaderField(const std::string& key, const int value);
+    void addSemanticHeaderFields();
     void addMessageBody(const std::string& body);
+
     size_t getMessageBodySize() const;
+    const HeaderFields& getResponseHeaderFields() const;
+
     void clearMessageBody();
     std::string toString(void) const;
 
-    void setByStatusCode(const int statusCode);
+    void setByStatusCode(const int statusCode, const ServerConfig& serverConfig);
+
 
     // 4xx
     void badRequest(void);
@@ -40,7 +46,7 @@ public:
     void notFound(void);
     void methodNotAllowed(void);
     void uriTooLong(void);
-    void payloadTooLarge();
+    void contentTooLarge();
     // 5xx
     void httpVersionNotSupported(void);
 };

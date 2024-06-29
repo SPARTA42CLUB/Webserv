@@ -27,13 +27,12 @@ private:
     void handlePipeWriteEvent(struct kevent& event);
 
     void recvData(Connection& connection);
-    ssize_t sendToSocket(Connection& connection);
 
-    void parseData(Connection& connection);
-    bool parseChunk(Connection& connection);
-    bool parseRequest(Connection& connection);
+    bool parseData(Connection& connection);
+    RequestMessage* getHeader(Connection& connection);
+    bool addContent(Connection& connection);
+    bool addChunk(Connection& connection);
     std::string getChunk(Connection& connection);
-    std::string getRequest(Connection& connection);
 
     void closeConnection(int socket);
     bool isConnection(int key);
