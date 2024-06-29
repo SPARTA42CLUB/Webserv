@@ -12,6 +12,7 @@ private:
     const Config& config;
     std::vector<int> serverSockets;
     std::map<int, Connection*> connectionsMap;
+    std::vector<int> closeSockets;
 
     void setupServerSockets();
     int createServerSocket(ServerConfig serverConfig);
@@ -21,23 +22,23 @@ private:
     void acceptClient(int serverSocket);
     void handleClientReadEvent(struct kevent& event);
     void handleClientWriteEvent(struct kevent& event);
+    void handlePipeReadEvent(struct kevent& event);
+    void handlePipeWriteEvent(struct kevent& event);
 
-    void closeConnection(int socket);
-	void eraseCloseSockets(std::vector<int>& closeSockets);
-    bool isServerSocket(int socket);
-
-    // 커넥션한테서 옮겨온애들
     void recvData(Connection& connection);
+    ssize_t sendToSocket(Connection& connection);
 
     void parseData(Connection& connection);
     bool parseChunk(Connection& connection);
     bool parseRequest(Connection& connection);
-    std::string getChunk(std::string& recvedData);
+    std::string getChunk(Connection& connection);
     std::string getRequest(Connection& connection);
 
-    void updateLastActivity(Connection& connection);
+    void closeConnection(int socket);
+	void eraseCloseSockets();
+    bool isServerSocket(int socket);
 
-    ssize_t sendToSocket(Connection* connection);
+    void updateLastActivity(Connection& connection);
 
 public:
     Server(const Config& config);

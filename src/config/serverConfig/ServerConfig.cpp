@@ -2,6 +2,7 @@
 #include <sstream>
 #include "ConfigException.hpp"
 #include "parse.hpp"
+#include <vector>
 
 ServerConfig::ServerConfig()
 : host()
@@ -171,4 +172,9 @@ bool ServerConfig::isValidLocationPath(std::string& locationPath)
         return false;
     }
     return true;
+}
+
+size_t ServerConfig::getClientMaxBodySize() const
+{
+    return client_max_body_size;
 }

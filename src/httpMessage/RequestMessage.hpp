@@ -12,7 +12,6 @@ private:
     StartLine mRequestLine;
     HeaderFields mRequestHeaderFields;
     MessageBody mMessageBody;
-    size_t mStatusCode;
     void parseRequestMessage(const std::string& request);
     void parseRequestLine(std::istringstream& reqStream);
     void parseRequestHeaderFields(std::istringstream& reqStream);
@@ -31,7 +30,6 @@ public:
     const HeaderFields& getRequestHeaderFields() const;
     const MessageBody& getMessageBody() const;
     std::string toString(void) const;
-    int getStatusCode() const;
 };
 
 #endif

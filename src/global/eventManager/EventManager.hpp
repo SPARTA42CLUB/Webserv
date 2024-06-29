@@ -3,6 +3,9 @@
 #include <sys/event.h>
 #include <vector>
 
+const int READ_END = 0;
+const int WRITE_END = 1;
+
 class EventManager
 {
 private:
@@ -14,7 +17,7 @@ private:
     EventManager(const EventManager&);
     EventManager& operator=(const EventManager&);
 
-    void addEvent(const int socket, const int16_t filter, const uint16_t flags);
+    bool addEvent(const int socket, const int16_t filter, const uint16_t flags);
 
 public:
     // Singleton

@@ -5,14 +5,12 @@ RequestMessage::RequestMessage()
 : mRequestLine()
 , mRequestHeaderFields()
 , mMessageBody()
-, mStatusCode(200)
 {
 }
 RequestMessage::RequestMessage(const std::string& request)
 : mRequestLine()
 , mRequestHeaderFields()
 , mMessageBody()
-, mStatusCode(200)
 {
     try
     {
@@ -21,7 +19,7 @@ RequestMessage::RequestMessage(const std::string& request)
     }
     catch (const HttpException& e)
     {
-        mStatusCode = e.getStatusCode();
+        throw e;
     }
 }
 RequestMessage::~RequestMessage()
@@ -79,14 +77,7 @@ void RequestMessage::parseRequestHeaderFields(std::istringstream& reqStream)
 }
 void RequestMessage::parseMessageBody(std::istringstream& reqStream)
 {
-    try
-    {
-        mMessageBody.parseMessageBody(reqStream);
-    }
-    catch (const HttpException& e)
-    {
-        throw e;
-    }
+     mMessageBody.parseMessageBody(reqStream);
 }
 void RequestMessage::verifyRequest(void)
 {
@@ -136,9 +127,4 @@ std::string RequestMessage::toString(void) const
     << mRequestHeaderFields.toString()
     << mMessageBody.toString();
     return oss.str();
-}
-
-int RequestMessage::getStatusCode() const
-{
-    return mStatusCode;
 }

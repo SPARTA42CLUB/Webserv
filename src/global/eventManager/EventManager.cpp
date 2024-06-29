@@ -22,25 +22,29 @@ EventManager::~EventManager()
 }
 void EventManager::addReadEvent(int socket)
 {
-    addEvent(socket, EVFILT_READ, EV_ADD | EV_ENABLE);
+    if (addEvent(socket, EVFILT_READ, EV_ADD | EV_ENABLE) == false)
+        throw SysException(FAILED_TO_ADD_READ_KEVENT);
 }
 
 void EventManager::addWriteEvent(int socket)
 {
-    addEvent(socket, EVFILT_WRITE, EV_ADD | EV_ENABLE);
+    if (addEvent(socket, EVFILT_WRITE, EV_ADD | EV_ENABLE) == false)
+        throw SysException(FAILED_TO_ADD_WRITE_KEVENT);
 }
 
 void EventManager::deleteReadEvent(int socket)
 {
-    addEvent(socket, EVFILT_READ, EV_DELETE);
+    if (addEvent(socket, EVFILT_READ, EV_DELETE) == false)
+        throw SysException(FAILED_TO_DELETE_READ_KEVENT);
 }
 
 void EventManager::deleteWriteEvent(int socket)
 {
-    addEvent(socket, EVFILT_WRITE, EV_DELETE);
+    if (addEvent(socket, EVFILT_WRITE, EV_DELETE) == false)
+        throw SysException(FAILED_TO_DELETE_WRITE_KEVENT);
 }
 
-void EventManager::addEvent(const int socket, const int16_t filter, const uint16_t flags)
+bool EventManager::addEvent(const int socket, const int16_t filter, const uint16_t flags)
 {
     struct kevent evSet;
     EV_SET(&evSet, socket, filter, flags, 0, 0, NULL);
@@ -48,8 +52,9 @@ void EventManager::addEvent(const int socket, const int16_t filter, const uint16
     if (kevent(kq, &evSet, 1, NULL, 0, NULL) == -1)
     {
         close(socket);
-        throw SysException(FAILED_TO_ADD_KEVENT);
+        return false;
     }
+    return true;
 }
 
 std::vector<struct kevent> EventManager::getCurrentEvents()

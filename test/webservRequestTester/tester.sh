@@ -6,10 +6,12 @@ CR="\r"
 requests=(
 "GET / HTTP/1.1$CR
 Host: localhost$CR
+Content-Length: 10000000$CR
 $CR
 " 200
 "GET / HTTP/1.1$CR
 Host: localhost$CR
+Content-Length: 0$CR
 $CR
 " 200
 "GET /error HTTP/1.1$CR
@@ -18,6 +20,7 @@ $CR
 " 404
 "POST / HTTP/1.1$CR
 Host: localhost$CR
+Content-Length: 1$CR
 $CR
 " 200
 "GET / HTTP/1.1$CR
@@ -117,7 +120,7 @@ chmod 544 ../../www/permission_denied/
 # webserv 프로그램을 백그라운드에서 실행
 clear && echo -e "${WHITE}webserv tester$NC" && \
 echo -e "${BLUE}webserver building...$NC" && \
-make -C ../../ mem > /dev/null 2>&1 && \
+make -C ../../ mem -j > /dev/null 2>&1 && \
 echo -e "${BLUE}webserver running...$NC"
 
 ../../webserv test.conf & WEBSERV_PID=$! && sleep $WEBSERVER_CREATE_TIME
@@ -159,7 +162,7 @@ for ((i=0; i<${#requests[@]}; i+=2)); do
     fi
 done
 
-rm -rf ../../www/permission_denied access.log
+sudo rm -rf ../../www/permission_denied access.log
 
 # webserv 프로그램 종료
 kill -9 $WEBSERV_PID > /dev/null 2>&1
