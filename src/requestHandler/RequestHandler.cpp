@@ -13,7 +13,7 @@
 RequestHandler::RequestHandler(std::map<int, Connection*>& connectionsMap, const Config& config, const int socket)
 : mConnectionsMap(connectionsMap)
 , mSocket(socket)
-, mRequestMessage(connectionsMap[socket]->requests.front())
+, mRequestMessage(connectionsMap[socket]->request)
 , mResponseMessage()
 , mServerConfig(config.getServerConfigByHost(mRequestMessage->getRequestHeaderFields().getField("Host")))
 , mLocConfig()
@@ -119,7 +119,6 @@ void RequestHandler::executeCGI(void)
 		char* envp[] = {queryStringEnv_cstr.data(), requestMethodEnv_cstr.data(), NULL};
 
 		execve(argv[READ_END], argv, envp);
-		throw SysException(FAILED_TO_EXEC);
 	}
 	else
 	{

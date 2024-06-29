@@ -118,6 +118,10 @@ void ResponseMessage::setByStatusCode(const int statusCode, const ServerConfig& 
     {
         contentTooLarge();
     }
+    else if (statusCode == BAD_GATEWAY)
+    {
+        badGateway();
+    }
     else if (statusCode == HTTP_VERSION_NOT_SUPPORTED)
     {
         httpVersionNotSupported();
@@ -169,6 +173,14 @@ void ResponseMessage::contentTooLarge(void)
     addMessageBody("<html><head><title>413 Content Too Large</title></head><body><h1>413 Content Too Large</h1></body></html>");
     addResponseHeaderField("Content-Type", "text/html");
     addResponseHeaderField("Connection", "close");
+    addSemanticHeaderFields();
+}
+void ResponseMessage::badGateway(void)
+{
+    setStatusLine("HTTP/1.1", BAD_GATEWAY, "Bad Gateway");
+    addMessageBody("<html><head><title>502 Bad Gateway</title></head><body><h1>502 Bad Gateway</h1></body></html>");
+    addResponseHeaderField("Content-Type", "text/html");
+    addResponseHeaderField("Connection", "keep-alive");
     addSemanticHeaderFields();
 }
 void ResponseMessage::httpVersionNotSupported(void)

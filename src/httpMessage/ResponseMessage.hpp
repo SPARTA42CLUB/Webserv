@@ -48,6 +48,7 @@ public:
     void uriTooLong(void);
     void contentTooLarge();
     // 5xx
+    void badGateway(void);
     void httpVersionNotSupported(void);
 };
 

@@ -177,8 +177,20 @@ void Server::handlePipeReadEvent(struct kevent& event)
 
     if (event.flags & EV_EOF)
     {
+        waitpid(-1, NULL, WNOHANG);
         ResponseMessage* response = new ResponseMessage(); // 저장된 데이터 들고 오기
-        response->parseResponseHeader(cgiConnection.recvedData);
+        // 유효성 체크
+        try
+        {
+            // 필수적인 헤더가 있는 지 확인
+            // Status Line이나 Content-Length정도는 만들어야 할듯??
+            response->parseResponseHeader(cgiConnection.recvedData);
+        }
+        catch(const HttpException& e)
+        {
+            // NOTE: 이거 찾아야됨 그럼 req에서 host를 들고 있어야함 그래야 찾을 수 있어
+            response->setByStatusCode(e.getStatusCode(), config.getDefaultServerConfig());
+        }
         Connection& parentConnection = *connectionsMap[cgiConnection.parentSocket]; // 부모 커넥션 가져오기
         parentConnection.responses.push(response); // 부모 커넥션의 responses에다 pipe에서 읽어 온 데이터 넣음
         EventManager::getInstance().addWriteEvent(cgiConnection.parentSocket);
@@ -243,7 +255,23 @@ Connection: Close 로직을 추가하고 if (event.flags & EV_EOF)&& !isKeepAliv
 
     try
     {
-        while (parseData(connection)) ;
+        while (parseData(connection))
+        {
+            if (!connection.request)
+                return ;
+
+            size_t responseCnt = connection.responses.size(); // 1
+            Logger::getInstance().logHttpMessage(*connection.request);
+            RequestHandler requestHandler(connectionsMap, config, socket);
+            ResponseMessage* res = requestHandler.handleRequest();
+            delete connection.request;
+            if (res == NULL)
+                continue;
+
+            connection.responses.push(res);
+            if (connection.responses.size() > responseCnt)
+                EventManager::getInstance().addWriteEvent(socket);
+        }
     }
     catch(const HttpException& e)
     {
@@ -256,25 +284,6 @@ Connection: Close 로직을 추가하고 if (event.flags & EV_EOF)&& !isKeepAliv
         EventManager::getInstance().addWriteEvent(socket);
         return ;
     }
-
-    if (connection.requests.empty())
-        return ;
-
-    size_t responseCnt = connection.responses.size(); // 1
-    while (!connection.requests.empty())
-    {
-        Logger::getInstance().logHttpMessage(*connection.requests.front());
-        RequestHandler requestHandler(connectionsMap, config, socket);
-        ResponseMessage* res = requestHandler.handleRequest();
-        delete connection.requests.front();
-        connection.requests.pop();
-        if (res == NULL)
-            continue;
-
-        connection.responses.push(res);
-    }
-    if (connection.responses.size() > responseCnt)
-        EventManager::getInstance().addWriteEvent(socket);
 }
 
 // connection의 소켓으로부터 데이터를 읽어 옴
@@ -315,10 +324,8 @@ bool Server::parseData(Connection& connection)
 
         if (!connection.isBodyReading && !connection.isChunked)
         {
-            static int num = 0;
-            std::cout << "num" << num++ << ": " << req->toString() << std::endl;
             connection.reqBuffer = NULL;
-            connection.requests.push(req);
+            connection.request = req;
         }
         return true;
     }
@@ -365,7 +372,7 @@ bool Server::addContent(Connection& connection)
     {
         req->addMessageBody(connection.recvedData.substr(0, contentLength));
         connection.reqBuffer = NULL;
-        connection.requests.push(req);
+        connection.request = req;
         connection.recvedData.erase(0, contentLength);
         connection.isBodyReading = false;
 
@@ -391,7 +398,7 @@ bool Server::addChunk(Connection& connection)
         {
             connection.isChunked = false;  // 마지막 청크면 청크 상태 해제
             connection.reqBuffer = NULL;
-            connection.requests.push(req); // 완성된 청크를 completeRequests에 저장
+            connection.request = req; // 완성된 청크를 completeRequests에 저장
             break ;
         }
     }

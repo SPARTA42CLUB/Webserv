@@ -14,7 +14,7 @@ struct Connection
     bool isBodyReading;
     std::string recvedData;
     RequestMessage* reqBuffer;
-    std::queue<RequestMessage*> requests;
+    RequestMessage* request;
     std::queue<ResponseMessage*> responses;
     time_t last_activity;
     ServerConfig serverConfig;
