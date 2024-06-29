@@ -6,10 +6,12 @@ CR="\r"
 requests=(
 "GET / HTTP/1.1$CR
 Host: localhost$CR
+Content-Length: 10000000$CR
 $CR
 " 200
 "GET / HTTP/1.1$CR
 Host: localhost$CR
+Content-Length: 0$CR
 $CR
 " 200
 "GET /error HTTP/1.1$CR
@@ -18,6 +20,7 @@ $CR
 " 404
 "POST / HTTP/1.1$CR
 Host: localhost$CR
+Content-Length: 1$CR
 $CR
 " 200
 "GET / HTTP/1.1$CR

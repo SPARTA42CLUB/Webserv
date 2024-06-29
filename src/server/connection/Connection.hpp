@@ -13,6 +13,7 @@ struct Connection
     bool isChunked;
     std::string recvedData;
     std::string chunkBuffer;
+    size_t chunkBodySize;
     std::queue<RequestMessage*> requests;
     std::queue<std::string> responses;
     time_t last_activity;

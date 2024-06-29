@@ -12,6 +12,7 @@ Connection::Connection(const int socket, const int parentSocket, std::string rec
 , isChunked(false)
 , recvedData(recvedData)
 , chunkBuffer()
+, chunkBodySize(0)
 , requests()
 , responses()
 , last_activity(time(NULL))

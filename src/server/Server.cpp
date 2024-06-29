@@ -370,12 +370,9 @@ std::string Server::getChunk(Connection& connection)
 
     connection.recvedData.erase(0, chunkSizeEndPos + 2); // 청크 헤더 제거
 
-    size_t wholeChunkSize = connection.chunkBuffer.size();
-    wholeChunkSize += chunkSize;
-    if (wholeChunkSize > connection.serverConfig.getClientMaxBodySize())
+    connection.chunkBodySize += chunkSize;
+    if (connection.chunkBodySize > connection.serverConfig.getClientMaxBodySize())
     {
-        connection.chunkBuffer.clear();
-        connection.isChunked = false;
         throw HttpException(PAYLOAD_TOO_LARGE);
     }
 
@@ -448,13 +445,11 @@ std::string Server::getRequest(Connection& connection)
     // 청크가 아니면 content-length 검사
     if (!connection.isChunked)
     {
-        if (connection.recvedData.length() >= headerLength + contentLength)
+        if (contentLength > connection.serverConfig.getClientMaxBodySize())
         {
-            if (contentLength > connection.serverConfig.getClientMaxBodySize())
-            {
-                connection.recvedData.erase(0, headerLength + contentLength);
-                throw HttpException(PAYLOAD_TOO_LARGE);
-            }
+            // 어차피 connectionClose 할거라 사후처리 불필요
+            // connection.recvedData.erase(0, headerLength + contentLength);
+            throw HttpException(PAYLOAD_TOO_LARGE);
         }
 
         return connection.recvedData.substr(0, headerLength + contentLength);
