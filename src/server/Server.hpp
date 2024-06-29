@@ -12,15 +12,13 @@ private:
     const Config& config;
     std::vector<int> serverSockets;
     std::map<int, Connection*> connectionsMap;
-    std::vector<int> closeSockets;
-
-    void garbageCollector(struct kevent& event);
-    bool isConnection(int key);
 
     void setupServerSockets();
     int createServerSocket(ServerConfig serverConfig);
-    void setNonBlocking(int socket);
+
     void checkKeepAlive();
+
+    void handleEvents(struct kevent& event);
 
     void acceptClient(int serverSocket);
     void handleClientReadEvent(struct kevent& event);
@@ -38,10 +36,11 @@ private:
     std::string getRequest(Connection& connection);
 
     void closeConnection(int socket);
-	void eraseCloseSockets();
+    bool isConnection(int key);
     bool isServerSocket(int socket);
-
     void updateLastActivity(Connection& connection);
+
+    void deleteGarbageEvent(struct kevent& event);
 
 public:
     Server(const Config& config);

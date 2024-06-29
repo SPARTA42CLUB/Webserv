@@ -1,9 +1,9 @@
 #include "Server.hpp"
 #include <arpa/inet.h>
-#include <fcntl.h>
 #include <unistd.h>
 #include <iostream>
 #include <vector>
+#include "fileController.hpp"
 #include "ChunkedRequestReader.hpp"
 #include "EventManager.hpp"
 #include "HttpException.hpp"
@@ -31,10 +31,8 @@ Server::~Server()
 
     for (std::map<int, Connection*>::const_iterator it = connectionsMap.begin(); it != connectionsMap.end(); ++it)
     {
-        closeConnection(it->first);
+        delete it->second;
     }
-
-    eraseCloseSockets();
 }
 
 // Server 소켓 생성 및 설정
@@ -94,16 +92,6 @@ int Server::createServerSocket(ServerConfig serverConfig)
     return serverSocket;
 }
 
-// 소켓 논블로킹 설정
-void Server::setNonBlocking(int socket)
-{
-    if (fcntl(socket, F_SETFL, O_NONBLOCK) == -1)
-    {
-        close(socket);
-        throw SysException(FAILED_TO_SET_NON_BLOCKING);
-    }
-}
-
 // 서버 실행
 void Server::run()
 {
@@ -115,68 +103,49 @@ void Server::run()
         {
             struct kevent& event = *it;
 
-            if (event.flags & EV_ERROR)
-            {
-                continue ;
-            }
-            if (isServerSocket(event.ident))
-            {
-                acceptClient(event.ident);
-            }
-            else if (event.filter == EVFILT_READ)
-            {
-                if (isCgiConnection(*connectionsMap[event.ident]))
-                {
-                    handlePipeReadEvent(event);
-                }
-                else
-                {
-                    handleClientReadEvent(event);
-                }
-            }
-            else if (event.filter == EVFILT_WRITE)
-            {
-                if (isCgiConnection(*connectionsMap[event.ident]))
-                {
-                    handlePipeWriteEvent(event);
-                }
-                else
-                {
-                    handleClientWriteEvent(event);
-                }
-            }
-
-            garbageCollector(event);
+            handleEvents(event);
         }
 
         checkKeepAlive();
     }
 }
 
-void Server::garbageCollector(struct kevent& event)
+void Server::handleEvents(struct kevent& event)
 {
-    eraseCloseSockets();
+    if (event.flags & EV_ERROR)
+        return ;
 
     if (isServerSocket(event.ident))
-        return ;
-
-    if (isConnection(event.ident))
-        return ;
-
-    if (event.filter == EVFILT_READ)
     {
-        EventManager::getInstance().deleteReadEvent(event.ident);
+        acceptClient(event.ident);
     }
-    else if (event.filter == EVFILT_WRITE)
+    else if (isConnection(event.ident))
     {
-        EventManager::getInstance().deleteWriteEvent(event.ident);
+        if (event.filter == EVFILT_READ)
+        {
+            if (isCgiConnection(*connectionsMap[event.ident]))
+            {
+                handlePipeReadEvent(event);
+            }
+            else
+            {
+                handleClientReadEvent(event);
+            }
+        }
+        else if (event.filter == EVFILT_WRITE)
+        {
+            if (isCgiConnection(*connectionsMap[event.ident]))
+            {
+                handlePipeWriteEvent(event);
+            }
+            else
+            {
+                handleClientWriteEvent(event);
+            }
+        }
     }
-}
 
-bool Server::isConnection(int key)
-{
-    std::map<int, Connection*>::iterator it = connectionsMap.find(key);
-    return (it != connectionsMap.end());
+    deleteGarbageEvent(event);
 }
 
 // 서버 소켓에서 읽기 이벤트가 발생했다는 것의 의미 : 새로운 클라이언트가 연결 요청을 보냈다는 것
@@ -214,7 +183,6 @@ void Server::handlePipeReadEvent(struct kevent& event)
         EventManager::getInstance().addWriteEvent(cgiConnection.parentSocket);
         cgiConnection.recvedData.clear(); // 데이터 버퍼 클리어.
 
-        EventManager::getInstance().deleteReadEvent(event.ident);
         closeConnection(event.ident);
         return;
     }
@@ -233,7 +201,6 @@ void Server::handlePipeWriteEvent(struct kevent& event)
     if ((bytesSend = write(pipe, data.c_str(), data.length())) < 0)
     {
         Logger::getInstance().logWarning("Failed Write to pipe");
-        EventManager::getInstance().deleteWriteEvent(pipe);
         closeConnection(pipe);
         return ;
     }
@@ -245,7 +212,6 @@ void Server::handlePipeWriteEvent(struct kevent& event)
     {
         int readSocket = connectionsMap[cgiConnection.parentSocket]->childSocket[READ_END];
         EventManager::getInstance().addReadEvent(readSocket);
-        EventManager::getInstance().deleteWriteEvent(pipe);
         closeConnection(pipe);
     }
 }
@@ -267,7 +233,6 @@ Connection: Close 로직을 추가하고 if (event.flags & EV_EOF)&& !isKeepAliv
 */
     if (event.flags & EV_EOF)
     {
-        EventManager::getInstance().deleteReadEvent(socket);
         closeConnection(socket);
         return;
     }
@@ -322,7 +287,6 @@ void Server::recvData(Connection& connection)
     if ((bytesRead = read(socket, buffer, sizeof(buffer) - 1)) < 0)
     {
         Logger::getInstance().logWarning("Recv error");
-        EventManager::getInstance().deleteReadEvent(socket);
         closeConnection(socket);
         return;
     }
@@ -492,7 +456,6 @@ void Server::handleClientWriteEvent(struct kevent& event)
     if (bytesSend < 0)
     {
         Logger::getInstance().logWarning("Send error");
-        EventManager::getInstance().deleteWriteEvent(socket);
         closeConnection(socket);
         return ;
     }
@@ -525,6 +488,8 @@ ssize_t Server::sendToSocket(Connection& connection)
 void Server::checkKeepAlive()
 {
     const time_t now = time(NULL);
+    std::queue<int> closeSockets;
+
     for (std::map<int, Connection*>::const_iterator it = connectionsMap.begin(); it != connectionsMap.end(); ++it)
     {
         if ((it->second)->parentSocket != -1) // pipe 커넥션이면 패스
@@ -532,10 +497,16 @@ void Server::checkKeepAlive()
 
         if (difftime(now, (it->second)->last_activity) > config.getKeepAliveTime())
 		{
-            EventManager::getInstance().deleteReadEvent(it->first);
-            closeConnection(it->first);
+            delete connectionsMap[it->first];
+            closeSockets.push(it->first);
 		}
     }
+
+    while (!closeSockets.empty())
+	{
+		connectionsMap.erase(closeSockets.front());
+        closeSockets.pop();
+	}
 }
 
 void Server::updateLastActivity(Connection& connection)
@@ -547,16 +518,7 @@ void Server::updateLastActivity(Connection& connection)
 void Server::closeConnection(int socket)
 {
     delete connectionsMap[socket];
-    closeSockets.push_back(socket);
-}
-
-void Server::eraseCloseSockets()
-{
-	for (size_t i = 0; i < closeSockets.size(); ++i)
-	{
-		connectionsMap.erase(closeSockets[i]);
-	}
-    closeSockets.clear();
+    connectionsMap.erase(socket);
 }
 
 bool Server::isServerSocket(int socket)
@@ -567,3 +529,27 @@ bool Server::isServerSocket(int socket)
     return false;
 }
 
+bool Server::isConnection(int key)
+{
+    std::map<int, Connection*>::iterator it = connectionsMap.find(key);
+    return (it != connectionsMap.end());
+}
+
+void Server::deleteGarbageEvent(struct kevent& event)
+{
+    if (isServerSocket(event.ident))
+        return ;
+
+    if (isConnection(event.ident))
+        return ;
+
+    std::cout << "GC\n" << std::endl;
+    if (event.filter == EVFILT_READ)
+    {
+        EventManager::getInstance().deleteReadEvent(event.ident);
+    }
+    else if (event.filter == EVFILT_WRITE)
+    {
+        EventManager::getInstance().deleteWriteEvent(event.ident);
+    }
+}

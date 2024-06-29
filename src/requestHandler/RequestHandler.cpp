@@ -6,6 +6,7 @@
 #include "EventManager.hpp"
 #include "SysException.hpp" // TODO: 에러 이걸로 던짐?????
 #include "FileChecker.hpp"
+#include "fileController.hpp"
 
 // DELETE: 테스트용
 #include <iostream>
@@ -124,16 +125,9 @@ void RequestHandler::executeCGI(void)
         // Parent process
         close(pipe_in[READ_END]);
         close(pipe_out[WRITE_END]);
-        if (fcntl(pipe_in[WRITE_END], F_SETFL, O_NONBLOCK) == -1)
-        {
-            close(pipe_in[WRITE_END]);
-            throw SysException(FAILED_TO_SET_NON_BLOCKING);
-        }
-        if (fcntl(pipe_out[READ_END], F_SETFL, O_NONBLOCK) == -1)
-        {
-            close(pipe_out[READ_END]);
-            throw SysException(FAILED_TO_SET_NON_BLOCKING);
-        }
+
+        setNonBlocking(pipe_in[WRITE_END]);
+        setNonBlocking(pipe_out[READ_END]);
 
         mConnectionsMap[mSocket]->childSocket[WRITE_END] = pipe_in[WRITE_END];
         mConnectionsMap[mSocket]->childSocket[READ_END] = pipe_out[READ_END];
