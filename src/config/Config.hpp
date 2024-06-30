@@ -23,8 +23,6 @@ public:
     Config(const std::string& configFilePath);
     ~Config();
     const std::vector<ServerConfig>& getServerConfigs() const;
-    const ServerConfig& getServerConfigByHost(std::string host) const;
-    const ServerConfig& getDefaultServerConfig() const;
     size_t getKeepAliveTime() const;
 
     // TEST: 파싱 결과 출력

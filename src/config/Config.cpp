@@ -27,26 +27,6 @@ Config::~Config()
 {
 }
 
-// host 값으로 ServerConfig 찾아서 반환.
-const ServerConfig& Config::getServerConfigByHost(std::string host) const
-{
-    for (std::vector<ServerConfig>::const_iterator it = serverConfigs.begin(); it != serverConfigs.end(); ++it)
-    {
-        if (it->host == host)
-        {
-            return *it;
-        }
-    }
-
-    // 일치하는 host 없으면 기본 serverConfig 반환
-    return getDefaultServerConfig();
-}
-
-// serverConfigs의 첫 번째 애를 기본 서버로 반환
-const ServerConfig& Config::getDefaultServerConfig() const
-{
-    return serverConfigs.front();
-}
 // Config 파일 파싱
 void Config::parse(const std::string& configFilePath)
 {
@@ -125,7 +105,7 @@ void Config::parseServer(std::ifstream& file)
             else if (key == "index") serverConfig.parseIndex(value);
             else if (key == "client_max_body_size") serverConfig.parseClientMaxBodySize(value);
             else if (key == "error_page") serverConfig.parseErrorPage(value);
-            else if (key == "location") 
+            else if (key == "location")
             {
                 if (!serverConfig.isValidLocationPath(value))
                 {

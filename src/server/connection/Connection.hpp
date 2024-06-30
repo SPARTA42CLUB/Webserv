@@ -17,9 +17,9 @@ struct Connection
     RequestMessage* request;
     std::queue<ResponseMessage*> responses;
     time_t last_activity;
-    ServerConfig serverConfig;
+    const ServerConfig& serverConfig;
 
-    Connection(const int socket, const int parentSocket = -1, std::string recvedData = "");
+    Connection(const int socket, const ServerConfig& serverConfig, const int parentSocket = -1, std::string recvedData = "");
     ~Connection();
 };
 
