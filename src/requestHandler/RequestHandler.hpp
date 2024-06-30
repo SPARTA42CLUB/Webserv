@@ -20,7 +20,11 @@ private:
     std::string mQueryString;
     bool mbIsCGI;
 
-    int setPath(void);
+    // Processing Request
+    void processRequestPath(void);
+    bool matchExactLocation(const std::string& reqTarget, const std::map<std::string, LocationConfig>& locations);
+    bool matchClosestLocation(const std::string& reqTarget, const std::map<std::string, LocationConfig>& locations);
+    bool identifyCGIRequest(const std::string& reqTarget, std::map<std::string, LocationConfig>::const_iterator& locIt);
 
     int handleMethod(void);
     // Response (Success)
@@ -29,16 +33,17 @@ private:
     int headRequest(void);
     int postRequest(void);
     int deleteRequest(void);
+    // 3xx
+    int redirect(void);
+
+    bool handleIndex(void);
+    int handleAutoindex(void);
+
+    void addContentType(void);
+    void addConnectionHeader();
 
     void executeCGI(void);
 
-    void addContentType(void);
-
-    void addConnectionHeader();
-
-    // Response (Exception)
-    // 3xx
-    void found(void); // Require 'Location' header field
 
 public:
     RequestHandler(std::map<int, Connection*>& connectionsMap, const int socket);

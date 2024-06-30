@@ -5,9 +5,8 @@
 #include <unistd.h>
 #include <string>
 
-class FileManager
+namespace fileManager
 {
-public:
     enum eStat
     {
         NONE,
@@ -16,11 +15,13 @@ public:
         READABLE,
         WRITABLE
     };
-    static void setNonBlocking(int fd);
-    static int getFileStatus(const std::string& path);
-    static bool isReadable(const std::string& path);
-    static bool isWritable(const std::string& path);
-    static const std::string listDirectoryContents(const std::string& path);
-};
+    void setNonBlocking(int fd);
+    int getFileStatus(const std::string& path);
+    bool isExist(const std::string& path);
+    bool isReadable(const std::string& path);
+    bool isWritable(const std::string& path);
+    const std::string listDirectoryContents(const std::string& path);
+}
+
 
 #endif

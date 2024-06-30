@@ -6,13 +6,15 @@ CR="\r"
 requests=(
 "GET / HTTP/1.1$CR
 Host: localhost$CR
+Connection: close$CR
 Content-Length: 10000000$CR
 Number: 1$CR
 $CR
-" 413
+dsadsadsa" 413
 
 "GET / HTTP/1.1$CR
 Host: localhost$CR
+Connection: close$CR
 Content-Length: 0$CR
 Number: 2$CR
 $CR
@@ -20,19 +22,22 @@ $CR
 
 "GET /error HTTP/1.1$CR
 Host: localhost$CR
+Connection: close$CR
 Number: 3$CR
 $CR
-" 404
+" 403
 
 "POST / HTTP/1.1$CR
 Host: localhost$CR
+Connection: close$CR
 Content-Length: 1$CR
 Number: 4$CR
 $CR
-" 200
+a" 200
 
 "GET / HTTP/1.1$CR
 Host: localhost:8080$CR
+Connection: close$CR
 Number: 5$CR
 $CR
 " 200
@@ -44,12 +49,14 @@ $CR
 
 "GET / HTTP/1.1$CR
 Host: seunan:8081$CR
+Connection: close$CR
 Number: 7$CR
 $CR
 " 200
 
 "GET /permission_denied/forbidden HTTP/1.1$CR
 Host: localhost:8080$CR
+Connection: close$CR
 Number: 8$CR
 $CR
 " 403
@@ -63,13 +70,14 @@ $CR
 
 "GET / HTTP/1.1$CR
 Host: localhost:8080$CR
-Connection: keep-alive$CR
+Connection: close$CR
 Number: 10$CR
 $CR
 " 200
 
 "GET / HTTP/1.1$CR
 Host: localhost:8080$CR
+Connection: close$CR
 Date: Sun Nov 6 08:49:37 1994$CR
 Number: 11$CR
 $CR
@@ -84,6 +92,7 @@ $CR
 
 "GET / HTTP/1.1$CR
 Host: localhost:8080$CR
+Connection: close$CR
 Number: 13$CR
 $CR
 Connection: close$CR
@@ -93,7 +102,7 @@ bodybody" 200
 
 "GET / HTTP/1.1$CR
 Host: localhost:8080$CR
-Connection: keep-alive$CR
+Connection: close$CR
 Content-Type: text/html$CR
 Number: 14$CR
 $CR
@@ -109,18 +118,21 @@ $CR
 
 "DELETE /notfound.html HTTP/1.1$CR
 Host: localhost:8080$CR
+Connection: close$CR
 Number: 16$CR
 $CR
 " 404
 
 "DELETE /delete HTTP/1.1$CR
 Host: localhost:8080$CR
+Connection: close$CR
 Number: 17$CR
 $CR
 " 200
 
 "DELETE /permission_denied/not_allow HTTP/1.1$CR
 Host: localhost:8080$CR
+Connection: close$CR
 Number: 18$CR
 $CR
 " 403
