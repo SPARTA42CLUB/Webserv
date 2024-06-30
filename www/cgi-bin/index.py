@@ -10,56 +10,58 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 # Enable CGI error reporting
 cgitb.enable()
 
+
 def handle_delete():
     query_string = os.environ.get("QUERY_STRING", "")
     params = cgi.parse_qs(query_string)
-    print("Content-Type: text/html")
-    print()
+    status_line = "HTTP/1.1 200 OK\r\n"
+    headers = "Content-Type: text/html\r\n"
+    body = ""
     if "file" in params:
         file_path = params["file"][0]
         file_path = pathlib.Path(file_path)
         if file_path.exists():
             try:
                 file_path.unlink()
-                print("<h1>DELETE request received</h1>")
-                print(f"<p>File {file_path} deleted successfully.</p>")
+                body = "<h1>DELETE request received</h1><p>File {file_path} deleted successfully.</p>"
             except Exception as e:
-                print("<h1>DELETE request received</h1>")
-                print(f"<p>Error deleting file {file_path}: {e}</p>")
+                body = "<h1>DELETE request received</h1><p>Error deleting file {file_path}: {e}</p>"
         else:
-            print("<h1>DELETE request received</h1>")
-            print(f"<p>File {file_path} does not exist.</p>")
+            body = "<h1>DELETE request received</h1><p>File {file_path} does not exist.</p>"
     else:
-        print("<h1>DELETE request received</h1>")
-        print("<p>No file specified.</p>")
+        body = "<h1>DELETE request received</h1><p>No file specified.</p>"
+    return status_line, headers, body
+
 
 def main():
     request_method = os.environ.get("REQUEST_METHOD")
-    # Print HTTP headers
-    print("HTTP/1.1 200 OK")
-    print("Content-Type: text/plain")
-    print("Content-Length: 2")
     if request_method == "HEAD":
-        # Content-Length 헤더를 설정하여 본문이 없음을 알림
-        print("Content-Length: 0")
-        print()  # 헤더와 본문을 구분하는 빈 줄
+        status_line = "HTTP/1.1 200 OK\r\n"
+        headers = "Content-Type: text/plain\r\n"
+        headers += "Content-Length: 0\r\n"
+        body = ""
     else:
-        print()
         if request_method in ["GET", "POST"]:
-            # Create instance of FieldStorage
             form = cgi.FieldStorage()
-
-            # Get data from fields
             name = form.getvalue("name")
             age = form.getvalue("age")
-
-            # Print the content
+            body = "<html><body>"
             if name and age:
-                print(f"Received name: {name}, age: {age}")
+                body += f"<h1>Received name: {name}, age: {age}</h1>"
             else:
-                print("No name or age provided")
+                body += "<h1>GET/POST request received</h1>"
+            body += "</body></html>"
+            status_line = "HTTP/1.1 200 OK\r\n"
+            headers = "Content-Type: text/html\r\n"
+            headers += f"Content-Length: {len(body)}\r\n"
         elif request_method == "DELETE":
-            handle_delete()
+            status_line, headers, body = handle_delete()
+        else:
+            status_line = "HTTP/1.1 404 Not Found\r\n"
+            headers = "Content-Type: text/html\r\n"
+            body = "<html><body><h1>404 Not Found</h1></body></html>"
+
+    print(status_line + headers + "\r\n" + body)
 
 if __name__ == "__main__":
     main()

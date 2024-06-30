@@ -16,6 +16,8 @@ private:
 
     void parseStatusLine(std::istringstream& resStream);
     void parseResponseHeaderFields(std::istringstream& resStream);
+    void parseMessageBody(std::istringstream& resStream);
+    std::string getErrorMsgBody(const int statusCode, const ServerConfig& serverConfig) const;
 
     ResponseMessage(const ResponseMessage& rhs);
     ResponseMessage& operator=(const ResponseMessage& rhs);
@@ -23,34 +25,31 @@ private:
 public:
     ResponseMessage();
     ~ResponseMessage();
-    void parseResponseHeader(const std::string& response);
+    void parseResponseMessage(const std::string& response);
     void setStatusLine(const std::string& httpVersion, const std::string& statusCode, const std::string& reasonPhrase);
     void setStatusLine(const std::string& httpVersion, const int statusCode, const std::string& reasonPhrase);
     void addResponseHeaderField(const std::string& key, const std::string& value);
     void addResponseHeaderField(const std::string& key, const int value);
-    void addSemanticHeaderFields();
+    void addSemanticHeaderFields(void);
     void addMessageBody(const std::string& body);
 
-    size_t getMessageBodySize() const;
+    void setByStatusCode(const int statusCode, const ServerConfig& serverConfig);
     const HeaderFields& getResponseHeaderFields() const;
-
+    size_t getMessageBodySize() const;
     void clearMessageBody();
     std::string toString(void) const;
 
-    void setByStatusCode(const int statusCode, const ServerConfig& serverConfig);
-
-
     // 4xx
-    void badRequest(void);
-    void forbidden(void);
-    void notFound(void);
-    void methodNotAllowed(void);
-    void uriTooLong(void);
-    void contentTooLarge();
+    void badRequest(const std::string& body = "");
+    void forbidden(const std::string& body = "");
+    void notFound(const std::string& body = "");
+    void methodNotAllowed(const std::string& body = "");
+    void uriTooLong(const std::string& body = "");
+    void contentTooLarge(const std::string& body = "");
     // 5xx
-    void badGateway(void);
-    void serviceUnavailable();
-    void httpVersionNotSupported(void);
+    void badGateway(const std::string& body = "");
+    void serviceUnavailable(const std::string& body = "");
+    void httpVersionNotSupported(const std::string& body = "");
 };
 
 #endif

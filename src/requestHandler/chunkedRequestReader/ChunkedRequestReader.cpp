@@ -1,7 +1,6 @@
 #include "ChunkedRequestReader.hpp"
 #include <fstream>
 #include <sstream>
-#include <iostream>
 
 ChunkedRequestReader::ChunkedRequestReader(const std::string &uploadFilePath, const std::string &reqBody)
     : uploadFilePath(uploadFilePath), reqBody(reqBody)

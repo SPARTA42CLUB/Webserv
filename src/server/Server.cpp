@@ -1,7 +1,6 @@
 #include "Server.hpp"
 #include <arpa/inet.h>
 #include <unistd.h>
-#include <iostream>
 #include <vector>
 #include "FileManager.hpp"
 #include "ChunkedRequestReader.hpp"
@@ -179,12 +178,12 @@ void Server::handlePipeReadEvent(struct kevent& event)
     {
         waitpid(-1, NULL, WNOHANG);
         ResponseMessage* response = new ResponseMessage(); // 저장된 데이터 들고 오기
-        // 유효성 체크
+        /* 유효성 체크
+        필수적인 헤더가 있는 지 확인
+        Status Line이나 Content-Length정도는 만들어야 할듯?? */
         try
         {
-            // 필수적인 헤더가 있는 지 확인
-            // Status Line이나 Content-Length정도는 만들어야 할듯??
-            response->parseResponseHeader(cgiConnection.recvedData);
+            response->parseResponseMessage(cgiConnection.recvedData);
         }
         catch(const HttpException& e)
         {

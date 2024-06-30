@@ -1,6 +1,5 @@
 #include "Connection.hpp"
 #include <unistd.h>
-#include <iostream>
 #include <string>
 #include "EventManager.hpp"
 #include "Logger.hpp"

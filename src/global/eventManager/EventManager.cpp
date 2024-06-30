@@ -1,6 +1,5 @@
 #include "EventManager.hpp"
 #include <unistd.h>
-#include <iostream>
 #include "SysException.hpp"
 
 EventManager& EventManager::getInstance()

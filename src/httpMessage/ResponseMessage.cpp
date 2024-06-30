@@ -10,13 +10,14 @@ ResponseMessage::ResponseMessage()
 ResponseMessage::~ResponseMessage()
 {
 }
-void ResponseMessage::parseResponseHeader(const std::string& response)
+void ResponseMessage::parseResponseMessage(const std::string& response)
 {
     std::istringstream resStream(response);
     try
     {
         parseStatusLine(resStream);
         parseResponseHeaderFields(resStream);
+        parseMessageBody(resStream);
     }
     catch (const HttpException& e)
     {
@@ -46,6 +47,12 @@ void ResponseMessage::parseResponseHeaderFields(std::istringstream& resStream)
     {
         throw HttpException(BAD_GATEWAY);
     }
+}
+void ResponseMessage::parseMessageBody(std::istringstream& resStream)
+{
+    std::ostringstream oss;
+    oss << resStream.rdbuf();
+    mMessageBody.addBody(oss.str());
 }
 void ResponseMessage::setStatusLine(const std::string& httpVersion, const std::string& statusCode, const std::string& reasonPhrase)
 {
@@ -87,137 +94,178 @@ void ResponseMessage::clearMessageBody()
 {
     mMessageBody.clear();
 }
-
+std::string ResponseMessage::ResponseMessage::getErrorMsgBody(const int statusCode, const ServerConfig& serverConfig) const
+{
+    std::string errorPageBody("");
+    std::map<size_t, std::string>::const_iterator errIt = serverConfig.error_pages.find(statusCode);
+    if (errIt == serverConfig.error_pages.end())
+    {
+        return errorPageBody;
+    }
+    std::map<std::string, LocationConfig>::const_iterator locIt = serverConfig.locations.find(errIt->second);
+    if (locIt == serverConfig.locations.end())
+    {
+        return errorPageBody;
+    }
+    const std::string path = locIt->second.root + errIt->second;
+    std::ifstream file(path);
+    if (file.is_open())
+    {
+        std::ostringstream oss;
+        oss << file.rdbuf();
+        errorPageBody = oss.str();
+    }
+    return errorPageBody;
+}
 void ResponseMessage::setByStatusCode(const int statusCode, const ServerConfig& serverConfig)
 {
-    (void)serverConfig;
-    // default error page를 찾고 확장자명을 확인 -> Content-Type
-    // 컨텐츠를 읽고 string에 담아 -> String content
-    // 두 개를 매개변수로 전달
+    const std::string errorMsgBody = getErrorMsgBody(statusCode, serverConfig);
     if (statusCode == BAD_REQUEST)
     {
-        badRequest();
+        badRequest(errorMsgBody);
     }
     else if (statusCode == FORBIDDEN)
     {
-        forbidden();
+        forbidden(errorMsgBody);
     }
     else if (statusCode == NOT_FOUND)
     {
-        notFound();
+        notFound(errorMsgBody);
     }
     else if (statusCode == METHOD_NOT_ALLOWED)
     {
-        methodNotAllowed();
+        methodNotAllowed(errorMsgBody);
     }
     else if (statusCode == URI_TOO_LONG)
     {
-        uriTooLong();
+        uriTooLong(errorMsgBody);
     }
     else if (statusCode == CONTENT_TOO_LARGE)
     {
-        contentTooLarge();
+        contentTooLarge(errorMsgBody);
     }
     else if (statusCode == BAD_GATEWAY)
     {
-        badGateway();
+        badGateway(errorMsgBody);
     }
     else if (statusCode == SERVICE_UNAVAILABLE)
     {
-        serviceUnavailable();
+        serviceUnavailable(errorMsgBody);
     }
     else if (statusCode == HTTP_VERSION_NOT_SUPPORTED)
     {
-        httpVersionNotSupported();
+        httpVersionNotSupported(errorMsgBody);
     }
 }
-void ResponseMessage::badRequest(void)
+void ResponseMessage::badRequest(const std::string& body)
 {
+    if (body.empty())
+        addMessageBody("<html><head><title>400 Bad Request</title></head><body><h1>400 Bad Request</h1></body></html>");
+    else
+        addMessageBody(body);
     setStatusLine("HTTP/1.1", BAD_REQUEST, "Bad Request");
-    addMessageBody("<html><head><title>400 Bad Request</title></head><body><h1>400 Bad Request</h1></body></html>");
     addResponseHeaderField("Content-Type", "text/html");
     addResponseHeaderField("Connection", "close");
     addSemanticHeaderFields();
 }
-void ResponseMessage::forbidden(void)
+void ResponseMessage::forbidden(const std::string& body)
 {
+    if (body.empty())
+        addMessageBody("<html><head><title>403 Forbidden</title></head><body><h1>403 Forbidden</h1></body></html>");
+    else
+        addMessageBody(body);
     setStatusLine("HTTP/1.1", FORBIDDEN, "Forbidden");
-    addMessageBody("<html><head><title>403 Forbidden</title></head><body><h1>403 Forbidden</h1></body></html>");
     addResponseHeaderField("Content-Type", "text/html");
     addResponseHeaderField("Connection", "keep-alive");
     addSemanticHeaderFields();
 }
-void ResponseMessage::notFound(void)
+void ResponseMessage::notFound(const std::string& body)
 {
+    if (body.empty())
+        addMessageBody("<html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1></body></html>");
+    else
+        addMessageBody(body);
     setStatusLine("HTTP/1.1", NOT_FOUND, "Not Found");
-    addMessageBody("<html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1></body></html>");
     addResponseHeaderField("Content-Type", "text/html");
     addResponseHeaderField("Connection", "keep-alive");
     addSemanticHeaderFields();
 }
-void ResponseMessage::methodNotAllowed(void)
+void ResponseMessage::methodNotAllowed(const std::string& body)
 {
+    if (body.empty())
+        addMessageBody("<html><head><title>405 Method Not Allowed</title></head><body><h1>405 Method Not Allowed</h1></body></html>");
+    else
+        addMessageBody(body);
     setStatusLine("HTTP/1.1", METHOD_NOT_ALLOWED, "Method Not Allowed");
-    addMessageBody("<html><head><title>405 Method Not Allowed</title></head><body><h1>405 Method Not Allowed</h1></body></html>");
     addResponseHeaderField("Content-Type", "text/html");
     addResponseHeaderField("Connection", "keep-alive");
     addSemanticHeaderFields();
 }
-void ResponseMessage::uriTooLong(void)
+void ResponseMessage::uriTooLong(const std::string& body)
 {
+    if (body.empty())
+        addMessageBody("<html><head><title>414 Request-URI Too Long</title></head><body><h1>414 Request-URI Too Long</h1></body></html>");
+    else
+        addMessageBody(body);
     setStatusLine("HTTP/1.1", URI_TOO_LONG, "Request-URI Too Long");
-    addMessageBody("<html><head><title>414 Request-URI Too Long</title></head><body><h1>414 Request-URI Too Long</h1></body></html>");
     addResponseHeaderField("Content-Type", "text/html");
     addResponseHeaderField("Connection", "keep-alive");
     addSemanticHeaderFields();
 }
-void ResponseMessage::contentTooLarge(void)
+void ResponseMessage::contentTooLarge(const std::string& body)
 {
+    if (body.empty())
+        addMessageBody("<html><head><title>413 Content Too Large</title></head><body><h1>413 Content Too Large</h1></body></html>");
+    else
+        addMessageBody(body);
     setStatusLine("HTTP/1.1", CONTENT_TOO_LARGE, "Content Too Large");
-    addMessageBody("<html><head><title>413 Content Too Large</title></head><body><h1>413 Content Too Large</h1></body></html>");
     addResponseHeaderField("Content-Type", "text/html");
     addResponseHeaderField("Connection", "close");
     addSemanticHeaderFields();
 }
-void ResponseMessage::badGateway(void)
+void ResponseMessage::badGateway(const std::string& body)
 {
+    if (body.empty())
+        addMessageBody("<html><head><title>502 Bad Gateway</title></head><body><h1>502 Bad Gateway</h1></body></html>");
+    else
+        addMessageBody(body);
     setStatusLine("HTTP/1.1", BAD_GATEWAY, "Bad Gateway");
-    addMessageBody("<html><head><title>502 Bad Gateway</title></head><body><h1>502 Bad Gateway</h1></body></html>");
     addResponseHeaderField("Content-Type", "text/html");
     addResponseHeaderField("Connection", "keep-alive");
     addSemanticHeaderFields();
 }
-void ResponseMessage::serviceUnavailable(void)
+void ResponseMessage::serviceUnavailable(const std::string& body)
 {
+    if (body.empty())
+        addMessageBody("<html><head><title>503 Service Unavailable</title></head><body><h1>503 Service Unavailable</h1></body></html>");
+    else
+        addMessageBody(body);
     setStatusLine("HTTP/1.1", SERVICE_UNAVAILABLE, "Service Unavailable");
-    addMessageBody("<html><head><title>503 Service Unavailable</title></head><body><h1>503 Service Unavailable</h1></body></html>");
     addResponseHeaderField("Content-Type", "text/html");
     addResponseHeaderField("Connection", "keep-alive");
     addSemanticHeaderFields();
 }
-void ResponseMessage::httpVersionNotSupported(void)
+void ResponseMessage::httpVersionNotSupported(const std::string& body)
 {
+    if (body.empty())
+        addMessageBody("<html><head><title>505 HTTP Version Not Supported</title></head><body><h1>505 HTTP Version Not Supported</h1></body></html>");
+    else
+        addMessageBody(body);
     setStatusLine("HTTP/1.1", HTTP_VERSION_NOT_SUPPORTED, "HTTP Version Not Supported");
-    addMessageBody("<html><head><title>505 HTTP Version Not Supported</title></head><body><h1>505 HTTP Version Not Supported</h1></body></html>");
     addResponseHeaderField("Content-Type", "text/html");
     addResponseHeaderField("Connection", "keep-alive");
     addSemanticHeaderFields();
 }
-
-void ResponseMessage::addSemanticHeaderFields()
+void ResponseMessage::addSemanticHeaderFields(void)
 {
     time_t now = time(0);
     struct tm* timeinfo = localtime(&now);
     char buffer[128];
     // Date: Tue, 15 Nov 1994 08:12:31 GMT
-    // NOTE: strftime() 함수는 c함수라서 평가에 어긋남, 하지만 Date 헤더 필드가 필수가 아니라서 보너스 느낌으로 넣어둠
     std::strftime(buffer, sizeof(buffer), "%a, %d %b %Y %H:%M:%S GMT", timeinfo);
     std::string date = buffer;
 
-    // NOTE: expression result unused
-    // mServerConfig.locations.find(mLocation)->CONFIG.cgi;
-
-    addResponseHeaderField("Content-Length", getMessageBodySize());
-    addResponseHeaderField("Server", "webserv");
     addResponseHeaderField("Date", date);
+    addResponseHeaderField("Server", "webserv");
+    addResponseHeaderField("Content-Length", getMessageBodySize());
 }
