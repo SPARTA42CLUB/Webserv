@@ -235,24 +235,23 @@ void Server::handlePipeWriteEvent(struct kevent& event)
 void Server::handleClientReadEvent(struct kevent& event)
 {
     int socket = event.ident;
-/*
-NOTE: nginx에
-(echo -en "GET / HTTP/1.1\r\nHost: localhost:8080\r\nConnection: keep-alive\r\n\r\n" && sleep 0.1) | nc localhost 9090
-를 실행하면 Connection 헤더와 상관없이 EOF로 인해 Connection이 종료됨
+    /*
+    NOTE: nginx에
+    (echo -en "GET / HTTP/1.1\r\nHost: localhost:8080\r\nConnection: keep-alive\r\n\r\n" && sleep 0.1) | nc localhost 9090
+    를 실행하면 Connection 헤더와 상관없이 EOF로 인해 Connection이 종료됨
 
-근데 여기를 주석 처리하면 Connection이 종료되지 않음
-Connection: Close 로직을 추가하고 if (event.flags & EV_EOF)&& !isKeepAlive) 로 수정해야할 듯
-그리고 위의 명령어는 nginx가 예상대로 동작하지 않는 걸로 간주하고 테스트시 Conncection: Close로 테스트
+    근데 여기를 주석 처리하면 Connection이 종료되지 않음
+    Connection: Close 로직을 추가하고 if (event.flags & EV_EOF)&& !isKeepAlive) 로 수정해야할 듯
+    그리고 위의 명령어는 nginx가 예상대로 동작하지 않는 걸로 간주하고 테스트시 Conncection: Close로 테스트
 
-또, 이거 주석 처리하면 if ((bytesRead = recv(connection.socket, buffer, sizeof(buffer) - 1, 0)) < 0)이 줄에서 이중 free 에러가 발생함
-*/
+    또, 이거 주석 처리하면 if ((bytesRead = recv(connection.socket, buffer, sizeof(buffer) - 1, 0)) < 0)이 줄에서 이중 free 에러가 발생함
+    */
     if (event.flags & EV_EOF)
     {
         return ;
     }
 
     Connection& connection = *connectionsMap[socket];
-
     if (recvData(connection) == false)
         return ;
 
@@ -263,24 +262,29 @@ Connection: Close 로직을 추가하고 if (event.flags & EV_EOF)&& !isKeepAliv
             if (!connection.request)
                 return ;
 
-            Logger::getInstance().logHttpMessage(*connection.request);
+            Logger::getInstance().logHttpMessage(connection.request);
             RequestHandler requestHandler(connectionsMap, socket);
             ResponseMessage* res = requestHandler.handleRequest();
+            std::string method = connection.request->getRequestLine().getMethod();
             delete connection.request;
             connection.request = NULL;
 
             if (res == NULL)
                 continue;
+            if (method == "HEAD")
+                res->clearMessageBody();
             connection.responses.push(res);
             EventManager::getInstance().addWriteEvent(socket);
         }
     }
     catch(const HttpException& e)
     {
-        Logger::getInstance().logHttpMessage(*connection.reqBuffer);
+        Logger::getInstance().logHttpMessage(connection.reqBuffer);
         ResponseMessage* res = new ResponseMessage();
         // Default error page를 위해 server config 뽑고 넣기
         res->setByStatusCode(e.getStatusCode(), connection.serverConfig);
+        if (connection.reqBuffer->getRequestLine().getMethod() == "HEAD")
+            res->clearMessageBody();
         connection.responses.push(res);
         EventManager::getInstance().addWriteEvent(socket);
         return ;
@@ -465,7 +469,7 @@ void Server::handleClientWriteEvent(struct kevent& event)
         return ;
 
     ResponseMessage* res = connection.responses.front();
-    Logger::getInstance().logHttpMessage(*res);
+    Logger::getInstance().logHttpMessage(res);
     std::string data = res->toString();
     ssize_t bytesSend = send(connection.socket, data.c_str(), data.length(), 0);
     if (bytesSend < 0)

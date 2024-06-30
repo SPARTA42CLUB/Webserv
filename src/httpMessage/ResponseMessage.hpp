@@ -6,6 +6,7 @@
 #include "MessageBody.hpp"
 #include "StartLine.hpp"
 #include "ServerConfig.hpp"
+#include "RequestMessage.hpp"
 
 class ResponseMessage
 {
