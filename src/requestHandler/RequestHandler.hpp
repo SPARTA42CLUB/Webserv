@@ -18,6 +18,7 @@ private:
     LocationConfig mLocConfig;
     std::string mPath;
     std::string mQueryString;
+    bool mbIsCGI;
 
     int setPath(void);
 
@@ -29,7 +30,6 @@ private:
     int postRequest(void);
     int deleteRequest(void);
 
-    bool checkCGI(void);
     void executeCGI(void);
 
     void addContentType(void);

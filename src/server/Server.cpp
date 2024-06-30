@@ -3,7 +3,7 @@
 #include <unistd.h>
 #include <iostream>
 #include <vector>
-#include "fileController.hpp"
+#include "FileManager.hpp"
 #include "ChunkedRequestReader.hpp"
 #include "EventManager.hpp"
 #include "HttpException.hpp"
@@ -74,7 +74,7 @@ int Server::createServerSocket(ServerConfig serverConfig)
     setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
     /* ----------------------------------------------------------------- */
 
-    setNonBlocking(serverSocket);
+    FileManager::setNonBlocking(serverSocket);
 
     // 서버 주소 설정
     struct sockaddr_in serverAddr;
@@ -163,7 +163,7 @@ void Server::acceptClient(int serverSocket)
 
     EventManager::getInstance().addReadEvent(connectionSocket);
 
-    setNonBlocking(connectionSocket);
+    FileManager::setNonBlocking(connectionSocket);
 
     Connection* connection = new Connection(connectionSocket);
     connectionsMap[connectionSocket] = connection;

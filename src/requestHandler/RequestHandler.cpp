@@ -5,8 +5,7 @@
 #include "RangeRequestReader.hpp"
 #include "EventManager.hpp"
 #include "SysException.hpp" // TODO: 에러 이걸로 던짐?????
-#include "FileChecker.hpp"
-#include "fileController.hpp"
+#include "FileManager.hpp"
 
 // DELETE: 테스트용
 #include <iostream>
@@ -19,22 +18,20 @@ RequestHandler::RequestHandler(std::map<int, Connection*>& connectionsMap, const
 , mLocConfig()
 , mPath()
 , mQueryString()
+, mbIsCGI(false)
 {
 }
-
 ResponseMessage* RequestHandler::handleRequest(void)
 {
     int statusCode;
 
-    if (checkCGI())
+    statusCode = setPath();
+    // std::cout << mPath << std::endl;
+    if (mbIsCGI)
     {
-        // std::cout << "path: " << mPath << std::endl;
-        // std::cout << "query: " << mQueryString << std::endl;
         executeCGI();
         return NULL;
     }
-    statusCode = setPath();
-    // std::cout << mPath << std::endl;
 
     mResponseMessage = new ResponseMessage();
     if (checkStatusCode(statusCode) == false)
@@ -53,35 +50,6 @@ ResponseMessage* RequestHandler::handleRequest(void)
     addConnectionHeader();
 
     return mResponseMessage;
-}
-bool RequestHandler::checkCGI(void)
-{
-    const std::string& reqTarget = mRequestMessage->getRequestLine().getRequestTarget();
-    const std::map<std::string, LocationConfig>& locations = mServerConfig.locations;
-
-    for (std::map<std::string, LocationConfig>::const_iterator it = locations.begin(); it != locations.end(); ++it)
-    {
-        if (it->LOCATION.front() == '.')
-        {
-            size_t idx = reqTarget.find(it->LOCATION);
-            if (idx == std::string::npos)
-                continue;
-            size_t query_idx = reqTarget.find('?');
-            if (reqTarget.substr(idx, it->LOCATION.size()) == it->LOCATION)
-            {
-                mLocConfig = it->CONFIG;
-                mPath = mLocConfig.root + reqTarget.substr(0, idx + it->LOCATION.size());
-                if (query_idx == std::string::npos)
-                {
-                    return true;
-                }
-                mQueryString = reqTarget.substr(query_idx + 1);
-                return true;
-            }
-
-        }
-    }
-    return false;
 }
 void RequestHandler::executeCGI(void)
 {
@@ -126,24 +94,15 @@ void RequestHandler::executeCGI(void)
         close(pipe_in[READ_END]);
         close(pipe_out[WRITE_END]);
 
-        setNonBlocking(pipe_in[WRITE_END]);
-        setNonBlocking(pipe_out[READ_END]);
+        FileManager::setNonBlocking(pipe_in[WRITE_END]);
+        FileManager::setNonBlocking(pipe_out[READ_END]);
 
         mConnectionsMap[mSocket]->childSocket[WRITE_END] = pipe_in[WRITE_END];
         mConnectionsMap[mSocket]->childSocket[READ_END] = pipe_out[READ_END];
         mConnectionsMap[pipe_in[WRITE_END]] = new Connection(pipe_in[WRITE_END], mSocket, mRequestMessage->getMessageBody().toString());
         mConnectionsMap[pipe_out[READ_END]] = new Connection(pipe_out[READ_END], mSocket);
 
-        // write(pipe_in[1], mRequestMessage->getMessageBody().toString().c_str(), mRequestMessage->getMessageBody().size());
-        // wait(NULL);
-        // char buf[4096];
-        // read(pipe_out[READ_END], buf, sizeof(buf));
-        // std::cout << buf << std::endl;
 		EventManager::getInstance().addWriteEvent(pipe_in[WRITE_END]);
-        // EventManager::getInstance().addReadEvent(pipe_out[READ_END]);
-
-        // https://codetravel.tistory.com/42
-		// waitpid(pid, NULL, WNOHANG);
 	}
 }
 
@@ -161,7 +120,7 @@ int RequestHandler::setPath()
     const std::map<std::string, LocationConfig>& locations = mServerConfig.locations;
     std::map<std::string, LocationConfig>::const_iterator it = locations.find(reqTarget);
 
-    if (locations.size() == 0)
+    if (locations.empty())
     {
         mPath = mServerConfig.root + reqTarget;
     }
@@ -169,6 +128,10 @@ int RequestHandler::setPath()
     {
         mLocConfig = it->CONFIG;
         mPath = mLocConfig.root + it->LOCATION;
+        if (it->LOCATION.back() == '/')
+        {
+            mPath += mLocConfig.index;
+        }
     }
     else
     {
@@ -176,6 +139,25 @@ int RequestHandler::setPath()
         size_t maxMatch = 0;
         for (it = locations.begin(); it != locations.end(); ++it)
         {
+            if (it->LOCATION.front() == '.')
+            {
+                size_t idx = reqTarget.find(it->LOCATION);
+                if (idx == std::string::npos)
+                    continue;
+                size_t query_idx = reqTarget.find('?');
+                if (reqTarget.substr(idx, it->LOCATION.size()) == it->LOCATION)
+                {
+                    mLocConfig = it->CONFIG;
+                    mPath = mLocConfig.root + reqTarget.substr(0, idx + it->LOCATION.size());
+                    mbIsCGI = true;
+                    if (query_idx == std::string::npos)
+                    {
+                        return OK;
+                    }
+                    mQueryString = reqTarget.substr(query_idx + 1);
+                    return OK;
+                }
+            }
             if (it->LOCATION.back() != '/')
                 continue;
             size_t matchCnt = countMatchingCharacters(reqTarget, it->LOCATION);
@@ -192,8 +174,15 @@ int RequestHandler::setPath()
         mPath = locConf->root + reqTarget;
         mLocConfig = *locConf;
     }
-    if (mPath.back() == '/')
-        mPath += mLocConfig.index;
+    int fStatus = FileManager::getFileStatus(mPath);
+    if (fStatus == FileManager::DIRECTORY && !mLocConfig.directory_listing)
+    {
+        return FORBIDDEN;
+    }
+    if (fStatus == FileManager::NONE)
+    {
+        return NOT_FOUND;
+    }
     return OK;
 }
 
@@ -246,11 +235,15 @@ void RequestHandler::addConnectionHeader()
 
 int RequestHandler::getRequest()
 {
-    std::ifstream file(mPath);
-    if (access(mPath.c_str(), F_OK) != 0)
+    int fStatus = FileManager::getFileStatus(mPath);
+    if (fStatus == FileManager::DIRECTORY)
     {
-        return NOT_FOUND;
+        mResponseMessage->setStatusLine(mRequestMessage->getRequestLine().getHTTPVersion(), OK, "OK");
+        mResponseMessage->addMessageBody(FileManager::listDirectoryContents(mPath));
+        mResponseMessage->addSemanticHeaderFields();
+        return OK;
     }
+    std::ifstream file(mPath);
     if (!file.is_open())
     {
         return FORBIDDEN;
