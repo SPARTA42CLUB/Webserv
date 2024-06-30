@@ -16,6 +16,7 @@
 Server::Server(const Config& config)
 : config(config)
 , serverSockets()
+, socketToConfig()
 , connectionsMap()
 {
     setupServerSockets();

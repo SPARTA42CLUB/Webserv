@@ -11,7 +11,7 @@ class Server
 private:
     const Config& config;
     std::vector<int> serverSockets;
-    std::map<int, ServerConfig&> socketToConfig;
+    std::map<int, ServerConfig> socketToConfig;
     std::map<int, Connection*> connectionsMap;
 
     void setupServerSockets();
