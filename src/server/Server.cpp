@@ -77,7 +77,7 @@ int Server::createServerSocket(ServerConfig serverConfig)
     setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
     /* ----------------------------------------------------------------- */
 
-    FileManager::setNonBlocking(serverSocket);
+    fileManager::setNonBlocking(serverSocket);
 
     // 서버 주소 설정
     struct sockaddr_in serverAddr;
@@ -166,7 +166,7 @@ void Server::acceptClient(int serverSocket)
 
     EventManager::getInstance().addReadEvent(connectionSocket);
 
-    FileManager::setNonBlocking(connectionSocket);
+    fileManager::setNonBlocking(connectionSocket);
 
     Connection* connection = new Connection(connectionSocket, socketToConfig[serverSocket]);
     connectionsMap[connectionSocket] = connection;
@@ -349,7 +349,6 @@ bool Server::parseData(Connection& connection)
         return true;
     }
 }
-
 RequestMessage* Server::getHeader(Connection& connection)
 {
     size_t headerEnd = connection.recvedData.find("\r\n\r\n");
@@ -373,9 +372,7 @@ RequestMessage* Server::getHeader(Connection& connection)
         }
 
         if (contentLength > 0)
-        {
             connection.isBodyReading = true;
-        }
     }
 
     return req;

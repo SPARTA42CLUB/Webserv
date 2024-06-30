@@ -6,15 +6,16 @@ CR="\r"
 requests=(
 "GET / HTTP/1.1$CR
 Host: localhost$CR
-Content-Length: 10$CR
+Connection: close$CR
+Content-Length: 10000000$CR
 Number: 1$CR
 Connection: close$CR
 $CR
-1234567890
-" 200
+dsadsadsa" 413
 
 "GET / HTTP/1.1$CR
 Host: localhost$CR
+Connection: close$CR
 Content-Length: 0$CR
 Connection: close$CR
 Number: 2$CR
@@ -26,7 +27,7 @@ Host: localhost$CR
 Connection: close$CR
 Number: 3$CR
 $CR
-" 404
+" 403
 
 "POST / HTTP/1.1$CR
 Host: localhost$CR
@@ -34,7 +35,7 @@ Connection: close$CR
 Content-Length: 1$CR
 Number: 4$CR
 $CR
-" 200
+a" 200
 
 "GET / HTTP/1.1$CR
 Host: localhost:8080$CR

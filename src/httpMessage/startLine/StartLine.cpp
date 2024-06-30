@@ -94,16 +94,9 @@ void StartLine::parseStatusLine(const std::string& statusLine)
 }
 bool checkStatusCode(int statusCode)
 {
-    switch (statusCode) {
-        case BAD_REQUEST:
-        case FORBIDDEN:
-        case NOT_FOUND:
-        case METHOD_NOT_ALLOWED:
-        case URI_TOO_LONG:
-        case CONTENT_TOO_LARGE:
-        case HTTP_VERSION_NOT_SUPPORTED:
-            return false;
-        default:
-            return true;
+    if (statusCode >= 400) 
+    {
+        return false;
     }
+    return true;
 }
