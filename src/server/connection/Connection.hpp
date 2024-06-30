@@ -10,6 +10,7 @@ struct Connection
     const int socket;
     int parentSocket;
     int childSocket[2];
+    bool isKeepAlive;
     bool isChunked;
     bool isBodyReading;
     std::string recvedData;
@@ -24,3 +25,4 @@ struct Connection
 };
 
 bool isCgiConnection(Connection& connection);
+bool needClose(Connection& connection);

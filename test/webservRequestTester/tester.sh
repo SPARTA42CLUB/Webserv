@@ -6,26 +6,31 @@ CR="\r"
 requests=(
 "GET / HTTP/1.1$CR
 Host: localhost$CR
-Content-Length: 10000000$CR
+Content-Length: 10$CR
 Number: 1$CR
+Connection: close$CR
 $CR
-" 413
+1234567890
+" 200
 
 "GET / HTTP/1.1$CR
 Host: localhost$CR
 Content-Length: 0$CR
+Connection: close$CR
 Number: 2$CR
 $CR
 " 200
 
 "GET /error HTTP/1.1$CR
 Host: localhost$CR
+Connection: close$CR
 Number: 3$CR
 $CR
 " 404
 
 "POST / HTTP/1.1$CR
 Host: localhost$CR
+Connection: close$CR
 Content-Length: 1$CR
 Number: 4$CR
 $CR
@@ -33,6 +38,7 @@ $CR
 
 "GET / HTTP/1.1$CR
 Host: localhost:8080$CR
+Connection: close$CR
 Number: 5$CR
 $CR
 " 200
@@ -44,12 +50,14 @@ $CR
 
 "GET / HTTP/1.1$CR
 Host: seunan:8081$CR
+Connection: close$CR
 Number: 7$CR
 $CR
 " 200
 
 "GET /permission_denied/forbidden HTTP/1.1$CR
 Host: localhost:8080$CR
+Connection: close$CR
 Number: 8$CR
 $CR
 " 403
@@ -63,13 +71,14 @@ $CR
 
 "GET / HTTP/1.1$CR
 Host: localhost:8080$CR
-Connection: keep-alive$CR
+Connection: close$CR
 Number: 10$CR
 $CR
 " 200
 
 "GET / HTTP/1.1$CR
 Host: localhost:8080$CR
+Connection: close$CR
 Date: Sun Nov 6 08:49:37 1994$CR
 Number: 11$CR
 $CR
@@ -77,13 +86,14 @@ $CR
 
 "GET / HTTP/1.1       a$CR
 Host: localhost:8080$CR
-Connection: keep-alive$CR
+Connection: close$CR
 Number: 12$CR
 $CR
 " 400
 
 "GET / HTTP/1.1$CR
 Host: localhost:8080$CR
+Connection: close$CR
 Number: 13$CR
 $CR
 Connection: close$CR
@@ -93,7 +103,7 @@ bodybody" 200
 
 "GET / HTTP/1.1$CR
 Host: localhost:8080$CR
-Connection: keep-alive$CR
+Connection: close$CR
 Content-Type: text/html$CR
 Number: 14$CR
 $CR
@@ -109,18 +119,21 @@ $CR
 
 "DELETE /notfound.html HTTP/1.1$CR
 Host: localhost:8080$CR
+Connection: close$CR
 Number: 16$CR
 $CR
 " 404
 
 "DELETE /delete HTTP/1.1$CR
 Host: localhost:8080$CR
+Connection: close$CR
 Number: 17$CR
 $CR
 " 200
 
 "DELETE /permission_denied/not_allow HTTP/1.1$CR
 Host: localhost:8080$CR
+Connection: close$CR
 Number: 18$CR
 $CR
 " 403
@@ -182,7 +195,7 @@ for ((i=0; i<${#requests[@]}; i+=2)); do
     # 프로세스 동기화:
     # nc와 같은 도구는 입력을 읽고 처리하는 동안 매우 짧은 시간 안에 종료될 수 있습니다. sleep을 사용하면 입력을 보낸 후 nc가 조금 더 오래 실행되어 서버의 응답을 기다리게 됩니다. 이는 클라이언트와 서버 간의 동기화 문제를 해결하는 데 도움이 됩니다.
     # 요약하자면, sleep을 사용하여 연결을 잠시 동안 유지하면 클라이언트가 요청을 보낸 후 서버의 응답을 받을 수 있는 충분한 시간을 확보하게 됩니다. 이는 네트워크 타이밍 문제, 서버의 처리 시간, 버퍼링 문제, 프로세스 동기화 문제 등을 해결하는 데 기여할 수 있습니다.
-    response=$((echo -ne "${request}"; sleep $RESPONSE_WAIT_TIME) | nc -w1 localhost 8080) # nc -w 1 옵션으로 1초 대기 후 응답 없으면 종료, nc 명령어의 출력을 없애기 위함
+    response=$((echo -ne "${request}"; sleep $RESPONSE_WAIT_TIME) | nc -w5 localhost 8080) # nc -w 1 옵션으로 1초 대기 후 응답 없으면 종료, nc 명령어의 출력을 없애기 위함
     status_code=$(echo "${response}" | awk 'NR==1 {print $2}') # Response의 Status Line에서 HTTP 상태 코드 추출
 
     # 요청을 보내고 응답 코드 확인

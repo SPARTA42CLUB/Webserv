@@ -8,6 +8,7 @@ Connection::Connection(const int socket, const ServerConfig& serverConfig, const
 : socket(socket)
 , parentSocket(parentSocket)
 , childSocket()
+, isKeepAlive(true)
 , isChunked(false)
 , isBodyReading(false)
 , recvedData(recvedData)
@@ -41,5 +42,20 @@ bool isCgiConnection(Connection& connection)
 {
     if (connection.parentSocket != -1)
         return true;
+    return false;
+}
+
+#include <iostream>
+bool needClose(Connection& connection)
+{
+    if (connection.responses.size() > 1)
+        return false;
+
+    if (connection.isKeepAlive == false)
+        return true;
+
+    if (connection.responses.front()->getResponseHeaderFields().getField("Connection") == "close")
+        return true;
+
     return false;
 }

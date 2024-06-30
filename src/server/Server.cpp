@@ -11,6 +11,8 @@
 #include "RequestHandler.hpp"
 #include "ResponseMessage.hpp"
 
+#include <iostream>
+
 // ServerConfig 클래스 생성자
 Server::Server(const Config& config)
 : config(config)
@@ -145,9 +147,8 @@ void Server::handleEvents(struct kevent& event)
             }
         }
 
+        deleteGarbageEvent(event);
     }
-
-    deleteGarbageEvent(event);
 }
 
 // 서버 소켓에서 읽기 이벤트가 발생했다는 것의 의미 : 새로운 클라이언트가 연결 요청을 보냈다는 것
@@ -252,6 +253,8 @@ void Server::handleClientReadEvent(struct kevent& event)
     }
 
     Connection& connection = *connectionsMap[socket];
+    if (connection.isKeepAlive == false)
+        return ;
     if (recvData(connection) == false)
         return ;
 
@@ -260,8 +263,10 @@ void Server::handleClientReadEvent(struct kevent& event)
         while (parseData(connection))
         {
             if (!connection.request)
-                return ;
+                continue ;
 
+            if (connection.request->getRequestHeaderFields().getField("Connection") == "close")
+                connection.isKeepAlive = false;
             Logger::getInstance().logHttpMessage(connection.request);
             RequestHandler requestHandler(connectionsMap, socket);
             ResponseMessage* res = requestHandler.handleRequest();
@@ -283,6 +288,8 @@ void Server::handleClientReadEvent(struct kevent& event)
         ResponseMessage* res = new ResponseMessage();
         // Default error page를 위해 server config 뽑고 넣기
         res->setByStatusCode(e.getStatusCode(), connection.serverConfig);
+        if (connection.reqBuffer->getRequestHeaderFields().getField("Connection") == "close")
+            connection.isKeepAlive = false;
         if (connection.reqBuffer->getRequestLine().getMethod() == "HEAD")
             res->clearMessageBody();
         connection.responses.push(res);
@@ -360,19 +367,19 @@ RequestMessage* Server::getHeader(Connection& connection)
     else if (req->getRequestHeaderFields().hasField("Content-Length"))
     {
         size_t contentLength = req->getContentLength();
-
         if (contentLength > connection.serverConfig.getClientMaxBodySize())
         {
             throw HttpException(CONTENT_TOO_LARGE);
         }
 
         if (contentLength > 0)
+        {
             connection.isBodyReading = true;
+        }
     }
 
     return req;
 }
-
 bool Server::addContent(Connection& connection)
 {
     RequestMessage* req = connection.reqBuffer;
@@ -479,7 +486,7 @@ void Server::handleClientWriteEvent(struct kevent& event)
         return ;
     }
 
-    if (res->getResponseHeaderFields().getField("Connection") == "close")
+    if (needClose(connection))
     {
         closeConnection(connection.socket);
         return ;
@@ -547,9 +554,6 @@ bool Server::isConnection(int key)
 
 void Server::deleteGarbageEvent(struct kevent& event)
 {
-    if (isServerSocket(event.ident))
-        return ;
-
     if (isConnection(event.ident))
         return ;
 
