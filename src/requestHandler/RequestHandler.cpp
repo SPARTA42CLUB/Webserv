@@ -21,12 +21,13 @@ RequestHandler::RequestHandler(std::map<int, Connection*>& connectionsMap, const
 , mbIsCGI(false)
 {
 }
+#include <iostream>
 ResponseMessage* RequestHandler::handleRequest(void)
 {
     int statusCode;
 
     statusCode = setPath();
-    // std::cout << mPath << std::endl;
+    // std::cout << "mPath: " << mPath << std::endl;
     try
     {
         if (mbIsCGI)
@@ -40,11 +41,16 @@ ResponseMessage* RequestHandler::handleRequest(void)
         mResponseMessage->setByStatusCode(SERVICE_UNAVAILABLE, mServerConfig);
         return mResponseMessage;
     }
-
     mResponseMessage = new ResponseMessage();
     if (checkStatusCode(statusCode) == false)
     {
         mResponseMessage->setByStatusCode(statusCode, mServerConfig);
+        return mResponseMessage;
+    }
+    
+    if (mLocConfig.redirect != "")
+    {
+        found();
         return mResponseMessage;
     }
 
@@ -143,6 +149,7 @@ int RequestHandler::setPath()
         {
             mPath += mLocConfig.index;
         }
+        return OK;
     }
     else
     {
@@ -455,9 +462,9 @@ void RequestHandler::addContentType()
 
 void RequestHandler::found(void)
 {
-    const std::string& location = mServerConfig.locations.find(mPath)->second.redirect;
+    mResponseMessage->addMessageBody("<html><head><title>302 Found</title></head><body><h1>302 Found</h1><p>This resource has been moved to <a href=\"" + mLocConfig.redirect + "\">" + mLocConfig.redirect + "</a>.</p></body></html>");
     mResponseMessage->setStatusLine("HTTP/1.1", FOUND, "Found");
-    mResponseMessage->addResponseHeaderField("Location", location);
+    mResponseMessage->addResponseHeaderField("Location", mLocConfig.redirect);
     mResponseMessage->addResponseHeaderField("Connection", "close");
     mResponseMessage->addSemanticHeaderFields();
 }
