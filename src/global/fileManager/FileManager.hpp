@@ -1,11 +1,11 @@
-#ifndef FILE_CHECKER_HPP
-#define FILE_CHECKER_HPP
+#ifndef FILE_MANAGER_HPP
+#define FILE_MANAGER_HPP
 
 #include <sys/stat.h>
 #include <unistd.h>
 #include <string>
 
-class FileChecker
+class FileManager
 {
 public:
     enum eStat
@@ -16,9 +16,11 @@ public:
         READABLE,
         WRITABLE
     };
-    static eStat getFileStatus(const std::string& path);
+    static void setNonBlocking(int fd);
+    static int getFileStatus(const std::string& path);
     static bool isReadable(const std::string& path);
     static bool isWritable(const std::string& path);
+    static const std::string listDirectoryContents(const std::string& path);
 };
 
 #endif

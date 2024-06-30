@@ -1,12 +1,11 @@
 #include "RequestHandler.hpp"
+#include <fcntl.h>
 #include <ctime>
 #include <fstream>
-#include <fcntl.h>
-#include "RangeRequestReader.hpp"
 #include "EventManager.hpp"
-#include "SysException.hpp" // TODO: 에러 이걸로 던짐?????
-#include "FileChecker.hpp"
-#include "fileController.hpp"
+#include "FileManager.hpp"
+#include "RangeRequestReader.hpp"
+#include "SysException.hpp"
 
 // DELETE: 테스트용
 #include <iostream>
@@ -19,22 +18,28 @@ RequestHandler::RequestHandler(std::map<int, Connection*>& connectionsMap, const
 , mLocConfig()
 , mPath()
 , mQueryString()
+, mbIsCGI(false)
 {
 }
-
 ResponseMessage* RequestHandler::handleRequest(void)
 {
     int statusCode;
 
-    if (checkCGI())
-    {
-        // std::cout << "path: " << mPath << std::endl;
-        // std::cout << "query: " << mQueryString << std::endl;
-        executeCGI();
-        return NULL;
-    }
     statusCode = setPath();
     // std::cout << mPath << std::endl;
+    try
+    {
+        if (mbIsCGI)
+        {
+            executeCGI();
+            return NULL;
+        }
+    }
+    catch (const SysException& e)
+    {
+        mResponseMessage->setByStatusCode(SERVICE_UNAVAILABLE, mServerConfig);
+        return mResponseMessage;
+    }
 
     mResponseMessage = new ResponseMessage();
     if (checkStatusCode(statusCode) == false)
@@ -54,49 +59,20 @@ ResponseMessage* RequestHandler::handleRequest(void)
 
     return mResponseMessage;
 }
-bool RequestHandler::checkCGI(void)
-{
-    const std::string& reqTarget = mRequestMessage->getRequestLine().getRequestTarget();
-    const std::map<std::string, LocationConfig>& locations = mServerConfig.locations;
-
-    for (std::map<std::string, LocationConfig>::const_iterator it = locations.begin(); it != locations.end(); ++it)
-    {
-        if (it->LOCATION.front() == '.')
-        {
-            size_t idx = reqTarget.find(it->LOCATION);
-            if (idx == std::string::npos)
-                continue;
-            size_t query_idx = reqTarget.find('?');
-            if (reqTarget.substr(idx, it->LOCATION.size()) == it->LOCATION)
-            {
-                mLocConfig = it->CONFIG;
-                mPath = mLocConfig.root + reqTarget.substr(0, idx + it->LOCATION.size());
-                if (query_idx == std::string::npos)
-                {
-                    return true;
-                }
-                mQueryString = reqTarget.substr(query_idx + 1);
-                return true;
-            }
-
-        }
-    }
-    return false;
-}
 void RequestHandler::executeCGI(void)
 {
     // extract query string from request body
-	int pipe_in[2], pipe_out[2];
-	if(pipe(pipe_in) == -1 || pipe(pipe_out) == -1)
+    int pipe_in[2], pipe_out[2];
+    if (pipe(pipe_in) == -1 || pipe(pipe_out) == -1)
     {
         throw SysException(FAILED_TO_CREATE_PIPE);
     }
-	pid_t pid = fork();
-	if(pid == -1)
+    pid_t pid = fork();
+    if (pid == -1)
     {
         throw SysException(FAILED_TO_FORK);
     }
-	if (pid == 0)
+    if (pid == 0)
     {
         // Child process
         close(pipe_in[WRITE_END]);
@@ -108,7 +84,7 @@ void RequestHandler::executeCGI(void)
         std::vector<char> path_cstr(mPath.begin(), mPath.end());
         interpreter_cstr.push_back('\0');
         path_cstr.push_back('\0');
-		char* argv[] = {interpreter_cstr.data(), path_cstr.data(), NULL};
+        char* argv[] = {interpreter_cstr.data(), path_cstr.data(), NULL};
 
         std::string queryStringEnv = "QUERY_STRING=" + mQueryString;
         std::string requestMethodEnv = "REQUEST_METHOD=" + mRequestMessage->getRequestLine().getMethod();
@@ -116,35 +92,27 @@ void RequestHandler::executeCGI(void)
         std::vector<char> requestMethodEnv_cstr(requestMethodEnv.begin(), requestMethodEnv.end());
         queryStringEnv_cstr.push_back('\0');
         requestMethodEnv_cstr.push_back('\0');
-		char* envp[] = {queryStringEnv_cstr.data(), requestMethodEnv_cstr.data(), NULL};
+        char* envp[] = {queryStringEnv_cstr.data(), requestMethodEnv_cstr.data(), NULL};
 
-		execve(argv[READ_END], argv, envp);
-	}
-	else
-	{
+        execve(argv[READ_END], argv, envp);
+        throw SysException(FAILED_TO_EXEC);
+    }
+    else
+    {
         // Parent process
         close(pipe_in[READ_END]);
         close(pipe_out[WRITE_END]);
 
-        setNonBlocking(pipe_in[WRITE_END]);
-        setNonBlocking(pipe_out[READ_END]);
+        FileManager::setNonBlocking(pipe_in[WRITE_END]);
+        FileManager::setNonBlocking(pipe_out[READ_END]);
 
         mConnectionsMap[mSocket]->childSocket[WRITE_END] = pipe_in[WRITE_END];
         mConnectionsMap[mSocket]->childSocket[READ_END] = pipe_out[READ_END];
         mConnectionsMap[pipe_in[WRITE_END]] = new Connection(pipe_in[WRITE_END], mSocket, mRequestMessage->getMessageBody().toString());
         mConnectionsMap[pipe_out[READ_END]] = new Connection(pipe_out[READ_END], mSocket);
 
-        // write(pipe_in[1], mRequestMessage->getMessageBody().toString().c_str(), mRequestMessage->getMessageBody().size());
-        // wait(NULL);
-        // char buf[4096];
-        // read(pipe_out[READ_END], buf, sizeof(buf));
-        // std::cout << buf << std::endl;
-		EventManager::getInstance().addWriteEvent(pipe_in[WRITE_END]);
-        // EventManager::getInstance().addReadEvent(pipe_out[READ_END]);
-
-        // https://codetravel.tistory.com/42
-		// waitpid(pid, NULL, WNOHANG);
-	}
+        EventManager::getInstance().addWriteEvent(pipe_in[WRITE_END]);
+    }
 }
 
 size_t countMatchingCharacters(const std::string& target, const std::string& loc)
@@ -161,7 +129,7 @@ int RequestHandler::setPath()
     const std::map<std::string, LocationConfig>& locations = mServerConfig.locations;
     std::map<std::string, LocationConfig>::const_iterator it = locations.find(reqTarget);
 
-    if (locations.size() == 0)
+    if (locations.empty())
     {
         mPath = mServerConfig.root + reqTarget;
     }
@@ -169,6 +137,10 @@ int RequestHandler::setPath()
     {
         mLocConfig = it->CONFIG;
         mPath = mLocConfig.root + it->LOCATION;
+        if (it->LOCATION.back() == '/')
+        {
+            mPath += mLocConfig.index;
+        }
     }
     else
     {
@@ -176,6 +148,25 @@ int RequestHandler::setPath()
         size_t maxMatch = 0;
         for (it = locations.begin(); it != locations.end(); ++it)
         {
+            if (it->LOCATION.front() == '.')
+            {
+                size_t idx = reqTarget.find(it->LOCATION);
+                if (idx == std::string::npos)
+                    continue;
+                size_t query_idx = reqTarget.find('?');
+                if (reqTarget.substr(idx, it->LOCATION.size()) == it->LOCATION)
+                {
+                    mLocConfig = it->CONFIG;
+                    mPath = mLocConfig.root + reqTarget.substr(0, idx + it->LOCATION.size());
+                    mbIsCGI = true;
+                    if (query_idx == std::string::npos)
+                    {
+                        return OK;
+                    }
+                    mQueryString = reqTarget.substr(query_idx + 1);
+                    return OK;
+                }
+            }
             if (it->LOCATION.back() != '/')
                 continue;
             size_t matchCnt = countMatchingCharacters(reqTarget, it->LOCATION);
@@ -192,8 +183,15 @@ int RequestHandler::setPath()
         mPath = locConf->root + reqTarget;
         mLocConfig = *locConf;
     }
-    if (mPath.back() == '/')
-        mPath += mLocConfig.index;
+    int fStatus = FileManager::getFileStatus(mPath);
+    if (fStatus == FileManager::DIRECTORY && !mLocConfig.directory_listing)
+    {
+        return FORBIDDEN;
+    }
+    if (fStatus == FileManager::NONE)
+    {
+        return NOT_FOUND;
+    }
     return OK;
 }
 
@@ -207,7 +205,7 @@ int RequestHandler::handleMethod()
         return METHOD_NOT_ALLOWED;
     }
 
-	// TODO(6/29 13:10): 여기서 Redirect 처리
+    // TODO(6/29 13:10): 여기서 Redirect 처리
 
     if (method == "GET")
     {
@@ -246,11 +244,19 @@ void RequestHandler::addConnectionHeader()
 
 int RequestHandler::getRequest()
 {
-    std::ifstream file(mPath);
-    if (access(mPath.c_str(), F_OK) != 0)
+    int fStatus = FileManager::getFileStatus(mPath);
+    if (fStatus == FileManager::DIRECTORY)
     {
-        return NOT_FOUND;
+        mResponseMessage->addMessageBody(FileManager::listDirectoryContents(mPath));
+        if (mResponseMessage->getMessageBodySize() == 0)
+        {
+            return FORBIDDEN;
+        }
+        mResponseMessage->setStatusLine(mRequestMessage->getRequestLine().getHTTPVersion(), OK, "OK");
+        mResponseMessage->addSemanticHeaderFields();
+        return OK;
     }
+    std::ifstream file(mPath);
     if (!file.is_open())
     {
         return FORBIDDEN;
@@ -333,67 +339,68 @@ int RequestHandler::headRequest()
 }
 int RequestHandler::postRequest()
 {
-	// Content-Disposition 헤더 필드가 없으면 400 Bad Request
-	if (mRequestMessage->getRequestHeaderFields().hasField("Content-Disposition") == false && mRequestMessage->getRequestHeaderFields().hasField("content-disposition") == false )
-	{
-		return BAD_REQUEST;
-	}
+    // Content-Disposition 헤더 필드가 없으면 400 Bad Request
+    if (mRequestMessage->getRequestHeaderFields().hasField("Content-Disposition") == false &&
+        mRequestMessage->getRequestHeaderFields().hasField("content-disposition") == false)
+    {
+        return BAD_REQUEST;
+    }
 
-	// Content-Disposition 헤더 필드에서 filename을 추출
-	std::string filename;
-	if (mRequestMessage->getRequestHeaderFields().hasField("Content-Disposition"))
-	{
-		filename = mRequestMessage->getRequestHeaderFields().getField("Content-Disposition");
-	}
-	else
-	{
-		filename = mRequestMessage->getRequestHeaderFields().getField("content-disposition");
-	}
-	size_t idx = filename.find("filename=");
-	if (idx == std::string::npos)
-	{
-		return BAD_REQUEST;
-	}
-	filename = filename.substr(idx + 10);
-	idx = filename.find("\"");
-	if (idx == std::string::npos)
-	{
-		return BAD_REQUEST;
-	}
-	filename = filename.substr(0, idx);
+    // Content-Disposition 헤더 필드에서 filename을 추출
+    std::string filename;
+    if (mRequestMessage->getRequestHeaderFields().hasField("Content-Disposition"))
+    {
+        filename = mRequestMessage->getRequestHeaderFields().getField("Content-Disposition");
+    }
+    else
+    {
+        filename = mRequestMessage->getRequestHeaderFields().getField("content-disposition");
+    }
+    size_t idx = filename.find("filename=");
+    if (idx == std::string::npos)
+    {
+        return BAD_REQUEST;
+    }
+    filename = filename.substr(idx + 10);
+    idx = filename.find("\"");
+    if (idx == std::string::npos)
+    {
+        return BAD_REQUEST;
+    }
+    filename = filename.substr(0, idx);
 
-	// mPath의 뒤에 filename을 붙여서 파일 경로를 만든다.
-	if (mPath.back() != '/')
-	{
-		mPath += '/';
-	}
-	mPath += filename;
+    // mPath의 뒤에 filename을 붙여서 파일 경로를 만든다.
+    if (mPath.back() != '/')
+    {
+        mPath += '/';
+    }
+    mPath += filename;
 
-	// 파일이 존재하면 파일 뒤에 데이터를 추가하고, 파일이 없으면 파일을 생성하고 데이터를 추가함
-	if (access(mPath.c_str(), F_OK) != 0)
-	{
-		std::ofstream file(mPath);
-		if (!file.is_open())
-		{
-			return FORBIDDEN;
-		}
-		file << mRequestMessage->getMessageBody().toString();
-		file.close();
-	}
-	else
-	{
-		std::ofstream file(mPath, std::ios::app);
-		if (!file.is_open())
-		{
-			return FORBIDDEN;
-		}
-		file << mRequestMessage->getMessageBody().toString();
-		file.close();
-	}
+    // 파일이 존재하면 파일 뒤에 데이터를 추가하고, 파일이 없으면 파일을 생성하고 데이터를 추가함
+    if (access(mPath.c_str(), F_OK) != 0)
+    {
+        std::ofstream file(mPath);
+        if (!file.is_open())
+        {
+            return FORBIDDEN;
+        }
+        file << mRequestMessage->getMessageBody().toString();
+        file.close();
+    }
+    else
+    {
+        std::ofstream file(mPath, std::ios::app);
+        if (!file.is_open())
+        {
+            return FORBIDDEN;
+        }
+        file << mRequestMessage->getMessageBody().toString();
+        file.close();
+    }
 
-	mResponseMessage->setStatusLine(mRequestMessage->getRequestLine().getHTTPVersion(), CREATED, "CREATED");
-	mResponseMessage->addResponseHeaderField("Content-Type", "text/html");
-	mResponseMessage->addMessageBody("<html><body><h1>File uploaded.</h1><h2>path: " + mPath + "</h2></h3></body></html>");
+    mResponseMessage->setStatusLine(mRequestMessage->getRequestLine().getHTTPVersion(), CREATED, "CREATED");
+    mResponseMessage->addResponseHeaderField("Content-Type", "text/html");
+    mResponseMessage->addMessageBody("<html><body><h1>File uploaded.</h1><h2>path: " + mPath + "</h2></h3></body></html>");
 
     return CREATED;
 }

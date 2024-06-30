@@ -16,6 +16,6 @@ int HttpException::getStatusCode() const
 const char* HttpException::what() const _NOEXCEPT
 {
     char* numberstring = new char[4];
-    sprintf(numberstring, "%d", mStatusCode);
+    snprintf(numberstring, 4, "%d", mStatusCode);
     return numberstring;
 }
