@@ -11,6 +11,7 @@ class Server
 private:
     const Config& config;
     std::vector<int> serverSockets;
+    std::map<int, ServerConfig> socketToConfig;
     std::map<int, Connection*> connectionsMap;
 
     void setupServerSockets();
@@ -26,7 +27,7 @@ private:
     void handlePipeReadEvent(struct kevent& event);
     void handlePipeWriteEvent(struct kevent& event);
 
-    void recvData(Connection& connection);
+    bool recvData(Connection& connection);
 
     bool parseData(Connection& connection);
     RequestMessage* getHeader(Connection& connection);

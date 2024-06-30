@@ -9,12 +9,12 @@
 
 // DELETE: 테스트용
 #include <iostream>
-RequestHandler::RequestHandler(std::map<int, Connection*>& connectionsMap, const Config& config, const int socket)
+RequestHandler::RequestHandler(std::map<int, Connection*>& connectionsMap, const int socket)
 : mConnectionsMap(connectionsMap)
 , mSocket(socket)
 , mRequestMessage(connectionsMap[socket]->request)
 , mResponseMessage()
-, mServerConfig(config.getServerConfigByHost(mRequestMessage->getRequestHeaderFields().getField("Host")))
+, mServerConfig(connectionsMap[socket]->serverConfig)
 , mLocConfig()
 , mPath()
 , mQueryString()
@@ -106,10 +106,12 @@ void RequestHandler::executeCGI(void)
         FileManager::setNonBlocking(pipe_in[WRITE_END]);
         FileManager::setNonBlocking(pipe_out[READ_END]);
 
-        mConnectionsMap[mSocket]->childSocket[WRITE_END] = pipe_in[WRITE_END];
-        mConnectionsMap[mSocket]->childSocket[READ_END] = pipe_out[READ_END];
-        mConnectionsMap[pipe_in[WRITE_END]] = new Connection(pipe_in[WRITE_END], mSocket, mRequestMessage->getMessageBody().toString());
-        mConnectionsMap[pipe_out[READ_END]] = new Connection(pipe_out[READ_END], mSocket);
+        Connection* parentConnection = mConnectionsMap[mSocket];
+
+        parentConnection->childSocket[WRITE_END] = pipe_in[WRITE_END];
+        parentConnection->childSocket[READ_END] = pipe_out[READ_END];
+        mConnectionsMap[pipe_in[WRITE_END]] = new Connection(pipe_in[WRITE_END], parentConnection->serverConfig, mSocket, mRequestMessage->getMessageBody().toString());
+        mConnectionsMap[pipe_out[READ_END]] = new Connection(pipe_out[READ_END], parentConnection->serverConfig, mSocket);
 
         EventManager::getInstance().addWriteEvent(pipe_in[WRITE_END]);
     }
