@@ -5,7 +5,7 @@
 #include "EventManager.hpp"
 #include "Logger.hpp"
 
-Connection::Connection(const int socket, const int parentSocket, std::string recvedData)
+Connection::Connection(const int socket, const ServerConfig& serverConfig, const int parentSocket, std::string recvedData)
 : socket(socket)
 , parentSocket(parentSocket)
 , childSocket()
@@ -16,7 +16,7 @@ Connection::Connection(const int socket, const int parentSocket, std::string rec
 , request(NULL)
 , responses()
 , last_activity(time(NULL))
-, serverConfig()
+, serverConfig(serverConfig)
 {
     Logger::getInstance().logInfo(std::to_string(socket) + " Connection created\n");
     childSocket[READ_END] = -1;

@@ -57,6 +57,7 @@ void Server::setupServerSockets()
         }
 
         serverSockets.push_back(serverSocket);
+        socketToConfig[serverSocket] = serverConfigs[i];
 
         EventManager::getInstance().addReadEvent(serverSocket);
     }
@@ -165,7 +166,7 @@ void Server::acceptClient(int serverSocket)
 
     FileManager::setNonBlocking(connectionSocket);
 
-    Connection* connection = new Connection(connectionSocket);
+    Connection* connection = new Connection(connectionSocket, socketToConfig[serverSocket]);
     connectionsMap[connectionSocket] = connection;
 
     Logger::getInstance().logAccept(connectionSocket, clientAddr);
@@ -189,7 +190,7 @@ void Server::handlePipeReadEvent(struct kevent& event)
         catch(const HttpException& e)
         {
             // NOTE: 이거 찾아야됨 그럼 req에서 host를 들고 있어야함 그래야 찾을 수 있어
-            response->setByStatusCode(e.getStatusCode(), config.getDefaultServerConfig());
+            response->setByStatusCode(e.getStatusCode(), cgiConnection.serverConfig);
         }
         Connection& parentConnection = *connectionsMap[cgiConnection.parentSocket]; // 부모 커넥션 가져오기
         parentConnection.responses.push(response); // 부모 커넥션의 responses에다 pipe에서 읽어 온 데이터 넣음
@@ -261,7 +262,7 @@ Connection: Close 로직을 추가하고 if (event.flags & EV_EOF)&& !isKeepAliv
                 return ;
 
             Logger::getInstance().logHttpMessage(*connection.request);
-            RequestHandler requestHandler(connectionsMap, config, socket);
+            RequestHandler requestHandler(connectionsMap, socket);
             ResponseMessage* res = requestHandler.handleRequest();
             delete connection.request;
             connection.request = NULL;
@@ -278,8 +279,7 @@ Connection: Close 로직을 추가하고 if (event.flags & EV_EOF)&& !isKeepAliv
         Logger::getInstance().logHttpMessage(*connection.reqBuffer);
         ResponseMessage* res = new ResponseMessage();
         // Default error page를 위해 server config 뽑고 넣기
-        const ServerConfig& serverConfig = config.getServerConfigByHost(connection.reqBuffer->getRequestHeaderFields().getField("Host"));
-        res->setByStatusCode(e.getStatusCode(), serverConfig);
+        res->setByStatusCode(e.getStatusCode(), connection.serverConfig);
         connection.responses.push(res);
         EventManager::getInstance().addWriteEvent(socket);
         return ;
@@ -347,11 +347,9 @@ RequestMessage* Server::getHeader(Connection& connection)
         connection.isChunked = true;
     else if (req->getRequestHeaderFields().hasField("Content-Length"))
     {
-        // 요청 헤더를 보고 serverConfig 설정
-        const ServerConfig& serverConfig = config.getServerConfigByHost(req->getRequestHeaderFields().getField("Host"));
         size_t contentLength = req->getContentLength();
 
-        if (contentLength > serverConfig.getClientMaxBodySize())
+        if (contentLength > connection.serverConfig.getClientMaxBodySize())
         {
             throw HttpException(CONTENT_TOO_LARGE);
         }

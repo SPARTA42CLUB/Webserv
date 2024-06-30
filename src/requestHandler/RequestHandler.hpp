@@ -41,6 +41,6 @@ private:
     void found(void); // Require 'Location' header field
 
 public:
-    RequestHandler(std::map<int, Connection*>& connectionsMap, const Config& config, const int socket);
+    RequestHandler(std::map<int, Connection*>& connectionsMap, const int socket);
     ResponseMessage* handleRequest(void);
 };
