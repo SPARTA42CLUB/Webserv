@@ -264,6 +264,10 @@ int RequestHandler::getRequest()
     if (mPath.back() == '/' && handleIndex() == false && mLocConfig.directory_listing == true)
         return handleAutoindex();
 
+    if (!fileManager::isExist(mPath))
+    {
+        return NOT_FOUND;
+    }
     std::ifstream file(mPath);
     if (!file.is_open() || fileManager::getFileStatus(mPath) != fileManager::FILE)
     {
@@ -345,7 +349,7 @@ int RequestHandler::headRequest()
     return statusCode;
 }
 
-/* 
+/*
 1.
 POST /www/index.html HTTP/1.1
 Host: localhost:8080
@@ -371,7 +375,7 @@ Content-Disposition: filename="test.txt"
 Content-Length: 5
 
 dsada
-/www/test.txt 경로에 파일이 있다: 파일 뒤에 데이터를 추가 
+/www/test.txt 경로에 파일이 있다: 파일 뒤에 데이터를 추가
 /www/test.txt 경로에 파일이 없다: 파일을 생성하고 데이터를 추가
 
 4.
