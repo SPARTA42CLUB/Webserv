@@ -219,16 +219,11 @@ void Server::handlePipeWriteEvent(struct kevent& event)
         closeConnection(pipe);
         return ;
     }
-    if (bytesSend == 0)
-    {
-        return ;
-    }
-
     data.erase(0, bytesSend);
     updateLastActivity(cgiConnection);
 
-    // 요청을 다 전송했을 시
-    if (data.empty())
+    // GET요청이거나 바디를 다 전송했을 시
+    if (bytesSend == 0 || data.empty())
     {
         int readSocket = connectionsMap[cgiConnection.parentSocket]->childSocket[READ_END];
         EventManager::getInstance().addReadEvent(readSocket);
@@ -276,7 +271,6 @@ Connection: Close 로직을 추가하고 if (event.flags & EV_EOF)&& !isKeepAliv
 
             if (res == NULL)
                 continue;
-
             connection.responses.push(res);
             EventManager::getInstance().addWriteEvent(socket);
         }
