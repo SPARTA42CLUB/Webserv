@@ -37,26 +37,26 @@ void Logger::logAccept(int socket, struct sockaddr_in addr) const
     log(INFO, oss.str());
 }
 
-void Logger::logHttpMessage(const ResponseMessage& res, const RequestMessage& req) const
+void Logger::logHttpMessage(const ResponseMessage* res, const RequestMessage* req) const
 {
     std::ostringstream oss;
-    oss << "[ Request ]\n" << req.toString() << "[ Response ]\n" << res.toString();
+    oss << "[ Request ]\n" << req->toString() << "[ Response ]\n" << res->toString();
 
     log(INFO, oss.str());
 }
 
-void Logger::logHttpMessage(const ResponseMessage& res) const
+void Logger::logHttpMessage(const ResponseMessage* res) const
 {
     std::ostringstream oss;
-    oss << "[ Response ]\n" << res.toString();
+    oss << "[ Response ]\n" << res->toString();
 
     log(INFO, oss.str());
 }
 
-void Logger::logHttpMessage(const RequestMessage& req) const
+void Logger::logHttpMessage(const RequestMessage* req) const
 {
     std::ostringstream oss;
-    oss << "[ Request ]\n" << req.toString();
+    oss << "[ Request ]\n" << req->toString();
 
     log(INFO, oss.str());
 }

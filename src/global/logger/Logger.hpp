@@ -22,9 +22,9 @@ public:
     void logWarning(const std::string& logMessage) const;
     void logError(const std::string& logMessage) const;
     void logAccept(int socket, struct sockaddr_in addr) const;
-    void logHttpMessage(const ResponseMessage& res, const RequestMessage& req) const;
-    void logHttpMessage(const ResponseMessage& res) const;
-    void logHttpMessage(const RequestMessage& req) const;
+    void logHttpMessage(const ResponseMessage* res, const RequestMessage* req) const;
+    void logHttpMessage(const ResponseMessage* res) const;
+    void logHttpMessage(const RequestMessage* req) const;
 
 private:
     const std::string accessLogPath;
