@@ -260,17 +260,17 @@ Connection: Close 로직을 추가하고 if (event.flags & EV_EOF)&& !isKeepAliv
             if (!connection.request)
                 return ;
 
-            size_t responseCnt = connection.responses.size(); // 1
             Logger::getInstance().logHttpMessage(*connection.request);
             RequestHandler requestHandler(connectionsMap, config, socket);
             ResponseMessage* res = requestHandler.handleRequest();
             delete connection.request;
+            connection.request = NULL;
+
             if (res == NULL)
                 continue;
 
             connection.responses.push(res);
-            if (connection.responses.size() > responseCnt)
-                EventManager::getInstance().addWriteEvent(socket);
+            EventManager::getInstance().addWriteEvent(socket);
         }
     }
     catch(const HttpException& e)

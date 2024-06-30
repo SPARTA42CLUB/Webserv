@@ -49,6 +49,7 @@ public:
     void contentTooLarge();
     // 5xx
     void badGateway(void);
+    void serviceUnavailable();
     void httpVersionNotSupported(void);
 };
 

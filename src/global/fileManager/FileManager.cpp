@@ -4,7 +4,10 @@
 #include <iomanip>
 #include <iostream>
 #include <sstream>
+#include "Logger.hpp"
 #include "SysException.hpp"
+
+const int NGINX_MAX_FILEPATH = 50;
 
 // 소켓 논블로킹 설정
 void FileManager::setNonBlocking(int fd)
@@ -50,6 +53,7 @@ const std::string FileManager::listDirectoryContents(const std::string& path)
 {
     struct dirent* entry;
     struct stat statbuf;
+    Logger& logger = Logger::getInstance();
 
     DIR* dir = opendir(path.c_str());
     std::ostringstream oss;
@@ -63,37 +67,37 @@ const std::string FileManager::listDirectoryContents(const std::string& path)
         << "<a href=\"../\">../</a>\n";
     if (dir == NULL)
     {
-        std::cerr << "Failed to open directory" << std::endl;
+        logger.logError("Failed to open directory");
         return "";
     }
 
     while ((entry = readdir(dir)) != NULL)
     {
-        std::ostringstream line;
         // 경로와 파일명을 결합하여 전체 경로 생성
-        std::string fullPath = std::string(path) + "/" + entry->d_name;
+        std::string dirName(entry->d_name);
+        std::string fullPath = path + "/" + dirName;
 
         // 파일 상태 정보 얻기
         if (stat(fullPath.c_str(), &statbuf) == -1)
         {
-            std::cerr << "Failed to get file status for " << entry->d_name << std::endl;
+            logger.logError("Failed to get file status for " + fullPath);
             continue;
         }
-        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+        if (dirName == "." || dirName == "..")
         {
             continue;
         }
 
-        size_t width = 51;  // 50글자보다 길 경우에 substr(0, 47) + "..>" 하여 50글자로 제한
-        std::string dirName(entry->d_name);
-        if (dirName.size() > 50)
+        size_t width = NGINX_MAX_FILEPATH + 1;  // 50글자보다 길 경우에 substr(0, 47) + "..>" 하여 50글자로 제한
+        oss << "<a href=\"" << dirName << (S_ISDIR(statbuf.st_mode) ? "/" : "") << "\">" ;
+        if (dirName.size() > NGINX_MAX_FILEPATH)
         {
-            line << "<a href=\"" << dirName << (S_ISDIR(statbuf.st_mode) ? "/" : "") << "\">" << dirName.substr(0, 47) << "..>" << "</a>";
+            oss << dirName.substr(0, 47) << "..>" << "</a>";
             width = 1;
         }
         else
         {
-            line << "<a href=\"" << dirName << (S_ISDIR(statbuf.st_mode) ? "/" : "") << "\">" << dirName << (S_ISDIR(statbuf.st_mode) ? "/" : "") << "</a>";
+            oss << dirName << (S_ISDIR(statbuf.st_mode) ? "/" : "") << "</a>";
             width -= dirName.size() + (S_ISDIR(statbuf.st_mode) ? 1 : 0);
         }
 
@@ -102,7 +106,7 @@ const std::string FileManager::listDirectoryContents(const std::string& path)
         std::strftime(buffer, sizeof(buffer), "%d-%b-%Y %H:%M", tm);
 
         std::string spaces(width, ' ');
-        oss << line.str() << spaces << buffer;
+        oss << spaces << buffer;
         oss << std::right << std::setw(20) << (S_ISDIR(statbuf.st_mode) ? "-" : std::to_string(statbuf.st_size)) << '\n';
     }
     oss << "</pre><hr></body></html>";

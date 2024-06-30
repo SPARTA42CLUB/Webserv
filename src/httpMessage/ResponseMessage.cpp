@@ -122,6 +122,10 @@ void ResponseMessage::setByStatusCode(const int statusCode, const ServerConfig& 
     {
         badGateway();
     }
+    else if (statusCode == SERVICE_UNAVAILABLE)
+    {
+        serviceUnavailable();
+    }
     else if (statusCode == HTTP_VERSION_NOT_SUPPORTED)
     {
         httpVersionNotSupported();
@@ -179,6 +183,14 @@ void ResponseMessage::badGateway(void)
 {
     setStatusLine("HTTP/1.1", BAD_GATEWAY, "Bad Gateway");
     addMessageBody("<html><head><title>502 Bad Gateway</title></head><body><h1>502 Bad Gateway</h1></body></html>");
+    addResponseHeaderField("Content-Type", "text/html");
+    addResponseHeaderField("Connection", "keep-alive");
+    addSemanticHeaderFields();
+}
+void ResponseMessage::serviceUnavailable(void)
+{
+    setStatusLine("HTTP/1.1", SERVICE_UNAVAILABLE, "Service Unavailable");
+    addMessageBody("<html><head><title>503 Service Unavailable</title></head><body><h1>503 Service Unavailable</h1></body></html>");
     addResponseHeaderField("Content-Type", "text/html");
     addResponseHeaderField("Connection", "keep-alive");
     addSemanticHeaderFields();
