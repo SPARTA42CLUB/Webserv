@@ -27,7 +27,7 @@ private:
     void handlePipeReadEvent(struct kevent& event);
     void handlePipeWriteEvent(struct kevent& event);
 
-    void recvData(Connection& connection);
+    bool recvData(Connection& connection);
 
     bool parseData(Connection& connection);
     RequestMessage* getHeader(Connection& connection);

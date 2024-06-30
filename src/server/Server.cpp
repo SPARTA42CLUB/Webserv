@@ -146,8 +146,9 @@ void Server::handleEvents(struct kevent& event)
             }
         }
 
-        deleteGarbageEvent(event);
     }
+
+    deleteGarbageEvent(event);
 }
 
 // 서버 소켓에서 읽기 이벤트가 발생했다는 것의 의미 : 새로운 클라이언트가 연결 요청을 보냈다는 것
@@ -211,7 +212,7 @@ void Server::handlePipeWriteEvent(struct kevent& event)
 
     Connection& cgiConnection = *connectionsMap[pipe];
 
-    ssize_t bytesSend = 0;
+    ssize_t bytesSend;
     std::string& data = cgiConnection.recvedData;
     if ((bytesSend = write(pipe, data.c_str(), data.length())) < 0)
     {
@@ -219,10 +220,15 @@ void Server::handlePipeWriteEvent(struct kevent& event)
         closeConnection(pipe);
         return ;
     }
+    if (bytesSend == 0)
+    {
+        return ;
+    }
 
     data.erase(0, bytesSend);
     updateLastActivity(cgiConnection);
 
+    // 요청을 다 전송했을 시
     if (data.empty())
     {
         int readSocket = connectionsMap[cgiConnection.parentSocket]->childSocket[READ_END];
@@ -253,7 +259,8 @@ Connection: Close 로직을 추가하고 if (event.flags & EV_EOF)&& !isKeepAliv
 
     Connection& connection = *connectionsMap[socket];
 
-    recvData(connection);
+    if (recvData(connection) == false)
+        return ;
 
     try
     {
@@ -288,7 +295,7 @@ Connection: Close 로직을 추가하고 if (event.flags & EV_EOF)&& !isKeepAliv
 }
 
 // connection의 소켓으로부터 데이터를 읽어 옴
-void Server::recvData(Connection& connection)
+bool Server::recvData(Connection& connection)
 {
     char buffer[4096];
     ssize_t bytesRead;
@@ -298,13 +305,20 @@ void Server::recvData(Connection& connection)
     {
         Logger::getInstance().logWarning("Recv error");
         closeConnection(socket);
-        return;
+        return false;
+    }
+
+    // 소켓으로부터 EOF를 읽음
+    if (bytesRead == 0)
+    {
+        return false;
     }
 
     buffer[bytesRead] = '\0';
     connection.recvedData += std::string(buffer, buffer + bytesRead);
 
     updateLastActivity(connection);
+    return true;
 }
 
 bool Server::parseData(Connection& connection)
@@ -479,8 +493,8 @@ void Server::handleClientWriteEvent(struct kevent& event)
 
     updateLastActivity(connection);
 
-    // if (bytesSend == 0)
-        // EventManager::getInstance().deleteWriteEvent(socket);
+    if (bytesSend == 0)
+        EventManager::getInstance().deleteWriteEvent(socket);
 }
 
 // Connection들의 keepAlive 관리
@@ -536,6 +550,9 @@ bool Server::isConnection(int key)
 
 void Server::deleteGarbageEvent(struct kevent& event)
 {
+    if (isServerSocket(event.ident))
+        return ;
+
     if (isConnection(event.ident))
         return ;
 
