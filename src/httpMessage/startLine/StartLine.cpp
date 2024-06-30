@@ -1,6 +1,7 @@
 #include "StartLine.hpp"
 #include <sstream>
 #include "HttpException.hpp"
+#include "parse.hpp"
 
 StartLine::StartLine()
 : mElements()
@@ -79,7 +80,8 @@ void StartLine::parseStatusLine(const std::string& statusLine)
     {
         std::string remaining;
         std::getline(iss, remaining);
-        if (remaining == "\r")  // CRLF 확인
+        trim(remaining);
+        if (remaining.empty())
         {
             return;
         }

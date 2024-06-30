@@ -73,10 +73,8 @@ void Logger::log(eLogLevel level, const std::string& message) const
 
     const std::string logMessage = "[ " + logLevelToString(level) + " ] " + getTimeStamp() + '\n' + message;
 
-    // if (level == INFO)
-    //     std::cout << logMessage << std::endl;
-    // else
-    //     std::cerr << color::FG_RED << logMessage << color::RESET << std::endl;
+    if (level != INFO)
+        std::cerr << color::FG_RED << logMessage << color::RESET << std::endl;
 
     if (logFile.is_open())
     {

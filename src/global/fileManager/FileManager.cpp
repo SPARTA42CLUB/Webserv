@@ -2,7 +2,6 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <iomanip>
-#include <iostream>
 #include <sstream>
 #include "Logger.hpp"
 #include "SysException.hpp"

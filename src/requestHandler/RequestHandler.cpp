@@ -275,14 +275,12 @@ int RequestHandler::getRequest()
         }
     }
     // 그 외 요청 처리
-    mResponseMessage->setStatusLine(mRequestMessage->getRequestLine().getHTTPVersion(), OK, "OK");
-    std::string line;
-    while (std::getline(file, line))
-    {
-        // TODO: 파일 마지막에 개행이 없는 경우 개행이 추가로 들어가는 문제
-        mResponseMessage->addMessageBody(line + "\n");
-    }
+    std::ostringstream oss;
+    oss << file.rdbuf();
     file.close();
+
+    mResponseMessage->setStatusLine(mRequestMessage->getRequestLine().getHTTPVersion(), OK, "OK");
+    mResponseMessage->addMessageBody(oss.str());
     mResponseMessage->addSemanticHeaderFields();
     addContentType();
 

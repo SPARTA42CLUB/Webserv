@@ -148,6 +148,8 @@ void Config::verifyConfig(void)
             {
                 locIt->CONFIG.root = serverConfigs[i].root;
             }
+            // root + target uri(무조건 /로 시작함)가 붙으므로 미리 '/'를 제거해준다.
+            // www/ + / -> www/
             if (locIt->CONFIG.root.back() == '/')
             {
                 locIt->CONFIG.root.pop_back();

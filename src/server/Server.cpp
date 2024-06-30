@@ -1,7 +1,6 @@
 #include "Server.hpp"
 #include <arpa/inet.h>
 #include <unistd.h>
-#include <iostream>
 #include <vector>
 #include "FileManager.hpp"
 #include "ChunkedRequestReader.hpp"
@@ -182,12 +181,12 @@ void Server::handlePipeReadEvent(struct kevent& event)
     {
         waitpid(-1, NULL, WNOHANG);
         ResponseMessage* response = new ResponseMessage(); // 저장된 데이터 들고 오기
-        // 유효성 체크
+        /* 유효성 체크
+        필수적인 헤더가 있는 지 확인
+        Status Line이나 Content-Length정도는 만들어야 할듯?? */
         try
         {
-            // 필수적인 헤더가 있는 지 확인
-            // Status Line이나 Content-Length정도는 만들어야 할듯??
-            response->parseResponseHeader(cgiConnection.recvedData);
+            response->parseResponseMessage(cgiConnection.recvedData);
         }
         catch(const HttpException& e)
         {
@@ -220,16 +219,11 @@ void Server::handlePipeWriteEvent(struct kevent& event)
         closeConnection(pipe);
         return ;
     }
-    if (bytesSend == 0)
-    {
-        return ;
-    }
-
     data.erase(0, bytesSend);
     updateLastActivity(cgiConnection);
 
-    // 요청을 다 전송했을 시
-    if (data.empty())
+    // GET요청이거나 바디를 다 전송했을 시
+    if (bytesSend == 0 || data.empty())
     {
         int readSocket = connectionsMap[cgiConnection.parentSocket]->childSocket[READ_END];
         EventManager::getInstance().addReadEvent(readSocket);
@@ -277,7 +271,6 @@ Connection: Close 로직을 추가하고 if (event.flags & EV_EOF)&& !isKeepAliv
 
             if (res == NULL)
                 continue;
-
             connection.responses.push(res);
             EventManager::getInstance().addWriteEvent(socket);
         }

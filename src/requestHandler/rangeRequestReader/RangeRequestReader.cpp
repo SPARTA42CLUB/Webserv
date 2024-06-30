@@ -3,7 +3,6 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sstream>
-#include <iostream>
 #include <stdexcept>
 #include <vector>
 #include <sys/types.h>
