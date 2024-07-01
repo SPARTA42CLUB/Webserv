@@ -390,15 +390,11 @@ bool Server::addChunk(Connection& connection)
     {
         hasData = true;
         req->addMessageBody(chunk);
-
-        if (isLastChunk(chunk))
-        {
-            connection.isChunked = false;  // 마지막 청크면 청크 상태 해제
-            connection.reqBuffer = NULL;
-            connection.request = req;  // 완성된 청크를 completeRequests에 저장
-            break;
-        }
     }
+
+    // getChunk 내부에서 마지막 청크를 받았으면
+    if (connection.isChunked == false)
+        return true ;
 
     return hasData;
 }
@@ -416,9 +412,9 @@ std::string Server::getChunk(Connection& connection)
 
     size_t chunkEndPos = pos + chunkSize + 2;
     if (chunkEndPos > connection.recvedData.size())
-        return "";  // 청크 데이터가 아직 도착하지 않음
-
-    connection.recvedData.erase(0, chunkSizeEndPos + 2);  // 청크 헤더 제거
+        return ""; // 청크 데이터가 아직 도착하지 않음
+    
+    connection.recvedData.erase(0, chunkSizeEndPos + 2); // 청크 헤더 제거
 
     RequestMessage* req = connection.reqBuffer;
     if (req->getMessageBody().size() + chunkSize > connection.serverConfig.getClientMaxBodySize())
@@ -434,15 +430,15 @@ std::string Server::getChunk(Connection& connection)
 
     std::string chunkData = connection.recvedData.substr(0, chunkSize);
     connection.recvedData.erase(0, chunkSize + 2);
-    return chunkData;  // 청크 데이터만 반환
-}
 
-// 이 청크가 마지막 청크인지 확인하는 로직
-bool isLastChunk(std::string& chunk)
-{
-    if (chunk == "0\r\n\r\n")
-        return true;
-    return false;
+    // 마지막 청크면
+    if (chunkSize == 0)
+    {
+        connection.isChunked = false;  // 마지막 청크면 청크 상태 해제
+        connection.reqBuffer = NULL;
+        connection.request = req; // 완성된 청크를 completeRequests에 저장
+    }
+    return chunkData; // 청크 데이터만 반환
 }
 
 // 보낸 데이터가 0일 때 write event 삭제
