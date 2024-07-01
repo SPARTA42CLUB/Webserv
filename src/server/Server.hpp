@@ -49,6 +49,4 @@ public:
     void run();
 };
 
-bool isLastChunk(std::string& chunk);
-
 #endif

@@ -458,14 +458,6 @@ std::string Server::getChunk(Connection& connection)
     return chunkData; // 청크 데이터만 반환
 }
 
-// 이 청크가 마지막 청크인지 확인하는 로직
-bool isLastChunk(std::string& chunk)
-{
-    if (chunk == "0\r\n\r\n")
-        return true;
-    return false;
-}
-
 // 보낸 데이터가 0일 때 write event 삭제
 void Server::handleClientWriteEvent(struct kevent& event)
 {
