@@ -138,6 +138,123 @@ Connection: close$CR
 Number: 18$CR
 $CR
 " 403
+
+"GET / HTTP/1.1$CR
+Host: localhost$CR
+Connection: close$CR
+Content-Length: 100$CR
+Number: 19$CR
+Connection: close$CR
+$CR
+dsadsadsadsadsadsadsadsaddsadsadsadsadsadsadsadsaddsadsadsadsadsadsadsadsaddsadsadsadsadsadsadsadsad" 200
+
+"GET / HTTP/1.1$CR
+Host: localhost$CR
+Connection: close$CR
+Content-Length: 101$CR
+Number: 20$CR
+Connection: close$CR
+$CR
+dsadsadsadsadsadsadsadsaddsadsadsadsadsadsadsadsaddsadsadsadsadsadsadsadsaddsadsadsadsadsadsadsadsad" 413
+
+"GET / HTTP/1.1$CR
+Host: localhost$CR
+Connection: close$CR
+Content-Length: 100$CR
+Number: 21$CR
+Connection: close$CR
+$CR
+dsadsadsadsadsadsadsadsaddsadsadsadsadsadsadsadsaddsadsadsadsadsadsadsadsaddsadsadsadsadsadsadsadsada" 200
+
+"PUT / HTTP/1.1$CR
+Host: localhost$CR
+Connection: close$CR
+Content-Length: 100$CR
+Number: 22$CR
+$CR
+" 405
+
+"GET / HTTP/1.2$CR
+Host: localhost$CR
+Connection: close$CR
+Number: 23$CR
+$CR
+" 505
+
+"GET /index.py HTTP/1.1$CR
+Host: localhost$CR
+Connection: close$CR
+Number: 24$CR
+$CR
+" 200
+
+"GET /redirect HTTP/1.1$CR
+Host: localhost$CR
+Connection: close$CR
+Number: 25$CR
+$CR
+" 302
+
+"POST /upload HTTP/1.1$CR
+Host: localhost$CR
+Connection: close$CR
+Content-Length: 100$CR
+Number: 26$CR
+Content-Disposition: form-data; name=\"file\"; filename=\"test.txt\"$CR
+Content-Type: text/plain$CR
+$CR
+dsadsadsadsadsadsadsadsaddsadsadsadsadsadsadsadsaddsadsadsadsadsadsadsadsaddsadsadsadsadsadsadsadsad" 201
+
+"POST /upload/index.html HTTP/1.1$CR
+Host: localhost$CR
+Connection: close$CR
+Content-Length: 101$CR
+Number: 27$CR
+Content-Disposition: form-data; name=\"file\"; filename=\"test.txt\"$CR
+Content-Type: text/html$CR
+$CR
+<html><body><h1>It works!</h1><p>lorem ipsumlorem ipsumlorem ipsumlorem ipsum dasad</p></body></html>" 413
+
+"POST /upload/index.html HTTP/1.1$CR
+Host: localhost$CR
+Connection: close$CR
+Content-Length: 100$CR
+Number: 28$CR
+Content-Disposition: form-data; name=\"file\"; filename=\"test.txt\"$CR
+Content-Type: text/html$CR
+$CR
+<html><body><h1>It works!</h1><p>lorem ipsumlorem ipsumlorem ipsumlorem ipsumipsumlorem ipsumdad</p>" 201
+
+"POST /upload/index.html HTTP/1.1$CR
+Host: localhost$CR
+Connection: close$CR
+Content-Length: 14$CR
+Number: 29$CR
+Content-Disposition: form-data; name=\"file\"; filename=\"test.txt\"$CR
+Content-Type: text/html$CR
+$CR
+</body></html>" 200
+
+"DELETE /upload/test.txt HTTP/1.1$CR
+Host: localhost$CR
+Connection: close$CR
+Number: 29$CR
+$CR
+" 200
+
+"DELETE /upload/test.txt HTTP/1.1$CR
+Host: localhost$CR
+Connection: close$CR
+Number: 30$CR
+$CR
+" 404
+
+"DELETE /upload/index.html HTTP/1.1$CR
+Host: localhost$CR
+Connection: close$CR
+Number: 31$CR
+$CR
+" 200
 )
 
 # ---------------------------------------------------------------------------------------------------
@@ -147,6 +264,9 @@ WEBSERVER_CREATE_TIME=1
 
 # 서버 응답 대기 시간 (초)
 RESPONSE_WAIT_TIME=0.1
+
+# netcat 명령어 타임아웃 시간 (초)
+NC_TIMEOUT=5
 
 # 색상 코드
 BLACK='\033[90m'
@@ -196,7 +316,7 @@ for ((i=0; i<${#requests[@]}; i+=2)); do
     # 프로세스 동기화:
     # nc와 같은 도구는 입력을 읽고 처리하는 동안 매우 짧은 시간 안에 종료될 수 있습니다. sleep을 사용하면 입력을 보낸 후 nc가 조금 더 오래 실행되어 서버의 응답을 기다리게 됩니다. 이는 클라이언트와 서버 간의 동기화 문제를 해결하는 데 도움이 됩니다.
     # 요약하자면, sleep을 사용하여 연결을 잠시 동안 유지하면 클라이언트가 요청을 보낸 후 서버의 응답을 받을 수 있는 충분한 시간을 확보하게 됩니다. 이는 네트워크 타이밍 문제, 서버의 처리 시간, 버퍼링 문제, 프로세스 동기화 문제 등을 해결하는 데 기여할 수 있습니다.
-    response=$((echo -ne "${request}"; sleep $RESPONSE_WAIT_TIME) | nc -w5 localhost 8080) # nc -w 1 옵션으로 1초 대기 후 응답 없으면 종료, nc 명령어의 출력을 없애기 위함
+    response=$((echo -ne "${request}"; sleep $RESPONSE_WAIT_TIME) | nc -w$NC_TIMEOUT localhost 8080) # nc -w 1 옵션으로 1초 대기 후 응답 없으면 종료, nc 명령어의 출력을 없애기 위함
     status_code=$(echo "${response}" | awk 'NR==1 {print $2}') # Response의 Status Line에서 HTTP 상태 코드 추출
 
     # 요청을 보내고 응답 코드 확인
@@ -204,10 +324,10 @@ for ((i=0; i<${#requests[@]}; i+=2)); do
         echo -e "${GREEN}TEST $((i/2+1)): Success (HTTP Status: $status_code)$NC"
     else
         echo -e "${RED}TEST $((i/2+1)): Failed (Expected HTTP Status: $expected_status_code, HTTP Status: $status_code)$NC"
-        echo "Test $((i/2+1))" >> unexpected_response.txt
-        echo "--------------------------------------REQUEST--------------------------------------" >> unexpected_response.txt
+        echo -e "Test $((i/2+1))" >> unexpected_response.txt
+        echo -e "\n--------------------------------------REQUEST--------------------------------------" >> unexpected_response.txt
         echo -ne "${request}" >> unexpected_response.txt
-        echo "--------------------------------------RESPONSE--------------------------------------" >> unexpected_response.txt
+        echo -e "\n--------------------------------------RESPONSE--------------------------------------" >> unexpected_response.txt
         echo -ne "${response}" >> unexpected_response.txt
     fi
 done

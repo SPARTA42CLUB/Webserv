@@ -45,7 +45,6 @@ bool isCgiConnection(Connection& connection)
     return false;
 }
 
-#include <iostream>
 bool needClose(Connection& connection)
 {
     if (connection.responses.size() > 1)

@@ -1,17 +1,12 @@
 #include "Server.hpp"
 #include <arpa/inet.h>
-#include <unistd.h>
-#include <vector>
-#include "FileManager.hpp"
-#include "ChunkedRequestReader.hpp"
 #include "EventManager.hpp"
+#include "FileManager.hpp"
 #include "HttpException.hpp"
 #include "Logger.hpp"
-#include "SysException.hpp"
 #include "RequestHandler.hpp"
 #include "ResponseMessage.hpp"
-
-#include <iostream>
+#include "SysException.hpp"
 
 // ServerConfig 클래스 생성자
 Server::Server(const Config& config)
@@ -116,7 +111,7 @@ void Server::run()
 void Server::handleEvents(struct kevent& event)
 {
     if (event.flags & EV_ERROR)
-        return ;
+        return;
 
     if (isServerSocket(event.ident))
     {
@@ -181,7 +176,7 @@ void Server::handlePipeReadEvent(struct kevent& event)
     if (event.flags & EV_EOF)
     {
         waitpid(-1, NULL, WNOHANG);
-        ResponseMessage* response = new ResponseMessage(); // 저장된 데이터 들고 오기
+        ResponseMessage* response = new ResponseMessage();  // 저장된 데이터 들고 오기
         /* 유효성 체크
         필수적인 헤더가 있는 지 확인
         Status Line이나 Content-Length정도는 만들어야 할듯?? */
@@ -189,15 +184,14 @@ void Server::handlePipeReadEvent(struct kevent& event)
         {
             response->parseResponseMessage(cgiConnection.recvedData);
         }
-        catch(const HttpException& e)
+        catch (const HttpException& e)
         {
-            // NOTE: 이거 찾아야됨 그럼 req에서 host를 들고 있어야함 그래야 찾을 수 있어
             response->setByStatusCode(e.getStatusCode(), cgiConnection.serverConfig);
         }
-        Connection& parentConnection = *connectionsMap[cgiConnection.parentSocket]; // 부모 커넥션 가져오기
-        parentConnection.responses.push(response); // 부모 커넥션의 responses에다 pipe에서 읽어 온 데이터 넣음
+        Connection& parentConnection = *connectionsMap[cgiConnection.parentSocket];  // 부모 커넥션 가져오기
+        parentConnection.responses.push(response);  // 부모 커넥션의 responses에다 pipe에서 읽어 온 데이터 넣음
         EventManager::getInstance().addWriteEvent(cgiConnection.parentSocket);
-        cgiConnection.recvedData.clear(); // 데이터 버퍼 클리어.
+        cgiConnection.recvedData.clear();  // 데이터 버퍼 클리어.
 
         closeConnection(event.ident);
         return;
@@ -218,7 +212,7 @@ void Server::handlePipeWriteEvent(struct kevent& event)
     {
         Logger::getInstance().logWarning("Failed Write to pipe");
         closeConnection(pipe);
-        return ;
+        return;
     }
     data.erase(0, bytesSend);
     updateLastActivity(cgiConnection);
@@ -236,34 +230,23 @@ void Server::handlePipeWriteEvent(struct kevent& event)
 void Server::handleClientReadEvent(struct kevent& event)
 {
     int socket = event.ident;
-    /*
-    NOTE: nginx에
-    (echo -en "GET / HTTP/1.1\r\nHost: localhost:8080\r\nConnection: keep-alive\r\n\r\n" && sleep 0.1) | nc localhost 9090
-    를 실행하면 Connection 헤더와 상관없이 EOF로 인해 Connection이 종료됨
-
-    근데 여기를 주석 처리하면 Connection이 종료되지 않음
-    Connection: Close 로직을 추가하고 if (event.flags & EV_EOF)&& !isKeepAlive) 로 수정해야할 듯
-    그리고 위의 명령어는 nginx가 예상대로 동작하지 않는 걸로 간주하고 테스트시 Conncection: Close로 테스트
-
-    또, 이거 주석 처리하면 if ((bytesRead = recv(connection.socket, buffer, sizeof(buffer) - 1, 0)) < 0)이 줄에서 이중 free 에러가 발생함
-    */
     if (event.flags & EV_EOF)
     {
-        return ;
+        return;
     }
 
     Connection& connection = *connectionsMap[socket];
     if (connection.isKeepAlive == false)
-        return ;
+        return;
     if (recvData(connection) == false)
-        return ;
+        return;
 
     try
     {
         while (parseData(connection))
         {
             if (!connection.request)
-                continue ;
+                continue;
 
             if (connection.request->getRequestHeaderFields().getField("Connection") == "close")
                 connection.isKeepAlive = false;
@@ -282,7 +265,7 @@ void Server::handleClientReadEvent(struct kevent& event)
             EventManager::getInstance().addWriteEvent(socket);
         }
     }
-    catch(const HttpException& e)
+    catch (const HttpException& e)
     {
         Logger::getInstance().logHttpMessage(connection.reqBuffer);
         ResponseMessage* res = new ResponseMessage();
@@ -294,7 +277,7 @@ void Server::handleClientReadEvent(struct kevent& event)
             res->clearMessageBody();
         connection.responses.push(res);
         EventManager::getInstance().addWriteEvent(socket);
-        return ;
+        return;
     }
 }
 
@@ -337,7 +320,7 @@ bool Server::parseData(Connection& connection)
     }
     else
     {
-        RequestMessage *req = getHeader(connection);
+        RequestMessage* req = getHeader(connection);
         if (req == NULL)
             return false;
 
@@ -353,12 +336,12 @@ RequestMessage* Server::getHeader(Connection& connection)
 {
     size_t headerEnd = connection.recvedData.find("\r\n\r\n");
     if (headerEnd == std::string::npos)
-        return NULL; // \r\n\r\n 없으면 리턴
+        return NULL;  // \r\n\r\n 없으면 리턴
 
     size_t headerLen = headerEnd + 4;
     RequestMessage* req = new RequestMessage();
     connection.reqBuffer = req;
-    req->parseRequestHeader(connection.recvedData.substr(0, headerLen)); // 헤더 파싱
+    req->parseRequestHeader(connection.recvedData.substr(0, headerLen));  // 헤더 파싱
     connection.recvedData.erase(0, headerLen);
 
     if (req->getRequestHeaderFields().getField("Transfer-Encoding") == "chunked")
@@ -412,8 +395,8 @@ bool Server::addChunk(Connection& connection)
         {
             connection.isChunked = false;  // 마지막 청크면 청크 상태 해제
             connection.reqBuffer = NULL;
-            connection.request = req; // 완성된 청크를 completeRequests에 저장
-            break ;
+            connection.request = req;  // 완성된 청크를 completeRequests에 저장
+            break;
         }
     }
 
@@ -433,9 +416,9 @@ std::string Server::getChunk(Connection& connection)
 
     size_t chunkEndPos = pos + chunkSize + 2;
     if (chunkEndPos > connection.recvedData.size())
-        return ""; // 청크 데이터가 아직 도착하지 않음
+        return "";  // 청크 데이터가 아직 도착하지 않음
 
-    connection.recvedData.erase(0, chunkSizeEndPos + 2); // 청크 헤더 제거
+    connection.recvedData.erase(0, chunkSizeEndPos + 2);  // 청크 헤더 제거
 
     RequestMessage* req = connection.reqBuffer;
     if (req->getMessageBody().size() + chunkSize > connection.serverConfig.getClientMaxBodySize())
@@ -451,7 +434,7 @@ std::string Server::getChunk(Connection& connection)
 
     std::string chunkData = connection.recvedData.substr(0, chunkSize);
     connection.recvedData.erase(0, chunkSize + 2);
-    return chunkData; // 청크 데이터만 반환
+    return chunkData;  // 청크 데이터만 반환
 }
 
 // 이 청크가 마지막 청크인지 확인하는 로직
@@ -470,7 +453,7 @@ void Server::handleClientWriteEvent(struct kevent& event)
     Connection& connection = *connectionsMap[socket];
 
     if (connection.responses.empty())
-        return ;
+        return;
 
     ResponseMessage* res = connection.responses.front();
     Logger::getInstance().logHttpMessage(res);
@@ -480,13 +463,13 @@ void Server::handleClientWriteEvent(struct kevent& event)
     {
         Logger::getInstance().logWarning("Send error");
         closeConnection(socket);
-        return ;
+        return;
     }
 
     if (needClose(connection))
     {
         closeConnection(connection.socket);
-        return ;
+        return;
     }
 
     delete connection.responses.front();
@@ -506,21 +489,21 @@ void Server::checkKeepAlive()
 
     for (std::map<int, Connection*>::const_iterator it = connectionsMap.begin(); it != connectionsMap.end(); ++it)
     {
-        if ((it->second)->parentSocket != -1) // pipe 커넥션이면 패스
-            continue ;
+        if ((it->second)->parentSocket != -1)  // pipe 커넥션이면 패스
+            continue;
 
         if (difftime(now, (it->second)->last_activity) > config.getKeepAliveTime())
-		{
+        {
             delete connectionsMap[it->first];
             closeSockets.push(it->first);
-		}
+        }
     }
 
     while (!closeSockets.empty())
-	{
-		connectionsMap.erase(closeSockets.front());
+    {
+        connectionsMap.erase(closeSockets.front());
         closeSockets.pop();
-	}
+    }
 }
 
 void Server::updateLastActivity(Connection& connection)
@@ -552,7 +535,7 @@ bool Server::isConnection(int key)
 void Server::deleteGarbageEvent(struct kevent& event)
 {
     if (isConnection(event.ident))
-        return ;
+        return;
 
     if (event.filter == EVFILT_READ)
     {

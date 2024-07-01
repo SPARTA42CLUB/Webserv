@@ -54,6 +54,10 @@ namespace fileManager
     {
         return (access(path.c_str(), F_OK) == 0);
     }
+    bool deleteFile(const std::string& path)
+    {
+        return (std::remove(path.c_str()) == 0);
+    }
     const std::string listDirectoryContents(const std::string& path)
     {
         struct dirent* entry;

@@ -20,6 +20,7 @@ namespace fileManager
     bool isExist(const std::string& path);
     bool isReadable(const std::string& path);
     bool isWritable(const std::string& path);
+    bool deleteFile(const std::string& path);
     const std::string listDirectoryContents(const std::string& path);
 }
 
