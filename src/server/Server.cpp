@@ -407,15 +407,11 @@ bool Server::addChunk(Connection& connection)
     {
         hasData = true;
         req->addMessageBody(chunk);
-
-        if (isLastChunk(chunk))
-        {
-            connection.isChunked = false;  // 마지막 청크면 청크 상태 해제
-            connection.reqBuffer = NULL;
-            connection.request = req; // 완성된 청크를 completeRequests에 저장
-            break ;
-        }
     }
+
+    // getChunk 내부에서 마지막 청크를 받았으면
+    if (connection.isChunked == false)
+        return true ;
 
     return hasData;
 }
@@ -451,6 +447,14 @@ std::string Server::getChunk(Connection& connection)
 
     std::string chunkData = connection.recvedData.substr(0, chunkSize);
     connection.recvedData.erase(0, chunkSize + 2);
+
+    // 마지막 청크면
+    if (chunkSize == 0)
+    {
+        connection.isChunked = false;  // 마지막 청크면 청크 상태 해제
+        connection.reqBuffer = NULL;
+        connection.request = req; // 완성된 청크를 completeRequests에 저장
+    }
     return chunkData; // 청크 데이터만 반환
 }
 
