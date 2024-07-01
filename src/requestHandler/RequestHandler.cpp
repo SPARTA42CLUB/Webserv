@@ -33,6 +33,7 @@ ResponseMessage* RequestHandler::handleRequest(void)
     }
     catch (const SysException& e)
     {
+        mResponseMessage = new ResponseMessage();
         mResponseMessage->setByStatusCode(SERVICE_UNAVAILABLE, mServerConfig);
         return mResponseMessage;
     }
