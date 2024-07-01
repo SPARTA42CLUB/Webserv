@@ -19,7 +19,6 @@ RequestHandler::RequestHandler(std::map<int, Connection*>& connectionsMap, const
 , mbIsCGI(false)
 {
 }
-#include <iostream>
 ResponseMessage* RequestHandler::handleRequest(void)
 {
     processRequestPath();
@@ -49,6 +48,55 @@ ResponseMessage* RequestHandler::handleRequest(void)
 
     return mResponseMessage;
 }
+void RequestHandler::processRequestPath(void)
+{
+    const std::string& reqTarget = mRequestMessage->getRequestLine().getRequestTarget();
+    const std::map<std::string, LocationConfig>& locations = mServerConfig.locations;
+
+    if (matchExactLocation(reqTarget, locations))
+    {
+        return;
+    }
+    matchClosestLocation(reqTarget, locations);
+}
+bool RequestHandler::matchExactLocation(const std::string& reqTarget, const std::map<std::string, LocationConfig>& locations)
+{
+    std::map<std::string, LocationConfig>::const_iterator it = locations.find(reqTarget);
+    if (it != locations.end())
+    {
+        mLocConfig = it->CONFIG;
+        mPath = mLocConfig.root + it->LOCATION;
+        return true;
+    }
+
+    return false;
+}
+void RequestHandler::matchClosestLocation(const std::string& reqTarget, const std::map<std::string, LocationConfig>& locations)
+{
+    const LocationConfig* locConf;
+    size_t maxMatchCnt = 0;
+    for (std::map<std::string, LocationConfig>::const_iterator it = locations.begin(); it != locations.end(); ++it)
+    {
+        if (it->LOCATION.front() == '.' && identifyCGIRequest(reqTarget, it))
+        {
+            mbIsCGI = true;
+            return;
+        }
+        if (it->LOCATION.back() != '/')
+        {
+            continue;
+        }
+        size_t matchCnt = (reqTarget.find(it->LOCATION) == 0 ? it->LOCATION.size() : 0);
+        if (matchCnt > maxMatchCnt)
+        {
+            maxMatchCnt = matchCnt;
+            locConf = &(it->CONFIG);
+        }
+    }
+    mPath = locConf->root + reqTarget;
+    mLocConfig = *locConf;
+    return;
+}
 bool RequestHandler::identifyCGIRequest(const std::string& reqTarget, std::map<std::string, LocationConfig>::const_iterator& locIt)
 {
     const std::string& locationPath = locIt->LOCATION;
@@ -72,55 +120,6 @@ bool RequestHandler::identifyCGIRequest(const std::string& reqTarget, std::map<s
         mQueryString = reqTarget.substr(queryIdx + 1);
     }
     return true;
-}
-bool RequestHandler::matchClosestLocation(const std::string& reqTarget, const std::map<std::string, LocationConfig>& locations)
-{
-    const LocationConfig* locConf;
-    size_t maxMatchCnt = 0;
-    for (std::map<std::string, LocationConfig>::const_iterator it = locations.begin(); it != locations.end(); ++it)
-    {
-        if (it->LOCATION.front() == '.' && identifyCGIRequest(reqTarget, it))
-        {
-            mbIsCGI = true;
-            return true;
-        }
-        if (it->LOCATION.back() != '/')
-        {
-            continue;
-        }
-        size_t matchCnt = (reqTarget.find(it->LOCATION) == 0 ? it->LOCATION.size() : 0);
-        if (matchCnt > maxMatchCnt)
-        {
-            maxMatchCnt = matchCnt;
-            locConf = &(it->CONFIG);
-        }
-    }
-    mPath = locConf->root + reqTarget;
-    mLocConfig = *locConf;
-    return true;
-}
-bool RequestHandler::matchExactLocation(const std::string& reqTarget, const std::map<std::string, LocationConfig>& locations)
-{
-    std::map<std::string, LocationConfig>::const_iterator it = locations.find(reqTarget);
-    if (it != locations.end())
-    {
-        mLocConfig = it->CONFIG;
-        mPath = mLocConfig.root + it->LOCATION;
-        return true;
-    }
-
-    return false;
-}
-void RequestHandler::processRequestPath(void)
-{
-    const std::string& reqTarget = mRequestMessage->getRequestLine().getRequestTarget();
-    const std::map<std::string, LocationConfig>& locations = mServerConfig.locations;
-
-    if (matchExactLocation(reqTarget, locations))
-    {
-        return;
-    }
-    matchClosestLocation(reqTarget, locations);
 }
 void RequestHandler::executeCGI(void)
 {
@@ -178,16 +177,8 @@ void RequestHandler::executeCGI(void)
         EventManager::getInstance().addWriteEvent(pipe_in[WRITE_END]);
     }
 }
-size_t countMatchingCharacters(const std::string& target, const std::string& loc)
-{
-    if (target.find(loc) == 0)
-    {
-        return loc.size();
-    }
-    return 0;
-}
 // method에 따른 분기 처리
-int RequestHandler::handleMethod()
+int RequestHandler::handleMethod(void)
 {
     std::string method = mRequestMessage->getRequestLine().getMethod();
 
@@ -221,18 +212,157 @@ int RequestHandler::handleMethod()
         return METHOD_NOT_ALLOWED;
     }
 }
-
-// Connection 헤더 필드 추가
-void RequestHandler::addConnectionHeader()
+int RequestHandler::redirect(void)
 {
-    if (mRequestMessage->getRequestHeaderFields().hasField("Connection") == true)
+    mResponseMessage->addMessageBody("<html><head><title>302 Found</title></head><body><h1>302 Found</h1><p>This resource has been moved to <a href=\"" + mLocConfig.redirect + "\">" + mLocConfig.redirect + "</a>.</p></body></html>");
+    mResponseMessage->setStatusLine("HTTP/1.1", FOUND, "Found");
+    mResponseMessage->addResponseHeaderField("Location", mLocConfig.redirect);
+    mResponseMessage->addResponseHeaderField("Connection", "close");
+    mResponseMessage->addSemanticHeaderFields();
+    return FOUND;
+}
+int RequestHandler::getRequest(void)
+{
+    if (mPath.back() == '/' && handleIndex() == false && mLocConfig.directory_listing == true)
+        return handleAutoindex();
+
+    if (!fileManager::isExist(mPath))
     {
-        mResponseMessage->addResponseHeaderField("Connection", mRequestMessage->getRequestHeaderFields().getField("Connection"));
+        return NOT_FOUND;
+    }
+    std::ifstream file(mPath, std::ios::binary);
+    if (!file.is_open() || fileManager::getFileStatus(mPath) != fileManager::FILE)
+    {
+        return FORBIDDEN;
+    }
+    // NOTE: read, write 사용하여 폐기
+    // Range 요청 판별
+    // if (mRequestMessage->getRequestHeaderFields().hasField("Range"))
+    // {
+    //     std::string rangeHeader = mRequestMessage->getRequestHeaderFields().getField("Range");
+    //     // Check if the header starts with "bytes="
+    //     if (rangeHeader.substr(0, 6) == "bytes=")
+    //     {
+    //         file.close();
+    //         return rangeRequest();
+    //     }
+    // }
+    std::ostringstream oss;
+    oss << file.rdbuf();
+
+    mResponseMessage->setStatusLine(mRequestMessage->getRequestLine().getHTTPVersion(), OK, "OK");
+    mResponseMessage->addMessageBody(oss.str());
+    mResponseMessage->addSemanticHeaderFields();
+    addContentType();
+
+    file.close();
+    return OK;
+}
+int RequestHandler::headRequest(void)
+{
+    int statusCode = getRequest();
+    mResponseMessage->clearMessageBody();
+
+    return statusCode;
+}
+int RequestHandler::postRequest(void)
+{
+    // NOTE: 파일에 대해 있다면 Append, 없다면 Create 후 바디를 쓴다.
+    // 디렉토리 경로에 `Content-Disposition` 헤더 필드 안으로 filename이 있다면 그 파일명으로 저장
+
+    // 디렉토리에 index 붙이기
+    if (mPath.back() == '/')
+    {
+        handleIndex();
+    }
+
+    int fStatus = fileManager::getFileStatus(mPath);
+    // 디렉토리가 아닐 때, 파일이 존재하면 파일 뒤에 데이터를 추가, 파일이 없으면 파일을 생성하고 데이터를 추가
+    if (fStatus != fileManager::DIRECTORY)
+    {
+        return handleFileUpload(fStatus);
+    }
+
+    // 디렉토리인데, Content-Disposition 헤더 필드가 없으면 403 Forbidden
+    const std::string filename = parseContentDisposition();
+    if (filename.empty())
+    {
+        return FORBIDDEN;
+    }
+
+    // mPath의 뒤에 filename을 붙여서 파일 경로를 만든다.
+    mPath.back() != '/' ? mPath += "/" : mPath;
+    mPath += filename;
+
+    fStatus = fileManager::getFileStatus(mPath);
+    return handleFileUpload(fStatus);
+}
+int RequestHandler::deleteRequest()
+{
+    if (fileManager::isExist(mPath) == false)
+    {
+        return NOT_FOUND;
+    }
+    if (fileManager::deleteFile(mPath) == false)
+    {
+        return FORBIDDEN;
+    }
+    mResponseMessage->setStatusLine(mRequestMessage->getRequestLine().getHTTPVersion(), OK, "OK");
+    mResponseMessage->addResponseHeaderField("Content-Type", "text/html");
+    mResponseMessage->addMessageBody("<html><body><h1>File deleted.</h1></body></html>");
+    mResponseMessage->addSemanticHeaderFields();
+
+    return OK;
+}
+int RequestHandler::handleFileUpload(const int fStatus)
+{
+    std::ofstream file(mPath, std::ios::app | std::ios::binary);
+    if (!file.is_open())
+    {
+        return FORBIDDEN;
+    }
+    file << mRequestMessage->getMessageBody().toString();
+    file.close();
+    if (fStatus == fileManager::FILE)
+    {
+        mResponseMessage->setStatusLine(mRequestMessage->getRequestLine().getHTTPVersion(), OK, "OK");
+        mResponseMessage->addMessageBody("<html><body><h1>File uploaded.</h1><h2>path: " + mPath + "</h2></body></html>");
     }
     else
     {
-        mResponseMessage->addResponseHeaderField("Connection", "keep-alive");
+        mResponseMessage->setStatusLine(mRequestMessage->getRequestLine().getHTTPVersion(), CREATED, "Created");
+        mResponseMessage->addMessageBody("<html><body><h1>File created.</h1><h2>path: " + mPath + "</h2></body></html>");
     }
+    mResponseMessage->addResponseHeaderField("Content-Type", "text/html");
+    mResponseMessage->addSemanticHeaderFields();
+    return (fStatus == fileManager::FILE ? OK : CREATED);
+}
+std::string RequestHandler::parseContentDisposition(void)
+{
+    std::string filename = mRequestMessage->getRequestHeaderFields().getField("Content-Disposition");
+    if (filename.empty())
+    {
+        filename = mRequestMessage->getRequestHeaderFields().getField("content-disposition");
+    }
+    if (filename.empty())
+    {
+        return "";
+    }
+
+    // Content-Disposition 헤더 필드에서 filename을 추출
+    size_t idx = filename.find("filename=");
+    if (idx == std::string::npos)
+    {
+        return "";
+    }
+    filename = filename.substr(idx + 10);
+    idx = filename.find("\"");
+    if (idx == std::string::npos)
+    {
+        return "";
+    }
+    filename = filename.substr(0, idx);
+    return filename;
 }
 int RequestHandler::handleAutoindex()
 {
@@ -259,46 +389,53 @@ bool RequestHandler::handleIndex()
     mPath += mLocConfig.index;
     return true;
 }
-int RequestHandler::getRequest()
+// Connection 헤더 필드 추가
+void RequestHandler::addConnectionHeader(void)
 {
-    if (mPath.back() == '/' && handleIndex() == false && mLocConfig.directory_listing == true)
-        return handleAutoindex();
-
-    if (!fileManager::isExist(mPath))
+    if (mRequestMessage->getRequestHeaderFields().hasField("Connection") == true)
     {
-        return NOT_FOUND;
+        mResponseMessage->addResponseHeaderField("Connection", mRequestMessage->getRequestHeaderFields().getField("Connection"));
     }
-    std::ifstream file(mPath);
-    if (!file.is_open() || fileManager::getFileStatus(mPath) != fileManager::FILE)
+    else
     {
-        return FORBIDDEN;
+        mResponseMessage->addResponseHeaderField("Connection", "keep-alive");
     }
-    // NOTE: read, write 사용하여 폐기
-    // Range 요청 판별
-    // if (mRequestMessage->getRequestHeaderFields().hasField("Range"))
-    // {
-    //     std::string rangeHeader = mRequestMessage->getRequestHeaderFields().getField("Range");
-    //     // Check if the header starts with "bytes="
-    //     if (rangeHeader.substr(0, 6) == "bytes=")
-    //     {
-    //         file.close();
-    //         return rangeRequest();
-    //     }
-    // }
-    // 그 외 요청 처리
-    std::ostringstream oss;
-    oss << file.rdbuf();
-    file.close();
-
-    mResponseMessage->setStatusLine(mRequestMessage->getRequestLine().getHTTPVersion(), OK, "OK");
-    mResponseMessage->addMessageBody(oss.str());
-    mResponseMessage->addSemanticHeaderFields();
-    addContentType();
-
-    return OK;
 }
-
-int RequestHandler::rangeRequest()
+void RequestHandler::addContentType(void)
+{
+    // NOTE: Config에 MIME 타입 추가
+    std::string ext = mPath.substr(mPath.find_last_of('.') + 1);
+    if (ext == "html")
+    {
+        mResponseMessage->addResponseHeaderField("Content-Type", "text/html");
+    }
+    else if (ext == "css")
+    {
+        mResponseMessage->addResponseHeaderField("Content-Type", "text/css");
+    }
+    else if (ext == "js")
+    {
+        mResponseMessage->addResponseHeaderField("Content-Type", "text/javascript");
+    }
+    else if (ext == "txt")
+    {
+        mResponseMessage->addResponseHeaderField("Content-Type", "text/plain");
+    }
+    else if (ext == "jpg" || ext == "jpeg")
+    {
+        mResponseMessage->addResponseHeaderField("Content-Type", "image/jpeg");
+    }
+    else if (ext == "png")
+    {
+        mResponseMessage->addResponseHeaderField("Content-Type", "image/png");
+    }
+    else
+    {
+        mResponseMessage->addResponseHeaderField("Content-Type", "application/octet-stream");
+    }
+}
+/* NOTE: 폐기 */
+int RequestHandler::rangeRequest(void)
 {
     // Extract range values
     std::string rangeHeader = mRequestMessage->getRequestHeaderFields().getField("Range");
@@ -339,225 +476,4 @@ int RequestHandler::rangeRequest()
     mResponseMessage->addMessageBody(responseBody);
 
     return OK;
-}
-
-int RequestHandler::headRequest()
-{
-    int statusCode = getRequest();
-    mResponseMessage->clearMessageBody();
-
-    return statusCode;
-}
-
-/*
-1.
-POST /www/index.html HTTP/1.1
-Host: localhost:8080
-Content-Length: 5
-
-dsada
-파일이 있다: 파일 뒤에 데이터를 추가
-파일이 없다: 파일을 생성하고 데이터를 추가
-
-2.
-POST /www HTTP/1.1
-Host: localhost:8080
-Content-Length: 5
-
-dsada
-인덱스 파일이 있다: 인덱스 파일 뒤에 데이터를 추가
-인덱스 파일이 없다: 403 Forbidden / 404 Not Found
-
-3.
-POST /www HTTP/1.1
-Host: localhost:8080
-Content-Disposition: filename="test.txt"
-Content-Length: 5
-
-dsada
-/www/test.txt 경로에 파일이 있다: 파일 뒤에 데이터를 추가
-/www/test.txt 경로에 파일이 없다: 파일을 생성하고 데이터를 추가
-
-4.
-POST /www/index.html HTTP/1.1
-Host: localhost:8080
-Content-Disposition: filename="test.txt"
-Content-Length: 5
-
-dsada
-
-5.
-POST /www/index.html HTTP/1.1
-Host: localhost:8080
-Content-Disposition: filename="test.txt"
-Content-Length: 5
-
-dsada
-Content-Disposition 헤더 무시?
-
-6.
-POST /www HTTP/1.1
-Host: localhost:8080
-Content-Disposition: filename="test.txt"
-Content-Length: 5
-
-dsada
-인덱스랑 합침?? Content-Disposition 헤더 무시?
-
-7.
-POST /www HTTP/1.1
-Host: localhost:8080
-Content-Disposition: filename="test.txt"
-
-컨텐츠 길이 없는데 파일 만들어??
-
-
-1. uri가 파일이고 Content-Disposition 헤더 필드가 있을 때의 우선 순위
-2. uri가 디렉토리이고 인덱스 파일과 Content-Disposition 헤더 필드가 있을 때의 우선 순위
-3. 컨텐츠 길이가 없을 때의 처리
- */
-
-int RequestHandler::postRequest()
-{
-    // NOTE: 파일에 대해 있다면 Append, 없다면 Create 후 바디를 쓴다.
-    // 디렉토리 경로에 `Content-Disposition` 헤더 필드 안으로 filename이 있다면 그 파일명으로 저장
-
-    // 디렉토리에 index 붙이기
-    if (mPath.back() == '/')
-    {
-        handleIndex();
-    }
-
-    int fStatus = fileManager::getFileStatus(mPath);
-    // 파일이 존재하면 파일 뒤에 데이터를 추가
-    if (fStatus == fileManager::FILE)
-    {
-        std::ofstream file(mPath, std::ios::app);
-        if (!file.is_open())
-        {
-            return FORBIDDEN;
-        }
-        file << mRequestMessage->getMessageBody().toString();
-        file.close();
-        mResponseMessage->setStatusLine(mRequestMessage->getRequestLine().getHTTPVersion(), OK, "OK");
-        mResponseMessage->addResponseHeaderField("Content-Type", "text/html");
-        mResponseMessage->addMessageBody("<html><body><h1>File uploaded.</h1><h2>path: " + mPath + "</h2></body></html>");
-        mResponseMessage->addSemanticHeaderFields();
-        return OK;
-    }
-
-    // 파일이 없고, Content-Disposition 헤더 필드가 없으면 403 Forbidden
-    std::string filename = mRequestMessage->getRequestHeaderFields().getField("Content-Disposition");
-    if (filename.empty())
-    {
-        filename = mRequestMessage->getRequestHeaderFields().getField("content-disposition");
-    }
-    if (filename.empty())
-    {
-        return FORBIDDEN;
-    }
-
-    // Content-Disposition 헤더 필드에서 filename을 추출
-    size_t idx = filename.find("filename=");
-    if (idx == std::string::npos)
-    {
-        return FORBIDDEN;
-    }
-    filename = filename.substr(idx + 10);
-    idx = filename.find("\"");
-    if (idx == std::string::npos)
-    {
-        return FORBIDDEN;
-    }
-    filename = filename.substr(0, idx);
-
-    // mPath의 뒤에 filename을 붙여서 파일 경로를 만든다.
-    if (mPath.back() != '/')
-    {
-        mPath += '/';
-    }
-    mPath += filename;
-
-    int statusCode = (fileManager::isExist(mPath) ? OK : CREATED);
-    // 파일이 존재하면 파일 뒤에 데이터를 추가하고, 파일이 없으면 파일을 생성하고 데이터를 추가함
-    std::ofstream file(mPath, std::ios::app);
-    if (!file.is_open())
-    {
-        return FORBIDDEN;
-    }
-    file << mRequestMessage->getMessageBody().toString();
-    file.close();
-
-    if (statusCode == OK)
-    {
-        mResponseMessage->setStatusLine(mRequestMessage->getRequestLine().getHTTPVersion(), OK, "OK");
-        mResponseMessage->addResponseHeaderField("Content-Type", "text/html");
-        mResponseMessage->addMessageBody("<html><body><h1>File uploaded.</h1><h2>path: " + mPath + "</h2></body></html>");
-    }
-    else
-    {
-        mResponseMessage->setStatusLine(mRequestMessage->getRequestLine().getHTTPVersion(), CREATED, "Created");
-        mResponseMessage->addResponseHeaderField("Content-Type", "text/html");
-        mResponseMessage->addMessageBody("<html><body><h1>File created.</h1><h2>path: " + mPath + "</h2></body></html>");
-    }
-    mResponseMessage->addSemanticHeaderFields();
-    return statusCode;
-}
-
-// https://www.rfc-editor.org/rfc/rfc9110.html#name-delete
-int RequestHandler::deleteRequest()
-{
-    if (access(mPath.c_str(), F_OK) != 0)
-    {
-        return NOT_FOUND;
-    }
-    if (std::remove(mPath.c_str()) != 0)
-    {
-        return FORBIDDEN;
-    }
-    mResponseMessage->setStatusLine(mRequestMessage->getRequestLine().getHTTPVersion(), OK, "OK");
-    mResponseMessage->addResponseHeaderField("Content-Type", "text/html");
-    mResponseMessage->addMessageBody("<html><body><h1>File deleted.</h1></body></html>");
-    mResponseMessage->addSemanticHeaderFields();
-
-    return OK;
-}
-void RequestHandler::addContentType()
-{
-    // NOTE: Config에 MIME 타입 추가
-    std::string ext = mPath.substr(mPath.find_last_of('.') + 1);
-    if (ext == "html")
-    {
-        mResponseMessage->addResponseHeaderField("Content-Type", "text/html");
-    }
-    else if (ext == "css")
-    {
-        mResponseMessage->addResponseHeaderField("Content-Type", "text/css");
-    }
-    else if (ext == "js")
-    {
-        mResponseMessage->addResponseHeaderField("Content-Type", "text/javascript");
-    }
-    else if (ext == "jpg" || ext == "jpeg")
-    {
-        mResponseMessage->addResponseHeaderField("Content-Type", "image/jpeg");
-    }
-    else if (ext == "png")
-    {
-        mResponseMessage->addResponseHeaderField("Content-Type", "image/png");
-    }
-    else
-    {
-        mResponseMessage->addResponseHeaderField("Content-Type", "application/octet-stream");
-    }
-}
-
-int RequestHandler::redirect(void)
-{
-    mResponseMessage->addMessageBody("<html><head><title>302 Found</title></head><body><h1>302 Found</h1><p>This resource has been moved to <a href=\"" + mLocConfig.redirect + "\">" + mLocConfig.redirect + "</a>.</p></body></html>");
-    mResponseMessage->setStatusLine("HTTP/1.1", FOUND, "Found");
-    mResponseMessage->addResponseHeaderField("Location", mLocConfig.redirect);
-    mResponseMessage->addResponseHeaderField("Connection", "close");
-    mResponseMessage->addSemanticHeaderFields();
-    return FOUND;
 }
