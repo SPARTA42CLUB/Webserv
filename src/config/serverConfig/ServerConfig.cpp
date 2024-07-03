@@ -40,6 +40,7 @@ ServerConfig& ServerConfig::operator=(const ServerConfig& rhs)
     locations = rhs.locations;
     return *this;
 }
+#include <iostream>
 void ServerConfig::parseLocation(std::ifstream& file, std::string& locationPath, LocationConfig* parentsLocation)
 {
     LocationConfig locationConfig;
@@ -56,11 +57,14 @@ void ServerConfig::parseLocation(std::ifstream& file, std::string& locationPath,
         std::string key, value;
         iss >> key;
         getline(iss, value);
+
+        // std::cout << key << ' ' << value << std::endl;
         if (duplicateCheck[key])
             throw ConfigException(INVALID_LOCATION_CONFIG);
         try
         {
             if (key == "root") locationConfig.parseRoot(value);
+            else if (key == "alias") locationConfig.parseAlias(value);
             else if (key == "index") locationConfig.parseIndex(value);
             else if (key == "allow_methods") locationConfig.parseAllowMethods(value);
             else if (key == "directory_listing") locationConfig.parseDirectoryListing(value);
@@ -90,7 +94,23 @@ void ServerConfig::parseLocation(std::ifstream& file, std::string& locationPath,
             duplicateCheck[key] = true;
         }
     }
+    // root alias 중복 check 추가.
+    try
+    {
+        if(!locationConfig.root.empty() && !locationConfig.alias.empty())
+            throw ConfigException(INVALID_LOCATION_CONFIG);
+    }
+    catch (const ConfigException& e)
+    {
+        throw e;
+    } // 얘 여기 맞나?
+    if(!locationConfig.alias.empty())
+        std::cout << "not empty in parseLocation" << std::endl;
     locations[locationPath] = locationConfig;
+    if(!locationConfig.alias.empty())
+        std::cout << "not empty in parseLocation" << std::endl;
+    if(!locations[locationPath].alias.empty())
+        std::cout << "not empty in locations[locationPath].alias" << std::endl;
 }
 void ServerConfig::parseHost(std::string& value)
 {

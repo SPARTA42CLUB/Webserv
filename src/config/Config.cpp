@@ -144,7 +144,7 @@ void Config::verifyConfig(void)
         }
         for (std::map<std::string, LocationConfig>::iterator locIt = serverConfigs[i].locations.begin(); locIt != serverConfigs[i].locations.end(); ++locIt)
         {
-            if (!serverConfigs[i].root.empty() && locIt->CONFIG.root.empty())
+            if ((!serverConfigs[i].root.empty()) && locIt->CONFIG.root.empty() && locIt->CONFIG.alias.empty())
             {
                 locIt->CONFIG.root = serverConfigs[i].root;
             }
@@ -154,7 +154,11 @@ void Config::verifyConfig(void)
             {
                 locIt->CONFIG.root.pop_back();
             }
-            if (serverConfigs[i].root.empty() && locIt->CONFIG.root.empty() && locIt->CONFIG.redirect.empty())
+            else if(locIt->CONFIG.alias.back() == '/')
+            {
+                locIt->CONFIG.alias.pop_back();
+            }
+            if (serverConfigs[i].root.empty() && locIt->CONFIG.root.empty() && locIt->CONFIG.alias.empty() && locIt->CONFIG.redirect.empty())
             {
                 throw ConfigException(ROOT_NOT_EXIST);
             }
@@ -197,6 +201,7 @@ void Config::print(void) const
         {
             std::cout << color::FG_YELLOW << "locations: " << it->LOCATION << ":" << '\n' << color::RESET
             << "    " << "root: " << it->CONFIG.root << '\n'
+            << "    " << "alias: " << it->CONFIG.alias << '\n'
             << "    " << "index: " << it->CONFIG.index << '\n'
             << "    " << "allow_methods: ";
             for (std::map<std::string, bool>::const_iterator it2 = it->CONFIG.allow_methods.begin(); it2 != it->CONFIG.allow_methods.end(); ++it2)

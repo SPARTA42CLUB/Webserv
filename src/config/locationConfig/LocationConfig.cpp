@@ -8,6 +8,7 @@ const std::string LocationConfig::implementMethods[implementMethodsSize] = {"GET
 
 LocationConfig::LocationConfig()
 : root()
+, alias()
 , index()
 , allow_methods()
 , directory_listing(false)
@@ -44,6 +45,12 @@ void LocationConfig::parseRoot(std::string& value)
     if (!isValidValue(value))
         throw ConfigException(INVALID_LOCATION_CONFIG);
     root = value;
+}
+void LocationConfig::parseAlias(std::string& value)
+{
+    if (!isValidValue(value))
+        throw ConfigException(INVALID_LOCATION_CONFIG);
+    alias = value;
 }
 void LocationConfig::parseIndex(std::string& value)
 {
