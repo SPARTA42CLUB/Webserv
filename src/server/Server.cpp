@@ -1,5 +1,6 @@
 #include "Server.hpp"
 #include <arpa/inet.h>
+#include <signal.h>
 #include "EventManager.hpp"
 #include "FileManager.hpp"
 #include "HttpException.hpp"
@@ -15,7 +16,23 @@ Server::Server(const Config& config)
 , socketToConfig()
 , connectionsMap()
 {
-    setupServerSockets();
+    std::vector<ServerConfig> serverConfigs = config.getServerConfigs();
+
+    for (size_t i = 0; i < serverConfigs.size(); ++i)
+    {
+        int serverSocket = setServerSocket(serverConfigs[i]);
+
+        if (listen(serverSocket, 10) == -1)
+        {
+            close(serverSocket);
+            throw SysException(FAILED_TO_LISTEN_SOCKET);
+        }
+
+        serverSockets.push_back(serverSocket);
+        socketToConfig[serverSocket] = serverConfigs[i];
+
+        EventManager::getInstance().addReadEvent(serverSocket);
+    }
 }
 
 Server::~Server()
@@ -32,42 +49,14 @@ Server::~Server()
     }
 }
 
-// Server 소켓 생성 및 설정
-void Server::setupServerSockets()
-{
-    /*
-     * 다중 서버 소켓을 관리하는 이유 : 하나의 서버 소켓이 하나의 port에 대한 연결 요청을 처리한다.
-     * 예시로 443(https)포트와 8080(http)포트를 동시에 사용하는 경우, 서버 소켓을 2개 생성하여 각각의 포트에 대한 연결 요청을 처리한다.
-     * 또한 서버는 여러개의 IP를 가질 수 있으므로, 서버 소켓을 여러개 생성하여 각각의 IP에 대한 연결 요청을 처리할 수 있다.
-     * 서버가 여러개의 IP를 가지는 경우는 서버가 여러개의 네트워크 인터페이스를 가지는 경우이다.
-     */
-    std::vector<ServerConfig> serverConfigs = config.getServerConfigs();
-
-    for (size_t i = 0; i < serverConfigs.size(); ++i)
-    {
-        int serverSocket = createServerSocket(serverConfigs[i]);
-
-        if (listen(serverSocket, 10) == -1)
-        {
-            close(serverSocket);
-            throw SysException(FAILED_TO_LISTEN_SOCKET);
-        }
-
-        serverSockets.push_back(serverSocket);
-        socketToConfig[serverSocket] = serverConfigs[i];
-
-        EventManager::getInstance().addReadEvent(serverSocket);
-    }
-}
-
 // 소켓 생성 및 config에 따른 binding
-int Server::createServerSocket(ServerConfig serverConfig)
+int Server::setServerSocket(ServerConfig serverConfig)
 {
     int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (serverSocket == -1)
         throw SysException(FAILED_TO_CREATE_SOCKET);
 
-    /* 개발 편의용 세팅. 서버 소켓이 이미 사용중이더라도 실행되게끔 설정 */
+    /* NOTE: 개발 편의용 세팅. 서버 소켓이 이미 사용중이더라도 실행되게끔 설정 */
     int optval = 1;
     setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
     /* ----------------------------------------------------------------- */
@@ -175,29 +164,47 @@ void Server::handlePipeReadEvent(struct kevent& event)
 
     if (event.flags & EV_EOF)
     {
-        waitpid(-1, NULL, WNOHANG);
-        ResponseMessage* response = new ResponseMessage();  // 저장된 데이터 들고 오기
-        /* 유효성 체크
-        필수적인 헤더가 있는 지 확인
-        Status Line이나 Content-Length정도는 만들어야 할듯?? */
-        try
-        {
-            response->parseResponseMessage(cgiConnection.recvedData);
-        }
-        catch (const HttpException& e)
-        {
-            response->setByStatusCode(e.getStatusCode(), cgiConnection.serverConfig);
-        }
-        Connection& parentConnection = *connectionsMap[cgiConnection.parentSocket];  // 부모 커넥션 가져오기
-        parentConnection.responses.push(response);  // 부모 커넥션의 responses에다 pipe에서 읽어 온 데이터 넣음
-        EventManager::getInstance().addWriteEvent(cgiConnection.parentSocket);
-        cgiConnection.recvedData.clear();  // 데이터 버퍼 클리어.
-
-        closeConnection(event.ident);
+        movePipeDataToParent(cgiConnection);
+        closeCgi(*connectionsMap[cgiConnection.parentSocket]);
         return;
     }
 
     recvData(cgiConnection);
+}
+
+void Server::closeCgi(Connection& connection)
+{
+    kill(connection.cgiPid, SIGKILL);
+    waitpid(connection.cgiPid, NULL, 0);
+
+    closeConnection(connection.childSocket[READ_END]);
+    closeConnection(connection.childSocket[WRITE_END]);
+
+    connection.cgiPid = -1;
+    connection.childSocket[READ_END] = -1;
+    connection.childSocket[WRITE_END] = -1;
+}
+
+void Server::movePipeDataToParent(Connection& cgiConnection)
+{
+    Connection& parentConnection = *connectionsMap[cgiConnection.parentSocket];  // 부모 커넥션 가져오기
+
+    ResponseMessage* response = new ResponseMessage();
+    /* 유효성 체크
+    필수적인 헤더가 있는 지 확인
+    Status Line이나 Content-Length정도는 만들어야 할듯?? */
+    try
+    {
+        response->parseResponseMessage(cgiConnection.recvedData);
+    }
+    catch (const HttpException& e)
+    {
+        response->setByStatusCode(e.getStatusCode(), cgiConnection.serverConfig);
+    }
+
+    parentConnection.responses.push(response);  // 부모 커넥션의 responses에다 pipe에서 읽어 온 데이터 넣음
+    EventManager::getInstance().addWriteEvent(cgiConnection.parentSocket);
+    cgiConnection.recvedData.clear();  // 데이터 버퍼 클리어.
 }
 
 void Server::handlePipeWriteEvent(struct kevent& event)
@@ -240,6 +247,7 @@ void Server::handleClientReadEvent(struct kevent& event)
         return;
     if (recvData(connection) == false)
         return;
+    updateLastActivity(connection);
 
     try
     {
@@ -304,7 +312,6 @@ bool Server::recvData(Connection& connection)
     buffer[bytesRead] = '\0';
     connection.recvedData += std::string(buffer, buffer + bytesRead);
 
-    updateLastActivity(connection);
     return true;
 }
 
@@ -485,11 +492,32 @@ void Server::checkKeepAlive()
 
     for (std::map<int, Connection*>::const_iterator it = connectionsMap.begin(); it != connectionsMap.end(); ++it)
     {
-        if ((it->second)->parentSocket != -1)  // pipe 커넥션이면 패스
-            continue;
-
-        if (difftime(now, (it->second)->last_activity) > config.getKeepAliveTime())
+        Connection& connection = *(it->second);
+        if (connection.parentSocket != -1)  // cgi 커넥션이면 pass
         {
+            continue ;
+        }
+
+        // 딸린 CGI 커넥션이 있는 경우 CGI부터 먼저 처리
+        if (connection.cgiPid != -1)
+        {
+            // CGI의 응답이 너무 오래 걸리는 경우 CGI를 강제 종료시키고 BAD_GATEWAY를 띄움
+
+            Connection& cgiConnection = *connectionsMap[connection.childSocket[READ_END]];
+            if (difftime(now, cgiConnection.last_activity) > config.getCgiTimeout())
+            {
+                pushResponse(connection, BAD_GATEWAY);
+                cgiConnection.recvedData.clear();  // 데이터 버퍼 클리어.
+                closeCgi(connection);
+            }
+        }
+
+        if (difftime(now, connection.last_activity) > config.getKeepAliveTime())
+        {
+            // 아직 처리할 응답이 남아있는 경우 살려줌
+            if (!connection.responses.empty())
+                continue;
+
             delete connectionsMap[it->first];
             closeSockets.push(it->first);
         }
@@ -502,6 +530,14 @@ void Server::checkKeepAlive()
     }
 }
 
+void Server::pushResponse(Connection& connection, int statusCode)
+{
+    ResponseMessage* response = new ResponseMessage();
+    response->setByStatusCode(statusCode, connection.serverConfig);
+    connection.responses.push(response);
+    EventManager::getInstance().addWriteEvent(connection.socket);
+}
+
 void Server::updateLastActivity(Connection& connection)
 {
     connection.last_activity = time(NULL);
@@ -510,6 +546,15 @@ void Server::updateLastActivity(Connection& connection)
 // 커넥션 종료에 필요한 작업들 처리
 void Server::closeConnection(int socket)
 {
+    if (isConnection(socket) == false)
+        return ;
+
+    Connection& connection = *connectionsMap[socket];
+    if (connection.cgiPid != -1)
+    {
+        closeCgi(connection);
+    }
+
     delete connectionsMap[socket];
     connectionsMap.erase(socket);
 }

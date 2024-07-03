@@ -8,6 +8,7 @@ Connection::Connection(const int socket, const ServerConfig& serverConfig, const
 : socket(socket)
 , parentSocket(parentSocket)
 , childSocket()
+, cgiPid(-1)
 , isKeepAlive(true)
 , isChunked(false)
 , isBodyReading(false)

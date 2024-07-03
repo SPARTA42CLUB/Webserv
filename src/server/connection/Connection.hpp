@@ -10,6 +10,7 @@ struct Connection
     const int socket;
     int parentSocket;
     int childSocket[2];
+    pid_t cgiPid;
     bool isKeepAlive;
     bool isChunked;
     bool isBodyReading;

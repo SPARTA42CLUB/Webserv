@@ -14,8 +14,7 @@ private:
     std::map<int, ServerConfig> socketToConfig;
     std::map<int, Connection*> connectionsMap;
 
-    void setupServerSockets();
-    int createServerSocket(ServerConfig serverConfig);
+    int setServerSocket(ServerConfig serverConfig);
 
     void checkKeepAlive();
 
@@ -25,6 +24,8 @@ private:
     void handleClientReadEvent(struct kevent& event);
     void handleClientWriteEvent(struct kevent& event);
     void handlePipeReadEvent(struct kevent& event);
+    void movePipeDataToParent(Connection& cgiConnection);
+    void closeCgi(Connection& connection);
     void handlePipeWriteEvent(struct kevent& event);
 
     bool recvData(Connection& connection);
@@ -41,6 +42,8 @@ private:
     void updateLastActivity(Connection& connection);
 
     void deleteGarbageEvent(struct kevent& event);
+
+    void pushResponse(Connection& connection, int statusCode);
 
 public:
     Server(const Config& config);

@@ -9,12 +9,14 @@
 
 Config::Config(const std::string& configFilePath)
 : keepalive_timeout(DEFAULT_TIMEOUT)
+, cgi_timeout(DEFAULT_TIMEOUT > 10 ? 5 : DEFAULT_TIMEOUT / 2)
 , serverConfigs()
 {
     try
     {
         parse(configFilePath);
         verifyConfig();
+        cgi_timeout = keepalive_timeout > 10 ? 5 : keepalive_timeout / 2;
     }
     catch(const ConfigException& e)
     {
@@ -214,5 +216,8 @@ size_t Config::getKeepAliveTime() const
 {
     return keepalive_timeout;
 }
-
+size_t Config::getCgiTimeout() const
+{
+    return cgi_timeout;
+}
 

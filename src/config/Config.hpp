@@ -8,6 +8,7 @@ class Config
 {
 private:
     size_t keepalive_timeout;
+    size_t cgi_timeout;
     std::vector<ServerConfig> serverConfigs;
 
     void parse(const std::string& configFilePath);
@@ -20,10 +21,12 @@ private:
     Config& operator=(const Config& rhs);
 
 public:
+
     Config(const std::string& configFilePath);
     ~Config();
     const std::vector<ServerConfig>& getServerConfigs() const;
     size_t getKeepAliveTime() const;
+    size_t getCgiTimeout() const;
 
     // TEST: 파싱 결과 출력
     void print(void) const;

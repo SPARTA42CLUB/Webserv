@@ -184,6 +184,7 @@ void RequestHandler::executeCGI(void)
         fileManager::setNonBlocking(pipe_out[READ_END]);
 
         Connection* parentConnection = mConnectionsMap[mSocket];
+        parentConnection->cgiPid = pid;
 
         parentConnection->childSocket[WRITE_END] = pipe_in[WRITE_END];
         parentConnection->childSocket[READ_END] = pipe_out[READ_END];
