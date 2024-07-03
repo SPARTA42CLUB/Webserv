@@ -21,6 +21,7 @@ LocationConfig::~LocationConfig()
 }
 LocationConfig::LocationConfig(const LocationConfig& rhs)
 : root(rhs.root)
+, alias(rhs.alias)
 , index(rhs.index)
 , allow_methods(rhs.allow_methods)
 , directory_listing(rhs.directory_listing)
@@ -33,6 +34,7 @@ LocationConfig& LocationConfig::operator=(const LocationConfig& rhs)
     if (this == &rhs)
         return *this;
     root = rhs.root;
+    alias = rhs.alias;
     index = rhs.index;
     allow_methods = rhs.allow_methods;
     directory_listing = rhs.directory_listing;

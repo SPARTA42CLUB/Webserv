@@ -40,7 +40,6 @@ ServerConfig& ServerConfig::operator=(const ServerConfig& rhs)
     locations = rhs.locations;
     return *this;
 }
-#include <iostream>
 void ServerConfig::parseLocation(std::ifstream& file, std::string& locationPath, LocationConfig* parentsLocation)
 {
     LocationConfig locationConfig;
@@ -58,7 +57,6 @@ void ServerConfig::parseLocation(std::ifstream& file, std::string& locationPath,
         iss >> key;
         getline(iss, value);
 
-        // std::cout << key << ' ' << value << std::endl;
         if (duplicateCheck[key])
             throw ConfigException(INVALID_LOCATION_CONFIG);
         try
@@ -104,13 +102,8 @@ void ServerConfig::parseLocation(std::ifstream& file, std::string& locationPath,
     {
         throw e;
     } // 얘 여기 맞나?
-    if(!locationConfig.alias.empty())
-        std::cout << "not empty in parseLocation" << std::endl;
+
     locations[locationPath] = locationConfig;
-    if(!locationConfig.alias.empty())
-        std::cout << "not empty in parseLocation" << std::endl;
-    if(!locations[locationPath].alias.empty())
-        std::cout << "not empty in locations[locationPath].alias" << std::endl;
 }
 void ServerConfig::parseHost(std::string& value)
 {
