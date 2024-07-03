@@ -4,15 +4,15 @@
 #include "EventManager.hpp"
 #include "Logger.hpp"
 
-Connection::Connection(const int socket, const ServerConfig& serverConfig, const int parentSocket, std::string recvedData)
+Connection::Connection(const int socket, const ServerConfig& serverConfig, const int parentSocket, std::string buffer)
 : socket(socket)
 , parentSocket(parentSocket)
 , childSocket()
 , cgiPid(-1)
 , isKeepAlive(true)
-, isChunked(false)
+, isInChunkStream(false)
 , isBodyReading(false)
-, recvedData(recvedData)
+, buffer(buffer)
 , reqBuffer(NULL)
 , request(NULL)
 , responses()
@@ -54,7 +54,7 @@ bool checkNeedClose(Connection& connection)
     if (connection.isKeepAlive == false)
         return true;
 
-    if (connection.responses.front()->getResponseHeaderFields().getField("Connection") == "close")
+    if (connection.responses.front()->isConnectionClose())
         return true;
 
     return false;

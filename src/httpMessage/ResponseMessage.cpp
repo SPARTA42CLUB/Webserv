@@ -275,3 +275,11 @@ void ResponseMessage::setConnection(Connection& connection)
         addResponseHeaderField("Connection", "keep-alive");
     }
 }
+
+bool ResponseMessage::isConnectionClose(void)
+{
+    if (getResponseHeaderFields().getField("Connection") == "close")
+        return true;
+
+    return false;
+}

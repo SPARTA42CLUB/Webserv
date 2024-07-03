@@ -12,16 +12,16 @@ struct Connection
     int childSocket[2];
     pid_t cgiPid;
     bool isKeepAlive;
-    bool isChunked;
+    bool isInChunkStream;
     bool isBodyReading;
-    std::string recvedData;
+    std::string buffer;
     RequestMessage* reqBuffer;
     RequestMessage* request;
     std::queue<ResponseMessage*> responses;
     time_t last_activity;
     const ServerConfig& serverConfig;
 
-    Connection(const int socket, const ServerConfig& serverConfig, const int parentSocket = -1, std::string recvedData = "");
+    Connection(const int socket, const ServerConfig& serverConfig, const int parentSocket = -1, std::string buffer = "");
     ~Connection();
 };
 

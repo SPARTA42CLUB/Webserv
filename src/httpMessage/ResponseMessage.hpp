@@ -42,6 +42,7 @@ public:
     void clearMessageBody();
     std::string toString(void) const;
     void setConnection(Connection& connection);
+    bool isConnectionClose(void);
 
     // 4xx
     void badRequest(const std::string& body = "");
