@@ -26,4 +26,4 @@ struct Connection
 };
 
 bool isCgiConnection(Connection& connection);
-bool needClose(Connection& connection);
+bool checkNeedClose(Connection& connection);

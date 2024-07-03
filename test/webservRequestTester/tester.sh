@@ -6,7 +6,7 @@ CR="\r"
 requests=(
 "GET / HTTP/1.1$CR
 Host: localhost$CR
-Connection: close$CR
+Connection: keep-alive$CR
 Content-Length: 10000000$CR
 Number: 1$CR
 Connection: close$CR
@@ -31,7 +31,7 @@ $CR
 
 "POST / HTTP/1.1$CR
 Host: localhost$CR
-Connection: close$CR
+Connection: keep-alive$CR
 Content-Length: 1$CR
 Number: 4$CR
 $CR

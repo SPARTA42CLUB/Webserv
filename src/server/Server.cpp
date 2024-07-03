@@ -459,6 +459,7 @@ void Server::handleClientWriteEvent(struct kevent& event)
         return;
 
     ResponseMessage* res = connection.responses.front();
+    res->setConnection(connection); // Client의 Connection 필드 값, 남은 responses 유무, Response의 에러 코드를 보고 res에 Connection 필드 생성
     Logger::getInstance().logHttpMessage(res);
     std::string data = res->toString();
     ssize_t bytesSend = send(connection.socket, data.c_str(), data.length(), 0);
@@ -469,7 +470,8 @@ void Server::handleClientWriteEvent(struct kevent& event)
         return;
     }
 
-    if (needClose(connection))
+    // setConnection에서 생성한 Connection 필드 값에 따라 실제 Connecion closing
+    if (res->getResponseHeaderFields().getField("Connection") == "close")
     {
         closeConnection(connection.socket);
         return;

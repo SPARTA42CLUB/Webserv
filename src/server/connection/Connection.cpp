@@ -46,7 +46,7 @@ bool isCgiConnection(Connection& connection)
     return false;
 }
 
-bool needClose(Connection& connection)
+bool checkNeedClose(Connection& connection)
 {
     if (connection.responses.size() > 1)
         return false;

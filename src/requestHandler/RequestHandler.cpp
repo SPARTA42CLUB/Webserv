@@ -46,8 +46,6 @@ ResponseMessage* RequestHandler::handleRequest(void)
         return mResponseMessage;
     }
 
-    addConnectionHeader();
-
     return mResponseMessage;
 }
 void RequestHandler::processRequestPath(void)
@@ -404,18 +402,6 @@ void RequestHandler::handleIndex()
     }
     mPath += mLocConfig.index;
     return;
-}
-// Connection 헤더 필드 추가
-void RequestHandler::addConnectionHeader(void)
-{
-    if (mRequestMessage->getRequestHeaderFields().hasField("Connection") == true)
-    {
-        mResponseMessage->addResponseHeaderField("Connection", mRequestMessage->getRequestHeaderFields().getField("Connection"));
-    }
-    else
-    {
-        mResponseMessage->addResponseHeaderField("Connection", "keep-alive");
-    }
 }
 void RequestHandler::addContentType(void)
 {

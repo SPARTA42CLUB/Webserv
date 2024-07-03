@@ -42,7 +42,6 @@ private:
     int handleAutoindex(void);
 
     void addContentType(void);
-    void addConnectionHeader(void);
 
     void executeCGI(void);
 
