@@ -22,6 +22,13 @@ RequestHandler::RequestHandler(std::map<int, Connection*>& connectionsMap, const
 
 ResponseMessage* RequestHandler::handleRequest(void)
 {
+    int statusCode = mConnectionsMap[mSocket]->request->getStatusCode();
+    if (statusCode != OK)
+    {
+        mResponseMessage = new ResponseMessage();
+        mResponseMessage->setByStatusCode(statusCode, mServerConfig);
+        return mResponseMessage;
+    }
     processRequestPath();
     try
     {
@@ -39,7 +46,7 @@ ResponseMessage* RequestHandler::handleRequest(void)
     }
     mResponseMessage = new ResponseMessage();
 
-    int statusCode = handleMethod();
+    statusCode = handleMethod();
     if (checkStatusCode(statusCode) == false)
     {
         mResponseMessage->setByStatusCode(statusCode, mServerConfig);

@@ -31,7 +31,7 @@ $CR
 
 "POST / HTTP/1.1$CR
 Host: localhost$CR
-Connection: keep-alive$CR
+Connection: close$CR
 Content-Length: 1$CR
 Number: 4$CR
 $CR

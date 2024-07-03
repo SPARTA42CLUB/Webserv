@@ -8,6 +8,7 @@
 #include "RequestHandler.hpp"
 #include "ResponseMessage.hpp"
 #include "SysException.hpp"
+#include <iostream>
 
 // ServerConfig 클래스 생성자
 Server::Server(const Config& config)
@@ -249,43 +250,27 @@ void Server::handleClientReadEvent(struct kevent& event)
         return;
     updateLastActivity(connection);
 
-    try
+    while (parseData(connection))
     {
-        while (parseData(connection))
-        {
-            if (!connection.request)
-                continue;
+        if (!connection.request)
+            continue;
 
-            if (connection.request->getRequestHeaderFields().getField("Connection") == "close")
-                connection.isKeepAlive = false;
-            Logger::getInstance().logHttpMessage(connection.request);
-            RequestHandler requestHandler(connectionsMap, socket);
-            ResponseMessage* res = requestHandler.handleRequest();
-            std::string method = connection.request->getRequestLine().getMethod();
-            delete connection.request;
-            connection.request = NULL;
-
-            if (res == NULL)
-                continue;
-            if (method == "HEAD")
-                res->clearMessageBody();
-            connection.responses.push(res);
-            EventManager::getInstance().addWriteEvent(socket);
-        }
-    }
-    catch (const HttpException& e)
-    {
-        Logger::getInstance().logHttpMessage(connection.reqBuffer);
-        ResponseMessage* res = new ResponseMessage();
-        // Default error page를 위해 server config 뽑고 넣기
-        res->setByStatusCode(e.getStatusCode(), connection.serverConfig);
-        if (connection.reqBuffer->getRequestHeaderFields().getField("Connection") == "close")
+        if (connection.request->getRequestHeaderFields().getField("Connection") == "close")
             connection.isKeepAlive = false;
-        if (connection.reqBuffer->getRequestLine().getMethod() == "HEAD")
+        Logger::getInstance().logHttpMessage(connection.request);
+        RequestHandler requestHandler(connectionsMap, socket);
+        ResponseMessage* res = requestHandler.handleRequest();
+        std::string method = connection.request->getRequestLine().getMethod();
+        delete connection.request;
+        connection.request = NULL;
+
+        // req가 Cgi 요청이었던 경우
+        if (res == NULL)
+            continue;
+        if (method == "HEAD")
             res->clearMessageBody();
         connection.responses.push(res);
         EventManager::getInstance().addWriteEvent(socket);
-        return;
     }
 }
 
@@ -331,7 +316,8 @@ bool Server::parseData(Connection& connection)
         if (req == NULL)
             return false;
 
-        if (!connection.isBodyReading && !connection.isChunked)
+        // 안에서 에러가 발생했거나 온전한 헤더가 만들어졌거나
+        if (req->getStatusCode() != OK || (!connection.isBodyReading && !connection.isChunked))
         {
             connection.reqBuffer = NULL;
             connection.request = req;
@@ -344,12 +330,13 @@ RequestMessage* Server::getHeader(Connection& connection)
     size_t headerEnd = connection.recvedData.find("\r\n\r\n");
     if (headerEnd == std::string::npos)
         return NULL;  // \r\n\r\n 없으면 리턴
-
     size_t headerLen = headerEnd + 4;
     RequestMessage* req = new RequestMessage();
     connection.reqBuffer = req;
     req->parseRequestHeader(connection.recvedData.substr(0, headerLen));  // 헤더 파싱
     connection.recvedData.erase(0, headerLen);
+    if (req->getStatusCode() != OK)
+        return req;
 
     if (req->getRequestHeaderFields().getField("Transfer-Encoding") == "chunked")
         connection.isChunked = true;
@@ -358,7 +345,8 @@ RequestMessage* Server::getHeader(Connection& connection)
         size_t contentLength = req->getContentLength();
         if (contentLength > connection.serverConfig.getClientMaxBodySize())
         {
-            throw HttpException(CONTENT_TOO_LARGE);
+            req->setStatusCode(CONTENT_TOO_LARGE);
+            return req;
         }
 
         if (contentLength > 0)
@@ -386,7 +374,6 @@ bool Server::addContent(Connection& connection)
     return false;
 }
 
-// throwable CONTENT_TOO_LARGE
 bool Server::addChunk(Connection& connection)
 {
     RequestMessage* req = connection.reqBuffer;
@@ -399,6 +386,15 @@ bool Server::addChunk(Connection& connection)
         req->addMessageBody(chunk);
     }
 
+    // 안에서 error 발생했을 시
+    if (connection.reqBuffer->getStatusCode() != OK)
+    {
+        connection.isChunked = false;
+        connection.reqBuffer = NULL;
+        connection.request = req;
+        return true;
+    }
+
     // getChunk 내부에서 마지막 청크를 받았으면
     if (connection.isChunked == false)
         return true ;
@@ -406,7 +402,6 @@ bool Server::addChunk(Connection& connection)
     return hasData;
 }
 
-// throwable CONTENT_TOO_LARGE
 std::string Server::getChunk(Connection& connection)
 {
     size_t pos = 0;
@@ -426,13 +421,15 @@ std::string Server::getChunk(Connection& connection)
     RequestMessage* req = connection.reqBuffer;
     if (req->getMessageBody().size() + chunkSize > connection.serverConfig.getClientMaxBodySize())
     {
-        throw HttpException(CONTENT_TOO_LARGE);
+        req->setStatusCode(CONTENT_TOO_LARGE);
+        return "";
     }
 
     // 청크 형식 불만족
     if (connection.recvedData[chunkSize] != '\r' || connection.recvedData[chunkSize + 1] != '\n')
     {
-        throw HttpException(BAD_REQUEST);
+        req->setStatusCode(BAD_REQUEST);
+        return "";
     }
 
     std::string chunkData = connection.recvedData.substr(0, chunkSize);

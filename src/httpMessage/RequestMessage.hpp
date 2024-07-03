@@ -12,6 +12,7 @@ const int MAX_URI_LENGTH = 8200;
 class RequestMessage
 {
 private:
+    int mStatusCode;
     StartLine mRequestLine;
     HeaderFields mRequestHeaderFields;
     MessageBody mMessageBody;
@@ -33,6 +34,8 @@ public:
     void addMessageBody(const std::string& body);
     std::string toString(void) const;
     size_t getContentLength(void) const;
+    int getStatusCode(void);
+    void setStatusCode(int statusCode);
 };
 
 #endif
