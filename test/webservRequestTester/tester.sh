@@ -266,7 +266,7 @@ WEBSERVER_CREATE_TIME=1
 RESPONSE_WAIT_TIME=0.1
 
 # netcat 명령어 타임아웃 시간 (초)
-NC_TIMEOUT=5
+NC_TIMEOUT=7
 
 # 색상 코드
 BLACK='\033[90m'

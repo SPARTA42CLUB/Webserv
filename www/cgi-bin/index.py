@@ -34,6 +34,8 @@ def handle_delete():
 
 
 def main():
+    # while True:
+    #     print("cgi")
     request_method = os.environ.get("REQUEST_METHOD")
     if request_method == "HEAD":
         status_line = "HTTP/1.1 200 OK\r\n"
