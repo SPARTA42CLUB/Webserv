@@ -44,20 +44,21 @@ def main():
         body = ""
     else:
         if request_method in ["GET", "POST"]:
-            form = cgi.FieldStorage()
-            name = form.getvalue("name")
-            age = form.getvalue("age")
             body = "<html><body>"
             if request_method == "POST":
                 # Read the body of the POST request from stdin
                 content_length = int(os.environ.get("CONTENT_LENGTH", 0))
                 post_body = sys.stdin.read(content_length)
-                print(f"Debug: content_length = {content_length}, post_body = '{post_body}'", file=sys.stderr)  # 디버그 출력
+                # print(f"Debug: content_length = {content_length}, post_body = '{post_body}'", file=sys.stderr)  # 디버그 출력
                 body += f"<h1>POST request received</h1><p>Body: {html.escape(post_body)}</p>"
-            if name and age:
-                body += f"<h1>Received name: {name}, age: {age}</h1>"
-            else:
-                body += "<h1>GET request received</h1>"
+            elif request_method == "GET":
+                form = cgi.FieldStorage()
+                name = form.getvalue("name")
+                age = form.getvalue("age")
+                if name and age:
+                    body += f"<h1>Received name: {name}, age: {age}</h1>"
+                else:
+                    body += "<h1>GET request received</h1>"
             body += "</body></html>"
             status_line = "HTTP/1.1 200 OK\r\n"
             headers = "Content-Type: text/html\r\n"

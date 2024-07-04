@@ -162,7 +162,6 @@ void Server::acceptClient(int serverSocket)
 void Server::handlePipeReadEvent(struct kevent& event)
 {
     Connection& cgiConnection = *(connectionsMap[event.ident]);
-    std::cout << "buffer: " << cgiConnection.buffer << std::endl;
 
     if (event.flags & EV_EOF)
     {
@@ -171,7 +170,6 @@ void Server::handlePipeReadEvent(struct kevent& event)
         return;
     }
 
-    std::cout << "readData: " << event.ident << std::endl;
     readData(cgiConnection);
 }
 
@@ -216,7 +214,6 @@ void Server::handlePipeWriteEvent(struct kevent& event)
 
     ssize_t writeSize;
     std::string& data = cgiConnection.buffer;
-    std::cout << "data: " << data << std::endl;
     if ((writeSize = write(pipe, data.c_str(), data.size())) < 0)
     {
         // write 에러 시 커넥션 종료
@@ -224,7 +221,6 @@ void Server::handlePipeWriteEvent(struct kevent& event)
         closeConnection(pipe);
         return;
     }
-    std::cout << "writeSize: " << writeSize << std::endl;
 
     data.erase(0, writeSize);
     updateLastActivity(cgiConnection);
@@ -232,7 +228,6 @@ void Server::handlePipeWriteEvent(struct kevent& event)
     // GET요청이거나 바디를 다 전송했을 시
     if (writeSize == 0 || data.empty())
     {
-        std::cout << "closeCgi" << std::endl;
         int readSocket = connectionsMap[cgiConnection.parentSocket]->childSocket[READ_END];
         EventManager::getInstance().addReadEvent(readSocket);
         closeConnection(pipe);

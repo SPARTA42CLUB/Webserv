@@ -182,8 +182,8 @@ void RequestHandler::executeCGI(void)
         // Child process
         close(pipe_in[WRITE_END]);
         close(pipe_out[READ_END]);
-        dup2(pipe_in[READ_END], STDIN_FILENO);
-        dup2(pipe_out[WRITE_END], STDOUT_FILENO);
+        if (dup2(pipe_in[READ_END], STDIN_FILENO) == -1 || dup2(pipe_out[WRITE_END], STDOUT_FILENO) == -1)
+            throw SysException(FAILED_TO_DUP);
 
         std::vector<char> interpreter_cstr(mLocConfig.cgi_interpreter.begin(), mLocConfig.cgi_interpreter.end());
         std::vector<char> path_cstr(mPath.begin(), mPath.end());
@@ -221,10 +221,6 @@ void RequestHandler::executeCGI(void)
     mConnectionsMap[pipe_out[READ_END]] = new Connection(pipe_out[READ_END], parentConnection->serverConfig, mSocket);
 
     EventManager::getInstance().addWriteEvent(pipe_in[WRITE_END]);
-    std::cout << "pipe_in[READ_END]: " << pipe_in[READ_END] << std::endl;
-    std::cout << "pipe_in[WRITE_END]: " << pipe_in[WRITE_END] << std::endl;
-    std::cout << "pipe_out[READ_END]: " << pipe_out[READ_END] << std::endl;
-    std::cout << "pipe_out[WRITE_END]: " << pipe_out[WRITE_END] << std::endl;
 }
 // method에 따른 분기 처리
 int RequestHandler::handleMethod(void)
