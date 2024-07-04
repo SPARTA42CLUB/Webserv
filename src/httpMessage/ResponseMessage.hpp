@@ -8,6 +8,8 @@
 #include "ServerConfig.hpp"
 #include "RequestMessage.hpp"
 
+struct Connection;
+
 class ResponseMessage
 {
 private:
@@ -39,6 +41,8 @@ public:
     size_t getMessageBodySize() const;
     void clearMessageBody();
     std::string toString(void) const;
+    void setConnection(Connection& connection);
+    bool isConnectionClose(void);
 
     // 4xx
     void badRequest(const std::string& body = "");

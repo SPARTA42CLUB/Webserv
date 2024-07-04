@@ -16,6 +16,7 @@ class LocationConfig
 {
 public:
     std::string root;
+    std::string alias;
     std::string index;
     std::map<std::string, bool> allow_methods;
     bool directory_listing;
@@ -30,6 +31,7 @@ public:
     LocationConfig(const LocationConfig& rhs);
     LocationConfig& operator=(const LocationConfig& rhs);
     void parseRoot(std::string& value);
+    void parseAlias(std::string& value);
     void parseIndex(std::string& value);
     void parseAllowMethods(std::string& value);
     void parseDirectoryListing(std::string& value);

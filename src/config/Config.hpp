@@ -1,8 +1,8 @@
 #ifndef CONFIG_HPP
 #define CONFIG_HPP
 
-#include "ServerConfig.hpp"
 #include <vector>
+#include "ServerConfig.hpp"
 
 class Config
 {
@@ -16,12 +16,10 @@ private:
     void parseServer(std::ifstream& file);
     void verifyConfig(void);
 
-
     Config(const Config& rhs);
     Config& operator=(const Config& rhs);
 
 public:
-
     Config(const std::string& configFilePath);
     ~Config();
     const std::vector<ServerConfig>& getServerConfigs() const;

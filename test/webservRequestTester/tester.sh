@@ -6,7 +6,7 @@ CR="\r"
 requests=(
 "GET / HTTP/1.1$CR
 Host: localhost$CR
-Connection: close$CR
+Connection: keep-alive$CR
 Content-Length: 10000000$CR
 Number: 1$CR
 Connection: close$CR
@@ -32,10 +32,9 @@ $CR
 "POST / HTTP/1.1$CR
 Host: localhost$CR
 Connection: close$CR
-Content-Length: 1$CR
 Number: 4$CR
 $CR
-a" 200
+" 200
 
 "GET / HTTP/1.1$CR
 Host: localhost:8080$CR
@@ -255,6 +254,21 @@ Connection: close$CR
 Number: 32$CR
 $CR
 " 200
+
+"POST /upload/test.txt HTTP/1.1$CR
+Host: localhost$CR
+Content-Type: text/plain$CR
+Transfer-Encoding: chunked$CR
+Number: 33$CR
+Connection: close$CR
+$CR
+8$CR
+Mozilla $CR
+11$CR
+Developer Network$CR
+0$CR
+$CR
+" 201
 )
 
 # ---------------------------------------------------------------------------------------------------
@@ -332,7 +346,9 @@ for ((i=0; i<${#requests[@]}; i+=2)); do
     fi
 done
 
-# sudo rm -rf ../../www/permission_denied access.log
+chmod -R 777 ../../www/permission_denied
+rm -rf ../../www/permission_denied
+rm -rf ../../www/upload/test.txt
 
 # webserv 프로그램 종료
 kill -9 $WEBSERV_PID > /dev/null 2>&1

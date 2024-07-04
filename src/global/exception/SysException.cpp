@@ -39,6 +39,8 @@ const char* SysException::what() const _NOEXCEPT
             return "Failed to create pipe";
         case FAILED_TO_FORK:
             return "Failed to fork";
+        case FAILED_TO_DUP:
+            return "Failed to dup2";
         case FAILED_TO_EXEC:
             return "Failed to exec";
         default:

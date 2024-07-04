@@ -42,7 +42,7 @@ ServerConfig& ServerConfig::operator=(const ServerConfig& rhs)
 }
 void ServerConfig::parseLocation(std::ifstream& file, std::string& locationPath, LocationConfig* parentsLocation)
 {
-    LocationConfig locationConfig;
+    LocationConfig& locationConfig = locations[locationPath];
     std::string line;
     std::map<std::string, bool> duplicateCheck;
     if (parentsLocation)
@@ -60,22 +60,26 @@ void ServerConfig::parseLocation(std::ifstream& file, std::string& locationPath,
             throw ConfigException(INVALID_LOCATION_CONFIG);
         try
         {
-            if (key == "root") locationConfig.parseRoot(value);
-            else if (key == "index") locationConfig.parseIndex(value);
-            else if (key == "allow_methods") locationConfig.parseAllowMethods(value);
-            else if (key == "directory_listing") locationConfig.parseDirectoryListing(value);
-            else if (key == "redirect") locationConfig.parseRedirect(value);
-            else if (key == "cgi_interpreter") locationConfig.parseCGI(value);
+            if (key == "root") 
+                locationConfig.parseRoot(value);
+            else if (key == "alias")
+                locationConfig.parseAlias(value);
+            else if (key == "index") 
+                locationConfig.parseIndex(value);
+            else if (key == "allow_methods") 
+                locationConfig.parseAllowMethods(value);
+            else if (key == "directory_listing") 
+                locationConfig.parseDirectoryListing(value);
+            else if (key == "redirect") 
+                locationConfig.parseRedirect(value);
+            else if (key == "cgi_interpreter") 
+                locationConfig.parseCGI(value);
             else if (key == "location")
             {
                 if (!isValidLocationPath(value))
-                {
                     throw ConfigException(INVALID_LOCATION_CONFIG);
-                }
                 if (value.find(locationPath) != 0)
-                {
                     throw ConfigException(INVALID_LOCATION_CONFIG);
-                }
                 parseLocation(file, value, &locationConfig);
             }
             else
@@ -86,11 +90,8 @@ void ServerConfig::parseLocation(std::ifstream& file, std::string& locationPath,
             throw e;
         }
         if (key != "location")
-        {
             duplicateCheck[key] = true;
-        }
     }
-    locations[locationPath] = locationConfig;
 }
 void ServerConfig::parseHost(std::string& value)
 {
@@ -104,9 +105,7 @@ void ServerConfig::parsePort(std::string& value)
         throw ConfigException(INVALID_SERVER_CONFIG);
     port = atoi(value.c_str());
     if (port > MAX_PORT_NUM || port == 0)
-    {
         throw ConfigException(INVALID_SERVER_CONFIG);
-    }
 }
 void ServerConfig::parseRoot(std::string& value)
 {
@@ -153,31 +152,16 @@ void ServerConfig::parseErrorPage(std::string& value)
 bool ServerConfig::isValidLocationPath(std::string& locationPath)
 {
     if (locationPath.back() != '{' || locationPath.find("//") != std::string::npos)
-    {
         return false;
-    }
-    locationPath.pop_back();
+    pop_back(locationPath);
     trim(locationPath);
     if (locationPath.empty())
-    {
         return false;
-    }
     if (find(locationPath.begin(), locationPath.end(), ' ') != locationPath.end())
-    {
         return false;
-    }
     if (locationPath.front() != '/' && locationPath.front() != '.')
-    {
         return false;
-    }
     if (locations.find(locationPath) != locations.end())
-    {
         return false;
-    }
     return true;
-}
-
-size_t ServerConfig::getClientMaxBodySize() const
-{
-    return client_max_body_size;
 }

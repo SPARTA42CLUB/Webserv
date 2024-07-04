@@ -15,6 +15,10 @@
 #define CRLF "\r\n"
 #endif
 
+#ifndef HEADER_END
+#define HEADER_END "\r\n\r\n"
+#endif
+
 #ifndef KEY
 #define KEY first
 #endif

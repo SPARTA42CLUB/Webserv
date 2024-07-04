@@ -2,7 +2,8 @@
 #include "HttpException.hpp"
 
 RequestMessage::RequestMessage()
-: mRequestLine()
+: mStatusCode(OK)
+, mRequestLine()
 , mRequestHeaderFields()
 , mMessageBody()
 {
@@ -34,7 +35,7 @@ void RequestMessage::parseRequestHeader(const std::string& request)
     }
     catch (const HttpException& e)
     {
-        throw e;
+        setStatusCode(e.getStatusCode());
     }
 }
 void RequestMessage::parseRequestLine(std::istringstream& reqStream)
@@ -121,4 +122,14 @@ size_t RequestMessage::getContentLength(void) const
         return 0;
 
     return std::strtoul(contentLengthStr.c_str(), NULL, 10);
+}
+
+int RequestMessage::getStatusCode(void)
+{
+    return mStatusCode;
+}
+
+void RequestMessage::setStatusCode(int statusCode)
+{
+    this->mStatusCode = statusCode;
 }

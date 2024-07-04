@@ -7,21 +7,27 @@
 #include "RangeRequestReader.hpp"
 #include "SysException.hpp"
 
-RequestHandler::RequestHandler(std::map<int, Connection*>& connectionsMap, const int socket)
+RequestHandler::RequestHandler(std::map<int, Connection*>& connectionsMap, const int fd)
 : mConnectionsMap(connectionsMap)
-, mSocket(socket)
-, mRequestMessage(connectionsMap[socket]->request)
+, mSocket(fd)
+, mRequestMessage(connectionsMap[fd]->request)
 , mResponseMessage()
-, mServerConfig(connectionsMap[socket]->serverConfig)
+, mServerConfig(connectionsMap[fd]->serverConfig)
 , mLocConfig()
 , mPath()
 , mQueryString()
 , mbIsCGI(false)
 {
 }
-
 ResponseMessage* RequestHandler::handleRequest(void)
 {
+    int statusCode = mConnectionsMap[mSocket]->request->getStatusCode();
+    if (statusCode != OK)
+    {
+        mResponseMessage = new ResponseMessage();
+        mResponseMessage->setByStatusCode(statusCode, mServerConfig);
+        return mResponseMessage;
+    }
     processRequestPath();
     try
     {
@@ -39,14 +45,12 @@ ResponseMessage* RequestHandler::handleRequest(void)
     }
     mResponseMessage = new ResponseMessage();
 
-    int statusCode = handleMethod();
+    statusCode = handleMethod();
     if (checkStatusCode(statusCode) == false)
     {
         mResponseMessage->setByStatusCode(statusCode, mServerConfig);
         return mResponseMessage;
     }
-
-    addConnectionHeader();
 
     return mResponseMessage;
 }
@@ -61,13 +65,38 @@ void RequestHandler::processRequestPath(void)
     }
     matchClosestLocation(reqTarget, locations);
 }
+void RequestHandler::setPath(const std::map<std::string, LocationConfig>::const_iterator locIt, const std::string& reqTarget)
+{
+    mLocConfig = locIt->CONFIG;
+    if (reqTarget.empty())
+    {
+        if (mLocConfig.alias.empty())
+        {
+            mPath = mLocConfig.root + locIt->LOCATION;
+        }
+        else
+        {
+            mPath = mLocConfig.alias;
+        }
+    }
+    else
+    {
+        if (mLocConfig.alias.empty())
+        {
+            mPath = mLocConfig.root + reqTarget;
+        }
+        else
+        {
+            mPath = mLocConfig.alias + reqTarget.substr(locIt->LOCATION.size() - (locIt->LOCATION.back() == '/'));
+        }
+    }
+}
 bool RequestHandler::matchExactLocation(const std::string& reqTarget, const std::map<std::string, LocationConfig>& locations)
 {
     std::map<std::string, LocationConfig>::const_iterator it = locations.find(reqTarget);
     if (it != locations.end())
     {
-        mLocConfig = it->CONFIG;
-        mPath = mLocConfig.root + it->LOCATION;
+        setPath(it);
         return true;
     }
 
@@ -79,8 +108,7 @@ bool RequestHandler::matchExactLocation(const std::string& reqTarget, const std:
     it = locations.find(reqTarget + "/");
     if (it != locations.end())
     {
-        mLocConfig = it->CONFIG;
-        mPath = mLocConfig.root + it->LOCATION;
+        setPath(it);
         return true;
     }
 
@@ -88,7 +116,7 @@ bool RequestHandler::matchExactLocation(const std::string& reqTarget, const std:
 }
 void RequestHandler::matchClosestLocation(const std::string& reqTarget, const std::map<std::string, LocationConfig>& locations)
 {
-    const LocationConfig* locConf;
+    std::map<std::string, LocationConfig>::const_iterator tmp;
     size_t maxMatchCnt = 0;
     for (std::map<std::string, LocationConfig>::const_iterator it = locations.begin(); it != locations.end(); ++it)
     {
@@ -106,11 +134,10 @@ void RequestHandler::matchClosestLocation(const std::string& reqTarget, const st
         if (matchCnt > maxMatchCnt)
         {
             maxMatchCnt = matchCnt;
-            locConf = &(it->CONFIG);
+            tmp = it;
         }
     }
-    mPath = locConf->root + reqTarget;
-    mLocConfig = *locConf;
+    setPath(tmp, reqTarget);
     return;
 }
 bool RequestHandler::identifyCGIRequest(const std::string& reqTarget, std::map<std::string, LocationConfig>::const_iterator& locIt)
@@ -130,7 +157,7 @@ bool RequestHandler::identifyCGIRequest(const std::string& reqTarget, std::map<s
         return false;
     }
     mLocConfig = locIt->CONFIG;
-    mPath = mLocConfig.root + reqTarget.substr(0, dotIdx + locationPath.size());
+    mPath = (mLocConfig.alias.empty() ? mLocConfig.root : mLocConfig.alias) + reqTarget.substr(0, dotIdx + locationPath.size());
     if (queryIdx != std::string::npos)
     {
         mQueryString = reqTarget.substr(queryIdx + 1);
@@ -154,8 +181,8 @@ void RequestHandler::executeCGI(void)
         // Child process
         close(pipe_in[WRITE_END]);
         close(pipe_out[READ_END]);
-        dup2(pipe_in[READ_END], STDIN_FILENO);
-        dup2(pipe_out[WRITE_END], STDOUT_FILENO);
+        if (dup2(pipe_in[READ_END], STDIN_FILENO) == -1 || dup2(pipe_out[WRITE_END], STDOUT_FILENO) == -1)
+            throw SysException(FAILED_TO_DUP);
 
         std::vector<char> interpreter_cstr(mLocConfig.cgi_interpreter.begin(), mLocConfig.cgi_interpreter.end());
         std::vector<char> path_cstr(mPath.begin(), mPath.end());
@@ -165,34 +192,34 @@ void RequestHandler::executeCGI(void)
 
         std::string queryStringEnv = "QUERY_STRING=" + mQueryString;
         std::string requestMethodEnv = "REQUEST_METHOD=" + mRequestMessage->getRequestLine().getMethod();
+        std::string contentLengthEnv = "CONTENT_LENGTH=" + std::to_string(mRequestMessage->getMessageBody().size());
         std::vector<char> queryStringEnv_cstr(queryStringEnv.begin(), queryStringEnv.end());
         std::vector<char> requestMethodEnv_cstr(requestMethodEnv.begin(), requestMethodEnv.end());
+        std::vector<char> contentLengthEnv_cstr(contentLengthEnv.begin(), contentLengthEnv.end());
         queryStringEnv_cstr.push_back('\0');
         requestMethodEnv_cstr.push_back('\0');
-        char* envp[] = {queryStringEnv_cstr.data(), requestMethodEnv_cstr.data(), NULL};
+        contentLengthEnv_cstr.push_back('\0');
+        char* envp[] = {queryStringEnv_cstr.data(), requestMethodEnv_cstr.data(), contentLengthEnv_cstr.data(), NULL};
 
         execve(argv[READ_END], argv, envp);
         throw SysException(FAILED_TO_EXEC);
     }
-    else
-    {
-        // Parent process
-        close(pipe_in[READ_END]);
-        close(pipe_out[WRITE_END]);
+    // Parent process
+    close(pipe_in[READ_END]);
+    close(pipe_out[WRITE_END]);
 
-        fileManager::setNonBlocking(pipe_in[WRITE_END]);
-        fileManager::setNonBlocking(pipe_out[READ_END]);
+    fileManager::setNonBlocking(pipe_in[WRITE_END]);
+    fileManager::setNonBlocking(pipe_out[READ_END]);
 
-        Connection* parentConnection = mConnectionsMap[mSocket];
-        parentConnection->cgiPid = pid;
+    Connection* parentConnection = mConnectionsMap[mSocket];
+    parentConnection->cgiPid = pid;
 
-        parentConnection->childSocket[WRITE_END] = pipe_in[WRITE_END];
-        parentConnection->childSocket[READ_END] = pipe_out[READ_END];
-        mConnectionsMap[pipe_in[WRITE_END]] = new Connection(pipe_in[WRITE_END], parentConnection->serverConfig, mSocket, mRequestMessage->getMessageBody().toString());
-        mConnectionsMap[pipe_out[READ_END]] = new Connection(pipe_out[READ_END], parentConnection->serverConfig, mSocket);
+    parentConnection->childFd[WRITE_END] = pipe_in[WRITE_END];
+    parentConnection->childFd[READ_END] = pipe_out[READ_END];
+    mConnectionsMap[pipe_in[WRITE_END]] = new Connection(pipe_in[WRITE_END], parentConnection->serverConfig, mSocket, mRequestMessage->getMessageBody().toString());
+    mConnectionsMap[pipe_out[READ_END]] = new Connection(pipe_out[READ_END], parentConnection->serverConfig, mSocket);
 
-        EventManager::getInstance().addWriteEvent(pipe_in[WRITE_END]);
-    }
+    EventManager::getInstance().addWriteEvent(pipe_in[WRITE_END]);
 }
 // method에 따른 분기 처리
 int RequestHandler::handleMethod(void)
@@ -404,18 +431,6 @@ void RequestHandler::handleIndex()
     }
     mPath += mLocConfig.index;
     return;
-}
-// Connection 헤더 필드 추가
-void RequestHandler::addConnectionHeader(void)
-{
-    if (mRequestMessage->getRequestHeaderFields().hasField("Connection") == true)
-    {
-        mResponseMessage->addResponseHeaderField("Connection", mRequestMessage->getRequestHeaderFields().getField("Connection"));
-    }
-    else
-    {
-        mResponseMessage->addResponseHeaderField("Connection", "keep-alive");
-    }
 }
 void RequestHandler::addContentType(void)
 {

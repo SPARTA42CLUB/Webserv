@@ -45,6 +45,7 @@ SRC				:= $(shell find $(SRC_DIR) -name "*.cpp")
 OBJ				:= $(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(SRC))
 
 all: $(NAME)
+	@mkdir log/
 	@echo "$(FG_GREEN)$(NAME) created successfully$(RESET)"
 
 $(NAME): $(OBJ)
@@ -57,11 +58,11 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
 	@echo "$(FG_CYAN)Compiled:$(RESET) $< -> $@"
 
 clean:
-	@rm -f $(OBJ)
+	@rm -rf $(OBJ) obj/
 	@echo "$(FG_BLUE)Cleaned up object files$(RESET)"
 
 fclean: clean
-	@rm -f $(NAME) log/*.log
+	@rm -rf $(NAME) log/
 	@echo "$(FG_BLUE)Cleaned up executable and log files$(RESET)"
 
 re:

@@ -6,6 +6,8 @@
 #include "Config.hpp"
 #include "Connection.hpp"
 
+#define BUFFER_SIZE 4096
+
 class Server
 {
 private:
@@ -16,9 +18,10 @@ private:
 
     int setServerSocket(ServerConfig serverConfig);
 
-    void checkKeepAlive();
+    void manageTimeout();
 
     void handleEvents(struct kevent& event);
+    void handleClientsEvent(struct kevent& event);
 
     void acceptClient(int serverSocket);
     void handleClientReadEvent(struct kevent& event);
@@ -28,16 +31,16 @@ private:
     void closeCgi(Connection& connection);
     void handlePipeWriteEvent(struct kevent& event);
 
-    bool recvData(Connection& connection);
+    bool readData(Connection& connection);
 
-    bool parseData(Connection& connection);
+    bool buildMessage(Connection& connection);
     RequestMessage* getHeader(Connection& connection);
     bool addContent(Connection& connection);
     bool addChunk(Connection& connection);
     std::string getChunk(Connection& connection);
 
-    void closeConnection(int socket);
-    bool isConnection(int key);
+    void closeConnection(const int socket);
+    bool isConnection(const int socket);
     bool isServerSocket(int socket);
     void updateLastActivity(Connection& connection);
 

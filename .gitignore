@@ -42,6 +42,7 @@ webserv
 logs/
 unexpected_response.txt
 www/permission_denied/
+diff.txt
 
 # log
 access.log

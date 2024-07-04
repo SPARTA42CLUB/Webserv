@@ -24,6 +24,7 @@ private:
     void processRequestPath(void);
     bool matchExactLocation(const std::string& reqTarget, const std::map<std::string, LocationConfig>& locations);
     void matchClosestLocation(const std::string& reqTarget, const std::map<std::string, LocationConfig>& locations);
+    void setPath(const std::map<std::string, LocationConfig>::const_iterator locIt, const std::string& reqTarget = "");
     bool identifyCGIRequest(const std::string& reqTarget, std::map<std::string, LocationConfig>::const_iterator& locIt);
 
     int handleMethod(void);
@@ -42,7 +43,6 @@ private:
     int handleAutoindex(void);
 
     void addContentType(void);
-    void addConnectionHeader(void);
 
     void executeCGI(void);
 

@@ -1,5 +1,6 @@
 #include "ResponseMessage.hpp"
 #include "HttpException.hpp"
+#include "Connection.hpp"
 
 ResponseMessage::ResponseMessage()
 : mStatusLine()
@@ -176,7 +177,6 @@ void ResponseMessage::forbidden(const std::string& body)
         addMessageBody(body);
     setStatusLine("HTTP/1.1", FORBIDDEN, "Forbidden");
     addResponseHeaderField("Content-Type", "text/html");
-    addResponseHeaderField("Connection", "keep-alive");
     addSemanticHeaderFields();
 }
 void ResponseMessage::notFound(const std::string& body)
@@ -187,7 +187,6 @@ void ResponseMessage::notFound(const std::string& body)
         addMessageBody(body);
     setStatusLine("HTTP/1.1", NOT_FOUND, "Not Found");
     addResponseHeaderField("Content-Type", "text/html");
-    addResponseHeaderField("Connection", "keep-alive");
     addSemanticHeaderFields();
 }
 void ResponseMessage::methodNotAllowed(const std::string& body)
@@ -198,7 +197,6 @@ void ResponseMessage::methodNotAllowed(const std::string& body)
         addMessageBody(body);
     setStatusLine("HTTP/1.1", METHOD_NOT_ALLOWED, "Method Not Allowed");
     addResponseHeaderField("Content-Type", "text/html");
-    addResponseHeaderField("Connection", "keep-alive");
     addSemanticHeaderFields();
 }
 void ResponseMessage::uriTooLong(const std::string& body)
@@ -209,7 +207,6 @@ void ResponseMessage::uriTooLong(const std::string& body)
         addMessageBody(body);
     setStatusLine("HTTP/1.1", URI_TOO_LONG, "Request-URI Too Long");
     addResponseHeaderField("Content-Type", "text/html");
-    addResponseHeaderField("Connection", "keep-alive");
     addSemanticHeaderFields();
 }
 void ResponseMessage::contentTooLarge(const std::string& body)
@@ -231,7 +228,6 @@ void ResponseMessage::badGateway(const std::string& body)
         addMessageBody(body);
     setStatusLine("HTTP/1.1", BAD_GATEWAY, "Bad Gateway");
     addResponseHeaderField("Content-Type", "text/html");
-    addResponseHeaderField("Connection", "keep-alive");
     addSemanticHeaderFields();
 }
 void ResponseMessage::serviceUnavailable(const std::string& body)
@@ -242,7 +238,6 @@ void ResponseMessage::serviceUnavailable(const std::string& body)
         addMessageBody(body);
     setStatusLine("HTTP/1.1", SERVICE_UNAVAILABLE, "Service Unavailable");
     addResponseHeaderField("Content-Type", "text/html");
-    addResponseHeaderField("Connection", "keep-alive");
     addSemanticHeaderFields();
 }
 void ResponseMessage::httpVersionNotSupported(const std::string& body)
@@ -253,7 +248,6 @@ void ResponseMessage::httpVersionNotSupported(const std::string& body)
         addMessageBody(body);
     setStatusLine("HTTP/1.1", HTTP_VERSION_NOT_SUPPORTED, "HTTP Version Not Supported");
     addResponseHeaderField("Content-Type", "text/html");
-    addResponseHeaderField("Connection", "keep-alive");
     addSemanticHeaderFields();
 }
 void ResponseMessage::addSemanticHeaderFields(void)
@@ -268,4 +262,24 @@ void ResponseMessage::addSemanticHeaderFields(void)
     addResponseHeaderField("Date", date);
     addResponseHeaderField("Server", "webserv");
     addResponseHeaderField("Content-Length", getMessageBodySize());
+}
+
+void ResponseMessage::setConnection(Connection& connection)
+{
+    if (checkNeedClose(connection))
+    {
+        addResponseHeaderField("Connection", "close");
+    }
+    else
+    {
+        addResponseHeaderField("Connection", "keep-alive");
+    }
+}
+
+bool ResponseMessage::isConnectionClose(void)
+{
+    if (getResponseHeaderFields().getField("Connection") == "close")
+        return true;
+
+    return false;
 }

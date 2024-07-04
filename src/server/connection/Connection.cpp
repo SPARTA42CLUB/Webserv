@@ -4,30 +4,30 @@
 #include "EventManager.hpp"
 #include "Logger.hpp"
 
-Connection::Connection(const int socket, const ServerConfig& serverConfig, const int parentSocket, std::string recvedData)
-: socket(socket)
-, parentSocket(parentSocket)
-, childSocket()
+Connection::Connection(const int fd, const ServerConfig& serverConfig, const int parentFd, std::string buffer)
+: fd(fd)
+, parentFd(parentFd)
+, childFd()
 , cgiPid(-1)
 , isKeepAlive(true)
-, isChunked(false)
+, isInChunkStream(false)
 , isBodyReading(false)
-, recvedData(recvedData)
+, buffer(buffer)
 , reqBuffer(NULL)
 , request(NULL)
 , responses()
 , last_activity(time(NULL))
 , serverConfig(serverConfig)
 {
-    Logger::getInstance().logInfo(std::to_string(socket) + " Connection created\n");
-    childSocket[READ_END] = -1;
-    childSocket[WRITE_END] = -1;
+    Logger::getInstance().logInfo(std::to_string(fd) + " Connection created\n");
+    childFd[READ_END] = -1;
+    childFd[WRITE_END] = -1;
 }
 
 Connection::~Connection()
 {
-    Logger::getInstance().logInfo(std::to_string(socket) + " Connection closed\n");
-    close(socket);
+    Logger::getInstance().logInfo(std::to_string(fd) + " Connection closed\n");
+    close(fd);
     if (!request)
         delete request;
     if (!reqBuffer)
@@ -39,14 +39,14 @@ Connection::~Connection()
     }
 }
 
-bool isCgiConnection(Connection& connection)
+bool isCgiConnection(Connection* connection)
 {
-    if (connection.parentSocket != -1)
+    if (connection->parentFd != -1)
         return true;
     return false;
 }
 
-bool needClose(Connection& connection)
+bool checkNeedClose(Connection& connection)
 {
     if (connection.responses.size() > 1)
         return false;
@@ -54,7 +54,7 @@ bool needClose(Connection& connection)
     if (connection.isKeepAlive == false)
         return true;
 
-    if (connection.responses.front()->getResponseHeaderFields().getField("Connection") == "close")
+    if (connection.responses.front()->isConnectionClose())
         return true;
 
     return false;

@@ -19,35 +19,35 @@ EventManager::~EventManager()
 {
     close(kq);
 }
-void EventManager::addReadEvent(int socket)
+void EventManager::addReadEvent(const int fd)
 {
-    addEvent(socket, EVFILT_READ, EV_ADD | EV_ENABLE);
+    addEvent(fd, EVFILT_READ, EV_ADD | EV_ENABLE);
 }
 
-void EventManager::addWriteEvent(int socket)
+void EventManager::addWriteEvent(const int fd)
 {
-    addEvent(socket, EVFILT_WRITE, EV_ADD | EV_ENABLE);
+    addEvent(fd, EVFILT_WRITE, EV_ADD | EV_ENABLE);
 }
 
-void EventManager::deleteReadEvent(int socket)
+void EventManager::deleteReadEvent(const int fd)
 {
-    addEvent(socket, EVFILT_READ, EV_DELETE);
+    addEvent(fd, EVFILT_READ, EV_DELETE);
 }
 
-void EventManager::deleteWriteEvent(int socket)
+void EventManager::deleteWriteEvent(const int fd)
 {
-    addEvent(socket, EVFILT_WRITE, EV_DELETE);
+    addEvent(fd, EVFILT_WRITE, EV_DELETE);
 }
 
 // throw-safe 함수 (에러 처리 해야 할 수도?)
-void EventManager::addEvent(const int socket, const int16_t filter, const uint16_t flags)
+void EventManager::addEvent(const int fd, const int16_t filter, const uint16_t flags)
 {
     struct kevent evSet;
-    EV_SET(&evSet, socket, filter, flags, 0, 0, NULL);
+    EV_SET(&evSet, fd, filter, flags, 0, 0, NULL);
 
     if (kevent(kq, &evSet, 1, NULL, 0, NULL) == -1)
     {
-        close(socket);
+        close(fd);
     }
 }
 
