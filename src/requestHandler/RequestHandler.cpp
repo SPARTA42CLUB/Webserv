@@ -87,7 +87,7 @@ void RequestHandler::setPath(const std::map<std::string, LocationConfig>::const_
         }
         else
         {
-            mPath = mLocConfig.alias + reqTarget.substr(locIt->LOCATION.size() - 1);
+            mPath = mLocConfig.alias + reqTarget.substr(locIt->LOCATION.size() - (locIt->LOCATION.back() == '/'));
         }
     }
 }
@@ -164,7 +164,6 @@ bool RequestHandler::identifyCGIRequest(const std::string& reqTarget, std::map<s
     }
     return true;
 }
-#include <iostream>
 void RequestHandler::executeCGI(void)
 {
     int pipe_in[2], pipe_out[2];

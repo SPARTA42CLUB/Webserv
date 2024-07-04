@@ -8,7 +8,6 @@
 #include "RequestHandler.hpp"
 #include "ResponseMessage.hpp"
 #include "SysException.hpp"
-#include <iostream>
 
 // ServerConfig 클래스 생성자
 Server::Server(const Config& config)
@@ -389,7 +388,8 @@ bool Server::addChunk(Connection& connection)
         req->addMessageBody(chunk);
     }
 
-    if (connection.reqBuffer == NULL)
+    // getChunk 내부에서 마지막 청크를 받았으면
+    if (connection.isInChunkStream == false)
         return true;
 
     // 안에서 error 발생했을 시
@@ -401,28 +401,24 @@ bool Server::addChunk(Connection& connection)
         return true;
     }
 
-    // getChunk 내부에서 마지막 청크를 받았으면
-    if (connection.isInChunkStream == false)
-        return true ;
-
     return hasData;
 }
 
 std::string Server::getChunk(Connection& connection)
 {
     size_t pos = 0;
-    size_t chunkSizeEndPos = connection.buffer.find(CRLF, pos);
+    size_t chunkSizeEndPos = connection.buffer.find(CRLF);
     if (chunkSizeEndPos == std::string::npos)
         return "";  // 청크 헤더가 아직 도착하지 않음
 
-    size_t chunkSize = std::strtoul(connection.buffer.substr(pos, chunkSizeEndPos - pos).c_str(), NULL, 16);
+    size_t chunkSize = std::strtoul(connection.buffer.substr(0, chunkSizeEndPos).c_str(), NULL, 16);
     pos = chunkSizeEndPos + 2;  // 청크 크기 끝을 지나서 데이터 시작
 
     size_t chunkEndPos = pos + chunkSize + 2;
     if (chunkEndPos > connection.buffer.size())
-        return ""; // 청크 데이터가 아직 도착하지 않음
+        return "";  // 청크 데이터가 아직 도착하지 않음
 
-    connection.buffer.erase(0, chunkSizeEndPos + 2); // 청크 헤더 제거
+    connection.buffer.erase(0, chunkSizeEndPos + 2);  // 청크 헤더 제거
 
     RequestMessage* req = connection.reqBuffer;
     if (req->getMessageBody().size() + chunkSize > connection.serverConfig.client_max_body_size)
@@ -446,9 +442,9 @@ std::string Server::getChunk(Connection& connection)
     {
         connection.isInChunkStream = false;  // 마지막 청크면 청크 상태 해제
         connection.reqBuffer = NULL;
-        connection.request = req; // 완성된 청크를 completeRequests에 저장
+        connection.request = req;  // 완성된 청크를 completeRequests에 저장
     }
-    return chunkData; // 청크 데이터만 반환
+    return chunkData;  // 청크 데이터만 반환
 }
 
 // 보낸 데이터가 0일 때 write event 삭제
@@ -462,7 +458,7 @@ void Server::handleClientWriteEvent(struct kevent& event)
         return;
 
     ResponseMessage* res = connection.responses.front();
-    res->setConnection(connection); // Client의 Connection 필드 값, 남은 responses 유무, Response의 에러 코드를 보고 res에 Connection 필드 생성
+    res->setConnection(connection);  // Client의 Connection 필드 값, 남은 responses 유무, Response의 에러 코드를 보고 res에 Connection 필드 생성
     Logger::getInstance().logHttpMessage(res);
 
     std::string data = res->toString();
@@ -502,7 +498,7 @@ void Server::manageTimeout()
 
         if (connection.parentFd != -1)  // cgi 커넥션이면 pass
         {
-            continue ;
+            continue;
         }
 
         // 딸린 CGI 커넥션이 있는 경우 CGI부터 먼저 처리
@@ -554,7 +550,7 @@ void Server::updateLastActivity(Connection& connection)
 void Server::closeConnection(const int socket)
 {
     if (isConnection(socket) == false)
-        return ;
+        return;
 
     Connection& connection = *connectionsMap[socket];
     if (connection.cgiPid != -1)
@@ -576,7 +572,7 @@ bool Server::isServerSocket(int socket)
 
 bool Server::isConnection(const int socket)
 {
-    std::map<int, Connection*>::const_iterator it = connectionsMap.find(key);
+    std::map<int, Connection*>::const_iterator it = connectionsMap.find(socket);
     return (it != connectionsMap.end());
 }
 

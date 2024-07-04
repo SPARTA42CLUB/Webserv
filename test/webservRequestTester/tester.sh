@@ -254,6 +254,21 @@ Connection: close$CR
 Number: 32$CR
 $CR
 " 200
+
+"POST /upload/test.txt HTTP/1.1$CR
+Host: localhost$CR
+Content-Type: text/plain$CR
+Transfer-Encoding: chunked$CR
+Number: 33$CR
+Connection: close$CR
+$CR
+8$CR
+Mozilla $CR
+11$CR
+Developer Network$CR
+0$CR
+$CR
+" 201
 )
 
 # ---------------------------------------------------------------------------------------------------
@@ -333,6 +348,7 @@ done
 
 chmod -R 777 ../../www/permission_denied
 rm -rf ../../www/permission_denied
+rm -rf ../../www/upload/test.txt
 
 # webserv 프로그램 종료
 kill -9 $WEBSERV_PID > /dev/null 2>&1
