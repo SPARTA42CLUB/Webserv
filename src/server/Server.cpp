@@ -57,11 +57,6 @@ int Server::setServerSocket(ServerConfig serverConfig)
     if (serverSocket == -1)
         throw SysException(FAILED_TO_CREATE_SOCKET);
 
-    /* NOTE: 개발 편의용 세팅. 서버 소켓이 이미 사용중이더라도 실행되게끔 설정 */
-    int optval = 1;
-    setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
-    /* ----------------------------------------------------------------- */
-
     fileManager::setNonBlocking(serverSocket);
 
     // 서버 주소 설정
@@ -69,7 +64,7 @@ int Server::setServerSocket(ServerConfig serverConfig)
     memset(&serverAddr, 0, sizeof(serverAddr));                           // 0으로 초기화
     serverAddr.sin_family = AF_INET;                                      // IPv4
     serverAddr.sin_port = htons(serverConfig.port);                       // 포트 설정
-    inet_pton(AF_INET, serverConfig.host.c_str(), &serverAddr.sin_addr);  // IP 주소 설정 NOTE: host 검색해보기
+    inet_pton(AF_INET, serverConfig.host.c_str(), &serverAddr.sin_addr);  // IP 주소 설정
 
     if (bind(serverSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) == -1)
     {

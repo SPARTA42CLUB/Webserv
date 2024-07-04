@@ -37,7 +37,6 @@ def main():
     
     print("File sent successfully.")
     conn.close()
-    # subprocess.run(["sh", "diff.sh"])
 
 if __name__ == "__main__":
     main()
