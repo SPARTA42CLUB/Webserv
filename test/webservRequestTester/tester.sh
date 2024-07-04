@@ -32,10 +32,9 @@ $CR
 "POST / HTTP/1.1$CR
 Host: localhost$CR
 Connection: close$CR
-Content-Length: 1$CR
 Number: 4$CR
 $CR
-a" 200
+" 200
 
 "GET / HTTP/1.1$CR
 Host: localhost:8080$CR
@@ -333,7 +332,7 @@ for ((i=0; i<${#requests[@]}; i+=2)); do
 done
 
 chmod -R 777 ../../www/permission_denied
-rm -rf ../../www/permission_denied access.log
+rm -rf ../../www/permission_denied
 
 # webserv 프로그램 종료
 kill -9 $WEBSERV_PID > /dev/null 2>&1

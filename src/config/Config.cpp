@@ -139,9 +139,11 @@ void Config::verifyConfig(void)
                 throw ConfigException(ROOT_NOT_EXIST);
             if (!locIt->CONFIG.root.empty() && !locIt->CONFIG.alias.empty())
                 throw ConfigException(DUPLICATE_ROOT_ALIAS);
-            // root + target uri(무조건 /로 시작함)가 붙으므로 미리 '/'를 제거해준다. ('www/' + '/index.html' -> 'www/index.html')
+            // root나 alias 뒤에 붙는 target uri나 location은 '/'로 시작하므로 '/'를 제거
             if (locIt->CONFIG.root.back() == '/')
                 pop_back(locIt->CONFIG.root);
+            if (locIt->CONFIG.alias.back() == '/')
+                pop_back(locIt->CONFIG.alias);
             if (locIt->CONFIG.allow_methods.empty())
             {
                 for (size_t i = 0; i < LocationConfig::implementMethodsSize; i++)

@@ -23,7 +23,8 @@ Server::Server(const Config& config)
     {
         int serverSocket = setServerSocket(serverConfigs[i]);
 
-        if (listen(serverSocket, 10) == -1)
+        // https://stackoverflow.com/questions/18073483/what-do-somaxconn-mean-in-c-socket-programming
+        if (listen(serverSocket, SOMAXCONN) == -1)
         {
             close(serverSocket);
             throw SysException(FAILED_TO_LISTEN_SOCKET);

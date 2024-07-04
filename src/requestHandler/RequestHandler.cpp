@@ -19,7 +19,6 @@ RequestHandler::RequestHandler(std::map<int, Connection*>& connectionsMap, const
 , mbIsCGI(false)
 {
 }
-
 ResponseMessage* RequestHandler::handleRequest(void)
 {
     int statusCode = mConnectionsMap[mSocket]->request->getStatusCode();
@@ -66,13 +65,38 @@ void RequestHandler::processRequestPath(void)
     }
     matchClosestLocation(reqTarget, locations);
 }
+void RequestHandler::setPath(const std::map<std::string, LocationConfig>::const_iterator locIt, const std::string& reqTarget)
+{
+    mLocConfig = locIt->CONFIG;
+    if (reqTarget.empty())
+    {
+        if (mLocConfig.alias.empty())
+        {
+            mPath = mLocConfig.root + locIt->LOCATION;
+        }
+        else
+        {
+            mPath = mLocConfig.alias;
+        }
+    }
+    else
+    {
+        if (mLocConfig.alias.empty())
+        {
+            mPath = mLocConfig.root + reqTarget;
+        }
+        else
+        {
+            mPath = mLocConfig.alias + reqTarget.substr(locIt->LOCATION.size() - 1);
+        }
+    }
+}
 bool RequestHandler::matchExactLocation(const std::string& reqTarget, const std::map<std::string, LocationConfig>& locations)
 {
     std::map<std::string, LocationConfig>::const_iterator it = locations.find(reqTarget);
     if (it != locations.end())
     {
-        mLocConfig = it->CONFIG;
-        mPath = mLocConfig.root + it->LOCATION;
+        setPath(it);
         return true;
     }
 
@@ -84,8 +108,7 @@ bool RequestHandler::matchExactLocation(const std::string& reqTarget, const std:
     it = locations.find(reqTarget + "/");
     if (it != locations.end())
     {
-        mLocConfig = it->CONFIG;
-        mPath = mLocConfig.root + it->LOCATION;
+        setPath(it);
         return true;
     }
 
@@ -93,7 +116,7 @@ bool RequestHandler::matchExactLocation(const std::string& reqTarget, const std:
 }
 void RequestHandler::matchClosestLocation(const std::string& reqTarget, const std::map<std::string, LocationConfig>& locations)
 {
-    const LocationConfig* locConf;
+    std::map<std::string, LocationConfig>::const_iterator tmp;
     size_t maxMatchCnt = 0;
     for (std::map<std::string, LocationConfig>::const_iterator it = locations.begin(); it != locations.end(); ++it)
     {
@@ -111,11 +134,10 @@ void RequestHandler::matchClosestLocation(const std::string& reqTarget, const st
         if (matchCnt > maxMatchCnt)
         {
             maxMatchCnt = matchCnt;
-            locConf = &(it->CONFIG);
+            tmp = it;
         }
     }
-    mPath = locConf->root + reqTarget;
-    mLocConfig = *locConf;
+    setPath(tmp, reqTarget);
     return;
 }
 bool RequestHandler::identifyCGIRequest(const std::string& reqTarget, std::map<std::string, LocationConfig>::const_iterator& locIt)
@@ -135,7 +157,7 @@ bool RequestHandler::identifyCGIRequest(const std::string& reqTarget, std::map<s
         return false;
     }
     mLocConfig = locIt->CONFIG;
-    mPath = mLocConfig.root + reqTarget.substr(0, dotIdx + locationPath.size());
+    mPath = (mLocConfig.alias.empty() ? mLocConfig.root : mLocConfig.alias) + reqTarget.substr(0, dotIdx + locationPath.size());
     if (queryIdx != std::string::npos)
     {
         mQueryString = reqTarget.substr(queryIdx + 1);

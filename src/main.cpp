@@ -25,7 +25,7 @@ int main(int argc, char* argv[])
     catch (const std::exception& e)
     {
         Logger::getInstance().logError(e.what());
-        // WARNING: NOTE: 디버깅용 평가용 아님
+        // NOTE: 디버깅용 평가용 아님
         std::cerr << "Errorno: " << strerror(errno) << " (" << errno << ")" << std::endl;
     }
 
