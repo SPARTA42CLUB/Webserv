@@ -3,8 +3,8 @@ import time
 import subprocess
 
 UPLOAD_HOST = "localhost"
-UPLOAD_PORT = 8081
-UPLOAD_PATH = "/upload"
+UPLOAD_PORT = 8080
+UPLOAD_PATH = "/upload/test.png"
 IMAGE_FILE = "testImage.png"
 CHUNK_SIZE = 1024
 
@@ -37,7 +37,7 @@ def main():
     
     print("File sent successfully.")
     conn.close()
-    subprocess.run(["sh", "diff.sh"])
+    # subprocess.run(["sh", "diff.sh"])
 
 if __name__ == "__main__":
     main()

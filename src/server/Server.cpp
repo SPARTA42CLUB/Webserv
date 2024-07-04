@@ -111,7 +111,6 @@ void Server::handleEvents(struct kevent& event)
     else if (isConnection(event.ident))
     {
         handleClientsEvent(event);
-
         deleteGarbageEvent(event);
     }
 }
@@ -124,10 +123,8 @@ void Server::handleClientsEvent(struct kevent& event)
             handlePipeReadEvent(event);
         else
             handleClientReadEvent(event);
-        return ;
     }
-
-    if (event.filter == EVFILT_WRITE)
+    else if (event.filter == EVFILT_WRITE)
     {
         if (isCgiConnection(connectionsMap[event.ident]))
             handlePipeWriteEvent(event);
@@ -142,21 +139,21 @@ void Server::acceptClient(int serverSocket)
     struct sockaddr_in clientAddr;
     socklen_t addrLen = sizeof(clientAddr);
 
-    int connectionSocket = accept(serverSocket, (struct sockaddr*)&clientAddr, &addrLen);
-    if (connectionSocket == -1)
+    int clientSocket = accept(serverSocket, (struct sockaddr*)&clientAddr, &addrLen);
+    if (clientSocket == -1)
     {
         Logger::getInstance().logWarning("Failed to accept");
         return;
     }
 
-    EventManager::getInstance().addReadEvent(connectionSocket);
+    EventManager::getInstance().addReadEvent(clientSocket);
 
-    fileManager::setNonBlocking(connectionSocket);
+    fileManager::setNonBlocking(clientSocket);
 
-    Connection* connection = new Connection(connectionSocket, socketToConfig[serverSocket]);
-    connectionsMap[connectionSocket] = connection;
+    Connection* connection = new Connection(clientSocket, socketToConfig[serverSocket]);
+    connectionsMap[clientSocket] = connection;
 
-    Logger::getInstance().logAccept(connectionSocket, clientAddr);
+    Logger::getInstance().logAccept(clientSocket, clientAddr);
 }
 
 void Server::handlePipeReadEvent(struct kevent& event)
@@ -166,7 +163,7 @@ void Server::handlePipeReadEvent(struct kevent& event)
     if (event.flags & EV_EOF)
     {
         movePipeDataToParent(cgiConnection);
-        closeCgi(*connectionsMap[cgiConnection.parentSocket]);
+        closeCgi(*connectionsMap[cgiConnection.parentFd]);
         return;
     }
 
@@ -178,17 +175,17 @@ void Server::closeCgi(Connection& connection)
     kill(connection.cgiPid, SIGKILL);
     waitpid(connection.cgiPid, NULL, 0);
 
-    closeConnection(connection.childSocket[READ_END]);
-    closeConnection(connection.childSocket[WRITE_END]);
+    closeConnection(connection.childFd[READ_END]);
+    closeConnection(connection.childFd[WRITE_END]);
 
     connection.cgiPid = -1;
-    connection.childSocket[READ_END] = -1;
-    connection.childSocket[WRITE_END] = -1;
+    connection.childFd[READ_END] = -1;
+    connection.childFd[WRITE_END] = -1;
 }
 
 void Server::movePipeDataToParent(Connection& cgiConnection)
 {
-    Connection& parentConnection = *connectionsMap[cgiConnection.parentSocket];  // 부모 커넥션 가져오기
+    Connection& parentConnection = *connectionsMap[cgiConnection.parentFd];  // 부모 커넥션 가져오기
 
     ResponseMessage* response = new ResponseMessage();
 
@@ -202,7 +199,7 @@ void Server::movePipeDataToParent(Connection& cgiConnection)
     }
 
     parentConnection.responses.push(response);  // 부모 커넥션의 responses에다 pipe에서 읽어 온 데이터 넣음
-    EventManager::getInstance().addWriteEvent(cgiConnection.parentSocket);
+    EventManager::getInstance().addWriteEvent(cgiConnection.parentFd);
     cgiConnection.buffer.clear();  // 데이터 버퍼 클리어.
 }
 
@@ -228,7 +225,7 @@ void Server::handlePipeWriteEvent(struct kevent& event)
     // GET요청이거나 바디를 다 전송했을 시
     if (writeSize == 0 || data.empty())
     {
-        int readSocket = connectionsMap[cgiConnection.parentSocket]->childSocket[READ_END];
+        int readSocket = connectionsMap[cgiConnection.parentFd]->childFd[READ_END];
         EventManager::getInstance().addReadEvent(readSocket);
         closeConnection(pipe);
     }
@@ -287,7 +284,7 @@ bool Server::readData(Connection& connection)
 {
     char buf[BUFFER_SIZE];
     ssize_t readSize;
-    int socket = connection.socket;
+    int socket = connection.fd;
 
     if ((readSize = read(socket, buf, BUFFER_SIZE - 1)) < 0)
     {
@@ -392,6 +389,9 @@ bool Server::addChunk(Connection& connection)
         req->addMessageBody(chunk);
     }
 
+    if (connection.reqBuffer == NULL)
+        return true;
+
     // 안에서 error 발생했을 시
     if (connection.reqBuffer->getStatusCode() != OK)
     {
@@ -466,7 +466,7 @@ void Server::handleClientWriteEvent(struct kevent& event)
     Logger::getInstance().logHttpMessage(res);
 
     std::string data = res->toString();
-    ssize_t sendSize = send(connection.socket, data.c_str(), data.length(), 0);
+    ssize_t sendSize = send(connection.fd, data.c_str(), data.length(), 0);
     if (sendSize < 0)
     {
         Logger::getInstance().logWarning("Send error");
@@ -477,7 +477,7 @@ void Server::handleClientWriteEvent(struct kevent& event)
     // setConnection에서 생성한 Connection 필드 값에 따라 실제 Connecion closing
     if (res->isConnectionClose())
     {
-        closeConnection(connection.socket);
+        closeConnection(connection.fd);
         return;
     }
 
@@ -500,7 +500,7 @@ void Server::manageTimeout()
     {
         Connection& connection = *(it->second);
 
-        if (connection.parentSocket != -1)  // cgi 커넥션이면 pass
+        if (connection.parentFd != -1)  // cgi 커넥션이면 pass
         {
             continue ;
         }
@@ -510,7 +510,7 @@ void Server::manageTimeout()
         {
             // CGI의 응답이 너무 오래 걸리는 경우 CGI를 강제 종료시키고 BAD_GATEWAY를 띄움
 
-            Connection& cgiConnection = *connectionsMap[connection.childSocket[READ_END]];
+            Connection& cgiConnection = *connectionsMap[connection.childFd[READ_END]];
             if (difftime(now, cgiConnection.last_activity) > config.getCgiTimeout())
             {
                 pushResponse(connection, BAD_GATEWAY);
@@ -542,7 +542,7 @@ void Server::pushResponse(Connection& connection, int statusCode)
     ResponseMessage* response = new ResponseMessage();
     response->setByStatusCode(statusCode, connection.serverConfig);
     connection.responses.push(response);
-    EventManager::getInstance().addWriteEvent(connection.socket);
+    EventManager::getInstance().addWriteEvent(connection.fd);
 }
 
 void Server::updateLastActivity(Connection& connection)
@@ -551,7 +551,7 @@ void Server::updateLastActivity(Connection& connection)
 }
 
 // 커넥션 종료에 필요한 작업들 처리
-void Server::closeConnection(int socket)
+void Server::closeConnection(const int socket)
 {
     if (isConnection(socket) == false)
         return ;
@@ -574,7 +574,7 @@ bool Server::isServerSocket(int socket)
     return false;
 }
 
-bool Server::isConnection(int key)
+bool Server::isConnection(const int socket)
 {
     std::map<int, Connection*>::const_iterator it = connectionsMap.find(key);
     return (it != connectionsMap.end());

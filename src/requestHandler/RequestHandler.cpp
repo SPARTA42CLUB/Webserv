@@ -7,12 +7,12 @@
 #include "RangeRequestReader.hpp"
 #include "SysException.hpp"
 
-RequestHandler::RequestHandler(std::map<int, Connection*>& connectionsMap, const int socket)
+RequestHandler::RequestHandler(std::map<int, Connection*>& connectionsMap, const int fd)
 : mConnectionsMap(connectionsMap)
-, mSocket(socket)
-, mRequestMessage(connectionsMap[socket]->request)
+, mSocket(fd)
+, mRequestMessage(connectionsMap[fd]->request)
 , mResponseMessage()
-, mServerConfig(connectionsMap[socket]->serverConfig)
+, mServerConfig(connectionsMap[fd]->serverConfig)
 , mLocConfig()
 , mPath()
 , mQueryString()
@@ -215,8 +215,8 @@ void RequestHandler::executeCGI(void)
     Connection* parentConnection = mConnectionsMap[mSocket];
     parentConnection->cgiPid = pid;
 
-    parentConnection->childSocket[WRITE_END] = pipe_in[WRITE_END];
-    parentConnection->childSocket[READ_END] = pipe_out[READ_END];
+    parentConnection->childFd[WRITE_END] = pipe_in[WRITE_END];
+    parentConnection->childFd[READ_END] = pipe_out[READ_END];
     mConnectionsMap[pipe_in[WRITE_END]] = new Connection(pipe_in[WRITE_END], parentConnection->serverConfig, mSocket, mRequestMessage->getMessageBody().toString());
     mConnectionsMap[pipe_out[READ_END]] = new Connection(pipe_out[READ_END], parentConnection->serverConfig, mSocket);
 

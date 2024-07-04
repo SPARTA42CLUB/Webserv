@@ -17,7 +17,7 @@ private:
     EventManager(const EventManager&);
     EventManager& operator=(const EventManager&);
 
-    void addEvent(const int socket, const int16_t filter, const uint16_t flags);
+    void addEvent(const int fd, const int16_t filter, const uint16_t flags);
 
 public:
     // Singleton
@@ -25,8 +25,8 @@ public:
 
     std::vector<struct kevent> getCurrentEvents();
 
-    void addReadEvent(int socket);
-    void addWriteEvent(int socket);
-    void deleteReadEvent(int socket);
-    void deleteWriteEvent(int socket);
+    void addReadEvent(const int fd);
+    void addWriteEvent(const int fd);
+    void deleteReadEvent(const int fd);
+    void deleteWriteEvent(const int fd);
 };

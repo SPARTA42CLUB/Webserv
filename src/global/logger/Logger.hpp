@@ -21,7 +21,7 @@ public:
     void logInfo(const std::string& message) const;
     void logWarning(const std::string& logMessage) const;
     void logError(const std::string& logMessage) const;
-    void logAccept(int socket, struct sockaddr_in addr) const;
+    void logAccept(const int fd, struct sockaddr_in addr) const;
     void logHttpMessage(const ResponseMessage* res, const RequestMessage* req) const;
     void logHttpMessage(const ResponseMessage* res) const;
     void logHttpMessage(const RequestMessage* req) const;

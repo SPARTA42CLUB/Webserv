@@ -39,8 +39,8 @@ private:
     bool addChunk(Connection& connection);
     std::string getChunk(Connection& connection);
 
-    void closeConnection(int socket);
-    bool isConnection(int key);
+    void closeConnection(const int socket);
+    bool isConnection(const int socket);
     bool isServerSocket(int socket);
     void updateLastActivity(Connection& connection);
 
