@@ -68,7 +68,7 @@ void Config::parseKeepAliveTimeout(std::string& line)
 // 서버 설정 파싱
 void Config::parseServer(std::ifstream& file)
 {
-    serverConfigs.emplace_back();
+    serverConfigs.push_back(ServerConfig());
     ServerConfig& serverConfig = serverConfigs.back();
     std::string line;
     std::map<std::string, bool> duplicateCheck;
