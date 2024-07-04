@@ -57,7 +57,7 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
 	@echo "$(FG_CYAN)Compiled:$(RESET) $< -> $@"
 
 clean:
-	@rm -f $(OBJ)
+	@rm -rf $(OBJ) obj/
 	@echo "$(FG_BLUE)Cleaned up object files$(RESET)"
 
 fclean: clean

@@ -8,6 +8,7 @@ const std::string LocationConfig::implementMethods[implementMethodsSize] = {"GET
 
 LocationConfig::LocationConfig()
 : root()
+, alias()
 , index()
 , allow_methods()
 , directory_listing(false)
@@ -20,6 +21,7 @@ LocationConfig::~LocationConfig()
 }
 LocationConfig::LocationConfig(const LocationConfig& rhs)
 : root(rhs.root)
+, alias(rhs.alias)
 , index(rhs.index)
 , allow_methods(rhs.allow_methods)
 , directory_listing(rhs.directory_listing)
@@ -32,6 +34,7 @@ LocationConfig& LocationConfig::operator=(const LocationConfig& rhs)
     if (this == &rhs)
         return *this;
     root = rhs.root;
+    alias = rhs.alias;
     index = rhs.index;
     allow_methods = rhs.allow_methods;
     directory_listing = rhs.directory_listing;
@@ -45,6 +48,12 @@ void LocationConfig::parseRoot(std::string& value)
         throw ConfigException(INVALID_LOCATION_CONFIG);
     root = value;
 }
+void LocationConfig::parseAlias(std::string& value)
+{
+    if (!isValidValue(value))
+        throw ConfigException(INVALID_LOCATION_CONFIG);
+    alias = value;
+}
 void LocationConfig::parseIndex(std::string& value)
 {
     if (!isValidValue(value))
@@ -55,7 +64,7 @@ void LocationConfig::parseAllowMethods(std::string& value)
 {
     if (value.back() != ';')
         throw ConfigException(INVALID_LOCATION_CONFIG);
-    value.pop_back();
+    pop_back(value);
     std::istringstream iss(value);
     std::string method;
     while (iss >> method)

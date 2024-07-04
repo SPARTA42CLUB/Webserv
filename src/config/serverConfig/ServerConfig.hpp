@@ -28,8 +28,6 @@ public:
     void parseLocation(std::ifstream& file, std::string& locationPath, LocationConfig* parentsLocation = NULL);
 
     bool isValidLocationPath(std::string& locationPath);
-
-    size_t getClientMaxBodySize() const;
 };
 
 #endif

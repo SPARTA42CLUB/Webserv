@@ -348,7 +348,7 @@ RequestMessage* Server::getHeader(Connection& connection)
     else if (req->getRequestHeaderFields().hasField("Content-Length"))
     {
         size_t contentLength = req->getContentLength();
-        if (contentLength > connection.serverConfig.getClientMaxBodySize())
+        if (contentLength > connection.serverConfig.client_max_body_size)
         {
             req->setStatusCode(CONTENT_TOO_LARGE);
             return req;
@@ -424,7 +424,7 @@ std::string Server::getChunk(Connection& connection)
     connection.buffer.erase(0, chunkSizeEndPos + 2); // 청크 헤더 제거
 
     RequestMessage* req = connection.reqBuffer;
-    if (req->getMessageBody().size() + chunkSize > connection.serverConfig.getClientMaxBodySize())
+    if (req->getMessageBody().size() + chunkSize > connection.serverConfig.client_max_body_size)
     {
         req->setStatusCode(CONTENT_TOO_LARGE);
         return "";

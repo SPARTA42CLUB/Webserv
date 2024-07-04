@@ -25,6 +25,10 @@ void trim(std::string &str)
         str = str.substr(start, end - start);
     }
 }
+void pop_back(std::string &str)
+{
+    str.erase(str.size() - 1);
+}
 bool isDigitStr(const std::string &str)
 {
     for (size_t i = 0; i < str.size(); ++i)
