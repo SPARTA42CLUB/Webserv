@@ -164,6 +164,7 @@ bool RequestHandler::identifyCGIRequest(const std::string& reqTarget, std::map<s
     }
     return true;
 }
+#include <iostream>
 void RequestHandler::executeCGI(void)
 {
     int pipe_in[2], pipe_out[2];
@@ -192,34 +193,38 @@ void RequestHandler::executeCGI(void)
 
         std::string queryStringEnv = "QUERY_STRING=" + mQueryString;
         std::string requestMethodEnv = "REQUEST_METHOD=" + mRequestMessage->getRequestLine().getMethod();
+        std::string contentLengthEnv = "CONTENT_LENGTH=" + std::to_string(mRequestMessage->getMessageBody().size());
         std::vector<char> queryStringEnv_cstr(queryStringEnv.begin(), queryStringEnv.end());
         std::vector<char> requestMethodEnv_cstr(requestMethodEnv.begin(), requestMethodEnv.end());
+        std::vector<char> contentLengthEnv_cstr(contentLengthEnv.begin(), contentLengthEnv.end());
         queryStringEnv_cstr.push_back('\0');
         requestMethodEnv_cstr.push_back('\0');
-        char* envp[] = {queryStringEnv_cstr.data(), requestMethodEnv_cstr.data(), NULL};
+        contentLengthEnv_cstr.push_back('\0');
+        char* envp[] = {queryStringEnv_cstr.data(), requestMethodEnv_cstr.data(), contentLengthEnv_cstr.data(), NULL};
 
         execve(argv[READ_END], argv, envp);
         throw SysException(FAILED_TO_EXEC);
     }
-    else
-    {
-        // Parent process
-        close(pipe_in[READ_END]);
-        close(pipe_out[WRITE_END]);
+    // Parent process
+    close(pipe_in[READ_END]);
+    close(pipe_out[WRITE_END]);
 
-        fileManager::setNonBlocking(pipe_in[WRITE_END]);
-        fileManager::setNonBlocking(pipe_out[READ_END]);
+    fileManager::setNonBlocking(pipe_in[WRITE_END]);
+    fileManager::setNonBlocking(pipe_out[READ_END]);
 
-        Connection* parentConnection = mConnectionsMap[mSocket];
-        parentConnection->cgiPid = pid;
+    Connection* parentConnection = mConnectionsMap[mSocket];
+    parentConnection->cgiPid = pid;
 
-        parentConnection->childSocket[WRITE_END] = pipe_in[WRITE_END];
-        parentConnection->childSocket[READ_END] = pipe_out[READ_END];
-        mConnectionsMap[pipe_in[WRITE_END]] = new Connection(pipe_in[WRITE_END], parentConnection->serverConfig, mSocket, mRequestMessage->getMessageBody().toString());
-        mConnectionsMap[pipe_out[READ_END]] = new Connection(pipe_out[READ_END], parentConnection->serverConfig, mSocket);
+    parentConnection->childSocket[WRITE_END] = pipe_in[WRITE_END];
+    parentConnection->childSocket[READ_END] = pipe_out[READ_END];
+    mConnectionsMap[pipe_in[WRITE_END]] = new Connection(pipe_in[WRITE_END], parentConnection->serverConfig, mSocket, mRequestMessage->getMessageBody().toString());
+    mConnectionsMap[pipe_out[READ_END]] = new Connection(pipe_out[READ_END], parentConnection->serverConfig, mSocket);
 
-        EventManager::getInstance().addWriteEvent(pipe_in[WRITE_END]);
-    }
+    EventManager::getInstance().addWriteEvent(pipe_in[WRITE_END]);
+    std::cout << "pipe_in[READ_END]: " << pipe_in[READ_END] << std::endl;
+    std::cout << "pipe_in[WRITE_END]: " << pipe_in[WRITE_END] << std::endl;
+    std::cout << "pipe_out[READ_END]: " << pipe_out[READ_END] << std::endl;
+    std::cout << "pipe_out[WRITE_END]: " << pipe_out[WRITE_END] << std::endl;
 }
 // method에 따른 분기 처리
 int RequestHandler::handleMethod(void)

@@ -120,7 +120,7 @@ void Server::handleClientsEvent(struct kevent& event)
 {
     if (event.filter == EVFILT_READ)
     {
-        if (isCgiConnection(*connectionsMap[event.ident]))
+        if (isCgiConnection(connectionsMap[event.ident]))
             handlePipeReadEvent(event);
         else
             handleClientReadEvent(event);
@@ -129,7 +129,7 @@ void Server::handleClientsEvent(struct kevent& event)
 
     if (event.filter == EVFILT_WRITE)
     {
-        if (isCgiConnection(*connectionsMap[event.ident]))
+        if (isCgiConnection(connectionsMap[event.ident]))
             handlePipeWriteEvent(event);
         else
             handleClientWriteEvent(event);
@@ -162,6 +162,7 @@ void Server::acceptClient(int serverSocket)
 void Server::handlePipeReadEvent(struct kevent& event)
 {
     Connection& cgiConnection = *(connectionsMap[event.ident]);
+    std::cout << "buffer: " << cgiConnection.buffer << std::endl;
 
     if (event.flags & EV_EOF)
     {
@@ -170,6 +171,7 @@ void Server::handlePipeReadEvent(struct kevent& event)
         return;
     }
 
+    std::cout << "readData: " << event.ident << std::endl;
     readData(cgiConnection);
 }
 
@@ -214,6 +216,7 @@ void Server::handlePipeWriteEvent(struct kevent& event)
 
     ssize_t writeSize;
     std::string& data = cgiConnection.buffer;
+    std::cout << "data: " << data << std::endl;
     if ((writeSize = write(pipe, data.c_str(), data.size())) < 0)
     {
         // write 에러 시 커넥션 종료
@@ -221,6 +224,7 @@ void Server::handlePipeWriteEvent(struct kevent& event)
         closeConnection(pipe);
         return;
     }
+    std::cout << "writeSize: " << writeSize << std::endl;
 
     data.erase(0, writeSize);
     updateLastActivity(cgiConnection);
@@ -228,6 +232,7 @@ void Server::handlePipeWriteEvent(struct kevent& event)
     // GET요청이거나 바디를 다 전송했을 시
     if (writeSize == 0 || data.empty())
     {
+        std::cout << "closeCgi" << std::endl;
         int readSocket = connectionsMap[cgiConnection.parentSocket]->childSocket[READ_END];
         EventManager::getInstance().addReadEvent(readSocket);
         closeConnection(pipe);
@@ -237,7 +242,7 @@ void Server::handlePipeWriteEvent(struct kevent& event)
 // 소켓에 read event 발생시 소켓에서 데이터 읽음
 void Server::handleClientReadEvent(struct kevent& event)
 {
-    int socket = event.ident;
+    const int socket = event.ident;
 
     if (event.flags & EV_EOF)
         return;
@@ -576,7 +581,7 @@ bool Server::isServerSocket(int socket)
 
 bool Server::isConnection(int key)
 {
-    std::map<int, Connection*>::iterator it = connectionsMap.find(key);
+    std::map<int, Connection*>::const_iterator it = connectionsMap.find(key);
     return (it != connectionsMap.end());
 }
 

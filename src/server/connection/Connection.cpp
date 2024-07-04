@@ -39,9 +39,9 @@ Connection::~Connection()
     }
 }
 
-bool isCgiConnection(Connection& connection)
+bool isCgiConnection(Connection* connection)
 {
-    if (connection.parentSocket != -1)
+    if (connection->parentSocket != -1)
         return true;
     return false;
 }
