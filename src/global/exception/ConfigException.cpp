@@ -29,6 +29,8 @@ const char* ConfigException::what() const _NOEXCEPT
         return "Host not exist in server config";
     case ROOT_NOT_EXIST:
         return "Root not exist in location config";
+    case LOCATION_NOT_EXIST:
+        return "Location not exist in server config";
     case DUPLICATE_ROOT_ALIAS:
         return "Duplicate root alias in location config";
     case DUPLICATE_PORT:

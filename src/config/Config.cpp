@@ -127,8 +127,8 @@ void Config::verifyConfig(void)
             throw ConfigException(HOST_NOT_EXIST);
         if (servIt->port == -1)
             throw ConfigException(PORT_NOT_EXIST);
-        if (servIt->locations.empty() && servIt->root.empty())
-            throw ConfigException(ROOT_NOT_EXIST);
+        if (servIt->locations.empty())
+            throw ConfigException(LOCATION_NOT_EXIST);
         for (std::map<std::string, LocationConfig>::iterator locIt = servIt->locations.begin(); locIt != servIt->locations.end(); ++locIt)
         {
             if (!servIt->root.empty() && locIt->CONFIG.root.empty() && locIt->CONFIG.alias.empty())
