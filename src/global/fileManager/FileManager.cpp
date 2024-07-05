@@ -58,12 +58,8 @@ namespace fileManager
     {
         return (std::remove(path.c_str()) == 0);
     }
-    const std::string listDirectoryContents(const std::string& path)
+    const std::string listDirectoryContents(const std::string& path, const LocationConfig& locConfig)
     {
-        struct dirent* entry;
-        struct stat statbuf;
-        Logger& logger = Logger::getInstance();
-
         DIR* dir = opendir(path.c_str());
         std::ostringstream oss;
 
@@ -74,12 +70,16 @@ namespace fileManager
             << "<hr>"
             << "<pre>"
             << "<a href=\"../\">../</a>\n";
+        
+        Logger& logger = Logger::getInstance();
         if (dir == NULL)
         {
             logger.logError("Failed to open directory");
             return "";
         }
 
+        struct dirent* entry;
+        struct stat statbuf;
         while ((entry = readdir(dir)) != NULL)
         {
             // 경로와 파일명을 결합하여 전체 경로 생성
@@ -97,8 +97,10 @@ namespace fileManager
                 continue;
             }
 
+            const size_t locationStartIdx = (!locConfig.root.empty()? locConfig.root : locConfig.alias).size();
+            oss << "<a href=\"" << fullPath.substr(locationStartIdx) << (S_ISDIR(statbuf.st_mode) ? "/" : "") << "\">";
+        
             size_t width = NGINX_MAX_FILEPATH + 1;  // 50글자보다 길 경우에 substr(0, 47) + "..>" 하여 50글자로 제한
-            oss << "<a href=\"" << dirName << (S_ISDIR(statbuf.st_mode) ? "/" : "") << "\">";
             if (dirName.size() > NGINX_MAX_FILEPATH)
             {
                 oss << dirName.substr(0, 47) << "..>"

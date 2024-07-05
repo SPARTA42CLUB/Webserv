@@ -4,6 +4,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <string>
+#include "LocationConfig.hpp"
 
 namespace fileManager
 {
@@ -21,7 +22,7 @@ namespace fileManager
     bool isReadable(const std::string& path);
     bool isWritable(const std::string& path);
     bool deleteFile(const std::string& path);
-    const std::string listDirectoryContents(const std::string& path);
+    const std::string listDirectoryContents(const std::string& path, const LocationConfig& locConfig);
 }
 
 

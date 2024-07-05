@@ -397,7 +397,7 @@ std::string RequestHandler::parseContentDisposition(void)
 }
 int RequestHandler::handleAutoindex()
 {
-    const std::string dirList = fileManager::listDirectoryContents(mPath);
+    const std::string dirList = fileManager::listDirectoryContents(mPath, mLocConfig);
     if (dirList.empty())
     {
         return FORBIDDEN;
