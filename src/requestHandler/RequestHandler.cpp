@@ -418,7 +418,6 @@ void RequestHandler::handleIndex()
         mPath += "/";
     }
     mPath += mLocConfig.index;
-    return;
 }
 void RequestHandler::addContentType(void)
 {

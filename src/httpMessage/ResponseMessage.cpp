@@ -108,7 +108,7 @@ std::string ResponseMessage::ResponseMessage::getErrorMsgBody(const int statusCo
     {
         return errorPageBody;
     }
-    const std::string path = locIt->second.root + errIt->second;
+    const std::string path = (!locIt->CONFIG.root.empty() ? locIt->CONFIG.root : locIt->CONFIG.alias) + errIt->second;
     std::ifstream file(path);
     if (file.is_open())
     {
