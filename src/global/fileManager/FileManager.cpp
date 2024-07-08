@@ -84,7 +84,7 @@ namespace fileManager
         {
             // 경로와 파일명을 결합하여 전체 경로 생성
             std::string dirName(entry->d_name);
-            std::string fullPath = path + "/" + dirName;
+            std::string fullPath = path + (path.back() == '/' ? "" : "/") + dirName;
 
             // 파일 상태 정보 얻기
             if (stat(fullPath.c_str(), &statbuf) == -1)
@@ -97,7 +97,7 @@ namespace fileManager
                 continue;
             }
 
-            const size_t locationStartIdx = (!locConfig.root.empty()? locConfig.root : locConfig.alias).size();
+            const size_t locationStartIdx = (!locConfig.root.empty() ? locConfig.root : locConfig.alias).size();
             oss << "<a href=\"" << fullPath.substr(locationStartIdx) << (S_ISDIR(statbuf.st_mode) ? "/" : "") << "\">";
         
             size_t width = NGINX_MAX_FILEPATH + 1;  // 50글자보다 길 경우에 substr(0, 47) + "..>" 하여 50글자로 제한
