@@ -61,6 +61,11 @@ int Server::setServerSocket(ServerConfig serverConfig)
     if (serverSocket == -1)
         throw SysException(FAILED_TO_CREATE_SOCKET);
 
+    /* 개발 편의용 세팅. 서버 소켓이 이미 사용중이더라도 실행되게끔 설정 */
+    int optval = 1;
+    setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
+    /* ----------------------------------------------------------------- */
+
     fileManager::setNonBlocking(serverSocket);
 
     // 서버 주소 설정
@@ -251,10 +256,6 @@ void Server::handleClientReadEvent(struct EVENT_TYPE& event)
         if (!connection.request)
             continue;
 
-        // Request에 따른 처리
-        if (connection.request->getRequestHeaderFields().getField("Connection") == "close")
-            connection.isKeepAlive = false;
-        std::string method = connection.request->getRequestLine().getMethod();
         Logger::getInstance().logHttpMessage(connection.request);
 
         // 요청 처리
@@ -268,9 +269,6 @@ void Server::handleClientReadEvent(struct EVENT_TYPE& event)
         // Request가 Cgi 요청이었던 경우 RequestHandler가 NULL을 반환함
         if (res == NULL)
             continue;
-
-        if (method == "HEAD")
-            res->clearMessageBody();
 
         connection.responses.push(res);
         EventManager::getInstance().addWriteEvent(socket);
