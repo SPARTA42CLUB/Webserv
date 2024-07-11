@@ -50,6 +50,10 @@ namespace fileManager
     {
         return (access(path.c_str(), W_OK) == 0);
     }
+    bool isExecutable(const std::string& path)
+    {
+        return (access(path.c_str(), X_OK) == 0);
+    }
     bool isExist(const std::string& path)
     {
         return (access(path.c_str(), F_OK) == 0);

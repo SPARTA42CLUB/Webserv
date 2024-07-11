@@ -43,6 +43,7 @@ logs/
 unexpected_response.txt
 www/permission_denied/
 diff.txt
+.python-version
 
 # log
 access.log

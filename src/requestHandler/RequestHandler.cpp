@@ -10,7 +10,7 @@ RequestHandler::RequestHandler(std::map<int, Connection*>& connectionsMap, const
 : mConnectionsMap(connectionsMap)
 , mSocket(fd)
 , mRequestMessage(connectionsMap[fd]->request)
-, mResponseMessage()
+, mResponseMessage(NULL)
 , mServerConfig(connectionsMap[fd]->serverConfig)
 , mLocConfig()
 , mPath()
@@ -18,37 +18,56 @@ RequestHandler::RequestHandler(std::map<int, Connection*>& connectionsMap, const
 , mbIsCGI(false)
 {
 }
+ResponseMessage* RequestHandler::createResponseByStatusCode(const int statusCode)
+{
+    const RequestMessage* requestMessage = mConnectionsMap[mSocket]->request;
+    mResponseMessage->setByStatusCode(statusCode, mServerConfig);
+    if (requestMessage->getRequestLine().getMethod() == "HEAD")
+    {
+        mResponseMessage->clearMessageBody();
+    }
+    return mResponseMessage;
+}
 ResponseMessage* RequestHandler::handleRequest(void)
 {
+    Connection& connection = *mConnectionsMap[mSocket];
+    mResponseMessage = new ResponseMessage();
+
+    if (connection.request->getRequestHeaderFields().getField("Connection") == "close")
+    {
+        connection.isKeepAlive = false;
+    }
+
     int statusCode = mConnectionsMap[mSocket]->request->getStatusCode();
     if (statusCode != OK)
     {
-        mResponseMessage = new ResponseMessage();
-        mResponseMessage->setByStatusCode(statusCode, mServerConfig);
-        return mResponseMessage;
+        return createResponseByStatusCode(statusCode);
     }
+
     processRequestPath();
+
     try
     {
         if (mbIsCGI)
         {
             executeCGI();
+            delete mResponseMessage;
             return NULL;
         }
     }
     catch (const SysException& e)
     {
-        mResponseMessage = new ResponseMessage();
-        mResponseMessage->setByStatusCode(SERVICE_UNAVAILABLE, mServerConfig);
-        return mResponseMessage;
+        return createResponseByStatusCode(SERVICE_UNAVAILABLE);
     }
-    mResponseMessage = new ResponseMessage();
+    catch (const HttpException& e)
+    {
+        return createResponseByStatusCode(e.getStatusCode());
+    }
 
     statusCode = handleMethod();
     if (checkStatusCode(statusCode) == false)
     {
-        mResponseMessage->setByStatusCode(statusCode, mServerConfig);
-        return mResponseMessage;
+        return createResponseByStatusCode(statusCode);
     }
 
     return mResponseMessage;
@@ -165,6 +184,10 @@ bool RequestHandler::identifyCGIRequest(const std::string& reqTarget, std::map<s
 }
 void RequestHandler::executeCGI(void)
 {
+    if (!fileManager::isExecutable(mLocConfig.cgi_interpreter))
+    {
+        throw HttpException(BAD_GATEWAY);
+    }
     int pipe_in[2], pipe_out[2];
     if (pipe(pipe_in) == -1 || pipe(pipe_out) == -1)
     {
@@ -200,7 +223,7 @@ void RequestHandler::executeCGI(void)
         contentLengthEnv_cstr.push_back('\0');
         char* envp[] = {queryStringEnv_cstr.data(), requestMethodEnv_cstr.data(), contentLengthEnv_cstr.data(), NULL};
 
-        execve(argv[READ_END], argv, envp);
+        execve(argv[0], argv, envp);
         throw SysException(FAILED_TO_EXEC);
     }
     // Parent process
