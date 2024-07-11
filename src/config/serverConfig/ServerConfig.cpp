@@ -74,6 +74,8 @@ void ServerConfig::parseLocation(std::ifstream& file, std::string& locationPath,
                 locationConfig.parseRedirect(value);
             else if (key == "cgi_interpreter") 
                 locationConfig.parseCGI(value);
+            else if (key == "proxy_pass")
+                locationConfig.parseProxyPass(value);
             else if (key == "location")
             {
                 if (!isValidLocationPath(value))

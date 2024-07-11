@@ -39,11 +39,11 @@ Server::Server(const Config& config)
 Server::~Server()
 {
     std::vector<int> closeSockets;
+
     for (size_t i = 0; i < serverSockets.size(); ++i)
     {
         close(serverSockets[i]);
     }
-
     for (std::map<int, Connection*>::const_iterator it = connectionsMap.begin(); it != connectionsMap.end(); ++it)
     {
         delete it->second;
@@ -55,7 +55,9 @@ int Server::setServerSocket(ServerConfig serverConfig)
 {
     int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (serverSocket == -1)
+    {
         throw SysException(FAILED_TO_CREATE_SOCKET);
+    }
 
     /* 개발 편의용 세팅. 서버 소켓이 이미 사용중이더라도 실행되게끔 설정 */
     int optval = 1;
@@ -90,10 +92,8 @@ void Server::run()
         for (std::vector<struct kevent>::iterator it = events.begin(); it != events.end(); ++it)
         {
             struct kevent& event = *it;
-
             handleEvents(event);
         }
-
         manageTimeout();
     }
 }

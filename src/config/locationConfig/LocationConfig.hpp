@@ -22,6 +22,7 @@ public:
     bool directory_listing;
     std::string redirect;
     std::string cgi_interpreter;
+    std::string proxy_pass;
 
     static const size_t implementMethodsSize;
     static const std::string implementMethods[];
@@ -37,6 +38,7 @@ public:
     void parseDirectoryListing(std::string& value);
     void parseRedirect(std::string& value);
     void parseCGI(std::string& value);
+    void parseProxyPass(std::string& value);
 };
 
 #endif

@@ -14,6 +14,7 @@ LocationConfig::LocationConfig()
 , directory_listing(false)
 , redirect()
 , cgi_interpreter()
+, proxy_pass()
 {
 }
 LocationConfig::~LocationConfig()
@@ -27,6 +28,7 @@ LocationConfig::LocationConfig(const LocationConfig& rhs)
 , directory_listing(rhs.directory_listing)
 , redirect(rhs.redirect)
 , cgi_interpreter(rhs.cgi_interpreter)
+, proxy_pass(rhs.proxy_pass)
 {
 }
 LocationConfig& LocationConfig::operator=(const LocationConfig& rhs)
@@ -40,6 +42,7 @@ LocationConfig& LocationConfig::operator=(const LocationConfig& rhs)
     directory_listing = rhs.directory_listing;
     redirect = rhs.redirect;
     cgi_interpreter = rhs.cgi_interpreter;
+    proxy_pass = rhs.proxy_pass;
     return *this;
 }
 void LocationConfig::parseRoot(std::string& value)
@@ -100,4 +103,10 @@ void LocationConfig::parseCGI(std::string& value)
     if (!isValidValue(value))
         throw ConfigException(INVALID_LOCATION_CONFIG);
     cgi_interpreter = value;
+}
+void LocationConfig::parseProxyPass(std::string& value)
+{
+    if (!isValidValue(value))
+        throw ConfigException(INVALID_LOCATION_CONFIG);
+    proxy_pass = value;
 }

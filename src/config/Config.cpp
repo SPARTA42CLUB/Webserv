@@ -135,7 +135,7 @@ void Config::verifyConfig(void)
                 locIt->CONFIG.root = servIt->root;
             if (!servIt->index.empty() && locIt->CONFIG.index.empty())
                 locIt->CONFIG.index = servIt->index;
-            if (locIt->CONFIG.root.empty() && locIt->CONFIG.alias.empty() && locIt->CONFIG.redirect.empty())
+            if (locIt->CONFIG.root.empty() && locIt->CONFIG.alias.empty() && locIt->CONFIG.redirect.empty() && locIt->CONFIG.proxy_pass.empty())
                 throw ConfigException(ROOT_NOT_EXIST);
             if (!locIt->CONFIG.root.empty() && !locIt->CONFIG.alias.empty())
                 throw ConfigException(DUPLICATE_ROOT_ALIAS);
@@ -171,7 +171,7 @@ void Config::print(void) const
                   << "root: " << serverConfigs[i].root << '\n'
                   << "index: " << serverConfigs[i].index << '\n'
                   << "client_max_body_size: " << serverConfigs[i].client_max_body_size << '\n'
-                  << "error_pages:\n";
+                  << color::FG_RED << "error_pages:\n" << color::RESET;
         for (std::map<size_t, std::string>::const_iterator it = serverConfigs[i].error_pages.begin(); it != serverConfigs[i].error_pages.end(); ++it)
         {
             std::cout << "    " << it->first << " " << it->second << '\n';
@@ -180,23 +180,19 @@ void Config::print(void) const
         {
             std::cout << color::FG_YELLOW << "locations: " << it->LOCATION << ":" << '\n'
                       << color::RESET << "    "
-                      << "root: " << it->CONFIG.root << '\n'
-                      << "    "
-                      << "alias: " << it->CONFIG.alias << '\n'
-                      << "    "
-                      << "index: " << it->CONFIG.index << '\n'
-                      << "    "
+                      << "root: " << it->CONFIG.root << "\n    "
+                      << "alias: " << it->CONFIG.alias << "\n    "
+                      << "index: " << it->CONFIG.index << "\n    "
                       << "allow_methods: ";
             for (std::map<std::string, bool>::const_iterator it2 = it->CONFIG.allow_methods.begin(); it2 != it->CONFIG.allow_methods.end(); ++it2)
             {
-                std::cout << it2->first << " ";
+                std::cout << it2->first << ' ';
             }
             std::cout << "\n    "
-                      << "directory_listing: " << (it->CONFIG.directory_listing ? "on" : "off") << '\n'
-                      << "    "
-                      << "redirect: " << it->CONFIG.redirect << '\n'
-                      << "    "
-                      << "cgi_interpreter: " << it->CONFIG.cgi_interpreter << '\n';
+                      << "directory_listing: " << (it->CONFIG.directory_listing ? "on" : "off") << "\n    "
+                      << "redirect: " << it->CONFIG.redirect << "\n    "
+                      << "cgi_interpreter: " << it->CONFIG.cgi_interpreter << "\n    "
+                      << "proxy_pass: " << it->CONFIG.proxy_pass << '\n';
         }
         std::cout << std::endl;
     }
