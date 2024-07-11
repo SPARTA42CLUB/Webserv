@@ -7,6 +7,7 @@
 #define READ_EVENT EPOLLIN
 #define WRITE_EVENT EPOLLOUT
 #define ADD_EVENT EPOLL_CTL_ADD
+#define MOD_EVENT EPOLL_CTL_MOD
 #define DEL_EVENT EPOLL_CTL_DEL
 #else
 #include <sys/event.h>
@@ -16,6 +17,7 @@
 #define READ_EVENT EVFILT_READ
 #define WRITE_EVENT EVFILT_WRITE
 #define ADD_EVENT EV_ADD | EV_ENABLE
+#define MOD_EVENT EV_ADD | EV_ENABLE
 #define DEL_EVENT EV_DELETE
 #endif
 
@@ -77,6 +79,8 @@ public:
 
     void addReadEvent(const int fd);
     void addWriteEvent(const int fd);
+    void modReadEvent(const int fd);
+    void modWriteEvent(const int fd);
     void deleteReadEvent(const int fd);
     void deleteWriteEvent(const int fd);
 };

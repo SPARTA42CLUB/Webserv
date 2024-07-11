@@ -61,7 +61,7 @@ int Server::setServerSocket(ServerConfig serverConfig)
     if (serverSocket == -1)
         throw SysException(FAILED_TO_CREATE_SOCKET);
 
-    /* 개발 편의용 세팅. 서버 소켓이 이미 사용중이더라도 실행되게끔 설정 */
+    /* 서버 소켓이 이미 사용중이더라도 실행되게끔 설정 */
     int optval = 1;
     setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
     /* ----------------------------------------------------------------- */
@@ -127,7 +127,7 @@ void Server::handleClientsEvent(struct EVENT_TYPE& event)
         else
             handleClientReadEvent(event);
     }
-    else if (eventFilter(event, EVFILT_WRITE))
+    else if (eventFilter(event, WRITE_EVENT))
     {
         if (isCgiConnection(connectionsMap[eventIdent(event)]))
             handlePipeWriteEvent(event);
@@ -202,7 +202,7 @@ void Server::movePipeDataToParent(Connection& cgiConnection)
     }
 
     parentConnection.responses.push(response);  // 부모 커넥션의 responses에다 pipe에서 읽어 온 데이터 넣음
-    EventManager::getInstance().addWriteEvent(cgiConnection.parentFd);
+    EventManager::getInstance().modWriteEvent(cgiConnection.parentFd);
     cgiConnection.buffer.clear();  // 데이터 버퍼 클리어.
 }
 
@@ -229,7 +229,7 @@ void Server::handlePipeWriteEvent(struct EVENT_TYPE& event)
     if (writeSize == 0 || data.empty())
     {
         int readSocket = connectionsMap[cgiConnection.parentFd]->childFd[READ_END];
-        EventManager::getInstance().addReadEvent(readSocket);
+        EventManager::getInstance().modReadEvent(readSocket);
         closeConnection(pipe);
     }
 }
@@ -239,7 +239,7 @@ void Server::handleClientReadEvent(struct EVENT_TYPE& event)
 {
     const int socket = eventIdent(event);
 
-    if (event.flags & EV_EOF)
+    if (eventEOF(event))
         return;
 
     Connection& connection = *connectionsMap[socket];
@@ -271,7 +271,8 @@ void Server::handleClientReadEvent(struct EVENT_TYPE& event)
             continue;
 
         connection.responses.push(res);
-        EventManager::getInstance().addWriteEvent(socket);
+        EventManager::getInstance().modWriteEvent(socket);
+
     }
 }
 
@@ -535,7 +536,7 @@ void Server::pushResponse(Connection& connection, int statusCode)
     ResponseMessage* response = new ResponseMessage();
     response->setByStatusCode(statusCode, connection.serverConfig);
     connection.responses.push(response);
-    EventManager::getInstance().addWriteEvent(connection.fd);
+    EventManager::getInstance().modWriteEvent(connection.fd);
 }
 
 void Server::updateLastActivity(Connection& connection)

@@ -29,6 +29,16 @@ void EventManager::addWriteEvent(const int fd)
     addEvent(fd, WRITE_EVENT, ADD_EVENT);
 }
 
+void EventManager::modReadEvent(const int fd)
+{
+    addEvent(fd, READ_EVENT, MOD_EVENT);
+}
+
+void EventManager::modWriteEvent(const int fd)
+{
+    addEvent(fd, WRITE_EVENT, MOD_EVENT);
+}
+
 void EventManager::deleteReadEvent(const int fd)
 {
     addEvent(fd, READ_EVENT, DEL_EVENT);
@@ -45,7 +55,7 @@ void EventManager::addEvent(const int fd, const int16_t filter, const uint16_t f
     struct epoll_event ev;
     ev.events = filter;
     ev.data.fd = fd;
-    if (epoll_ctl(kq, flags, fd, &ev) == -1)
+    if (epoll_ctl(EVENT_FD, flags, fd, &ev) == -1)
     {
         close(fd);
     }
@@ -65,7 +75,7 @@ std::vector<struct EVENT_TYPE> EventManager::getCurrentEvents()
     struct EVENT_TYPE events[1024];
 #ifdef __linux__
     int timeout = 1000; // 1000ms timeout
-    int numEvents = epoll_wait(kq, events, 1024, timeout);
+    int numEvents = epoll_wait(EVENT_FD, events, 1024, timeout);
 #else
     struct timespec timeout;
     timeout.tv_sec = 1;
