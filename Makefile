@@ -37,6 +37,7 @@ RESET 			:= \033[0m
 
 SRC_DIR			:= ./src
 OBJ_DIR			:= ./obj
+LOG_DIR			:= ./log
 
 INCLUDE_DIR 	:= $(shell find $(SRC_DIR) -type d)
 INCLUDE			:= $(addprefix -I, $(INCLUDE_DIR))
@@ -44,9 +45,11 @@ INCLUDE			:= $(addprefix -I, $(INCLUDE_DIR))
 SRC				:= $(shell find $(SRC_DIR) -name "*.cpp")
 OBJ				:= $(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(SRC))
 
-all: $(NAME)
-	@mkdir log/
+all: $(LOG_DIR) $(NAME)
 	@echo "$(FG_GREEN)$(NAME) created successfully$(RESET)"
+
+$(LOG_DIR):
+	@mkdir -p $(LOG_DIR)
 
 $(NAME): $(OBJ)
 	@$(CXX) $(CFLAGS) $(OBJ) -o $(NAME)
@@ -58,11 +61,11 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
 	@echo "$(FG_CYAN)Compiled:$(RESET) $< -> $@"
 
 clean:
-	@rm -rf $(OBJ) obj/
+	@rm -rf $(OBJ) $(OBJ_DIR)
 	@echo "$(FG_BLUE)Cleaned up object files$(RESET)"
 
 fclean: clean
-	@rm -rf $(NAME) log/
+	@rm -rf $(NAME) $(LOG_DIR)
 	@echo "$(FG_BLUE)Cleaned up executable and log files$(RESET)"
 
 re:
