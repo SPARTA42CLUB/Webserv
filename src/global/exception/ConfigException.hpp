@@ -26,8 +26,8 @@ private:
 
 public:
     ConfigException(eConfigException exceptionType);
-    virtual ~ConfigException() _NOEXCEPT;
-    virtual const char* what() const _NOEXCEPT;
+    virtual ~ConfigException() noexcept;
+    virtual const char* what() const noexcept;
 };
 
 #endif

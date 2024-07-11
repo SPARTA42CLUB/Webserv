@@ -3,6 +3,7 @@
 #include "ConfigException.hpp"
 #include "parse.hpp"
 #include <vector>
+#include <algorithm>
 
 ServerConfig::ServerConfig()
 : host()
@@ -60,19 +61,19 @@ void ServerConfig::parseLocation(std::ifstream& file, std::string& locationPath,
             throw ConfigException(INVALID_LOCATION_CONFIG);
         try
         {
-            if (key == "root") 
+            if (key == "root")
                 locationConfig.parseRoot(value);
             else if (key == "alias")
                 locationConfig.parseAlias(value);
-            else if (key == "index") 
+            else if (key == "index")
                 locationConfig.parseIndex(value);
-            else if (key == "allow_methods") 
+            else if (key == "allow_methods")
                 locationConfig.parseAllowMethods(value);
-            else if (key == "directory_listing") 
+            else if (key == "directory_listing")
                 locationConfig.parseDirectoryListing(value);
-            else if (key == "redirect") 
+            else if (key == "redirect")
                 locationConfig.parseRedirect(value);
-            else if (key == "cgi_interpreter") 
+            else if (key == "cgi_interpreter")
                 locationConfig.parseCGI(value);
             else if (key == "location")
             {

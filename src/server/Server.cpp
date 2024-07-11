@@ -1,6 +1,10 @@
 #include "Server.hpp"
 #include <arpa/inet.h>
 #include <signal.h>
+#include <cstring>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <algorithm>
 #include "EventManager.hpp"
 #include "FileManager.hpp"
 #include "HttpException.hpp"
@@ -81,10 +85,10 @@ void Server::run()
     // 이벤트 처리 루프
     while (true)
     {
-        std::vector<struct kevent> events = EventManager::getInstance().getCurrentEvents();
-        for (std::vector<struct kevent>::iterator it = events.begin(); it != events.end(); ++it)
+        std::vector<struct EVENT_TYPE> events = EventManager::getInstance().getCurrentEvents();
+        for (std::vector<struct EVENT_TYPE>::iterator it = events.begin(); it != events.end(); ++it)
         {
-            struct kevent& event = *it;
+            struct EVENT_TYPE& event = *it;
 
             handleEvents(event);
         }
@@ -93,34 +97,34 @@ void Server::run()
     }
 }
 
-void Server::handleEvents(struct kevent& event)
+void Server::handleEvents(struct EVENT_TYPE& event)
 {
-    if (event.flags & EV_ERROR)
+    if (eventError(event))
         return;
 
-    if (isServerSocket(event.ident))
+    if (isServerSocket(eventIdent(event)))
     {
-        acceptClient(event.ident);
+        acceptClient(eventIdent(event));
     }
-    else if (isConnection(event.ident))
+    else if (isConnection(eventIdent(event)))
     {
         handleClientsEvent(event);
         deleteGarbageEvent(event);
     }
 }
 
-void Server::handleClientsEvent(struct kevent& event)
+void Server::handleClientsEvent(struct EVENT_TYPE& event)
 {
-    if (event.filter == EVFILT_READ)
+    if (eventFilter(event, READ_EVENT))
     {
-        if (isCgiConnection(connectionsMap[event.ident]))
+        if (isCgiConnection(connectionsMap[eventIdent(event)]))
             handlePipeReadEvent(event);
         else
             handleClientReadEvent(event);
     }
-    else if (event.filter == EVFILT_WRITE)
+    else if (eventFilter(event, EVFILT_WRITE))
     {
-        if (isCgiConnection(connectionsMap[event.ident]))
+        if (isCgiConnection(connectionsMap[eventIdent(event)]))
             handlePipeWriteEvent(event);
         else
             handleClientWriteEvent(event);
@@ -150,11 +154,11 @@ void Server::acceptClient(int serverSocket)
     Logger::getInstance().logAccept(clientSocket, clientAddr);
 }
 
-void Server::handlePipeReadEvent(struct kevent& event)
+void Server::handlePipeReadEvent(struct EVENT_TYPE& event)
 {
-    Connection& cgiConnection = *(connectionsMap[event.ident]);
+    Connection& cgiConnection = *(connectionsMap[eventIdent(event)]);
 
-    if (event.flags & EV_EOF)
+    if (eventEOF(event))
     {
         movePipeDataToParent(cgiConnection);
         closeCgi(*connectionsMap[cgiConnection.parentFd]);
@@ -197,9 +201,9 @@ void Server::movePipeDataToParent(Connection& cgiConnection)
     cgiConnection.buffer.clear();  // 데이터 버퍼 클리어.
 }
 
-void Server::handlePipeWriteEvent(struct kevent& event)
+void Server::handlePipeWriteEvent(struct EVENT_TYPE& event)
 {
-    int pipe = event.ident;
+    int pipe = eventIdent(event);
 
     Connection& cgiConnection = *connectionsMap[pipe];
 
@@ -226,9 +230,9 @@ void Server::handlePipeWriteEvent(struct kevent& event)
 }
 
 // 소켓에 read event 발생시 소켓에서 데이터 읽음
-void Server::handleClientReadEvent(struct kevent& event)
+void Server::handleClientReadEvent(struct EVENT_TYPE& event)
 {
-    const int socket = event.ident;
+    const int socket = eventIdent(event);
 
     if (event.flags & EV_EOF)
         return;
@@ -443,9 +447,9 @@ std::string Server::getChunk(Connection& connection)
 }
 
 // 보낸 데이터가 0일 때 write event 삭제
-void Server::handleClientWriteEvent(struct kevent& event)
+void Server::handleClientWriteEvent(struct EVENT_TYPE& event)
 {
-    int socket = event.ident;
+    int socket = eventIdent(event);
 
     Connection& connection = *connectionsMap[socket];
 
@@ -571,17 +575,17 @@ bool Server::isConnection(const int socket)
     return (it != connectionsMap.end());
 }
 
-void Server::deleteGarbageEvent(struct kevent& event)
+void Server::deleteGarbageEvent(struct EVENT_TYPE& event)
 {
-    if (isConnection(event.ident))
+    if (isConnection(eventIdent(event)))
         return;
 
-    if (event.filter == EVFILT_READ)
+    if (eventFilter(event, READ_EVENT))
     {
-        EventManager::getInstance().deleteReadEvent(event.ident);
+        EventManager::getInstance().deleteReadEvent(eventIdent(event));
     }
-    else if (event.filter == EVFILT_WRITE)
+    else if (eventFilter(event, WRITE_EVENT))
     {
-        EventManager::getInstance().deleteWriteEvent(event.ident);
+        EventManager::getInstance().deleteWriteEvent(eventIdent(event));
     }
 }

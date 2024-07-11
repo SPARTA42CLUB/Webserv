@@ -8,72 +8,76 @@ EventManager& EventManager::getInstance()
     return instance;
 }
 EventManager::EventManager()
-: kq(kqueue())
+: EVENT_FD(EVENT_CREATE())
 {
-    if (kq == -1)
+    if (EVENT_FD == -1)
     {
-        throw SysException(FAILED_TO_CREATE_KQUEUE);
+        throw SysException(FAILED_TO_CREATE_EVENT);
     }
 }
 EventManager::~EventManager()
 {
-    close(kq);
+    close(EVENT_FD);
 }
 void EventManager::addReadEvent(const int fd)
 {
-    addEvent(fd, EVFILT_READ, EV_ADD | EV_ENABLE);
+    addEvent(fd, READ_EVENT, ADD_EVENT);
 }
 
 void EventManager::addWriteEvent(const int fd)
 {
-    addEvent(fd, EVFILT_WRITE, EV_ADD | EV_ENABLE);
+    addEvent(fd, WRITE_EVENT, ADD_EVENT);
 }
 
 void EventManager::deleteReadEvent(const int fd)
 {
-    addEvent(fd, EVFILT_READ, EV_DELETE);
+    addEvent(fd, READ_EVENT, DEL_EVENT);
 }
 
 void EventManager::deleteWriteEvent(const int fd)
 {
-    addEvent(fd, EVFILT_WRITE, EV_DELETE);
+    addEvent(fd, WRITE_EVENT, DEL_EVENT);
 }
 
-// throw-safe 함수 (에러 처리 해야 할 수도?)
 void EventManager::addEvent(const int fd, const int16_t filter, const uint16_t flags)
 {
-    struct kevent evSet;
-    EV_SET(&evSet, fd, filter, flags, 0, 0, NULL);
-
-    if (kevent(kq, &evSet, 1, NULL, 0, NULL) == -1)
+#ifdef __linux__
+    struct epoll_event ev;
+    ev.events = filter;
+    ev.data.fd = fd;
+    if (epoll_ctl(kq, flags, fd, &ev) == -1)
     {
         close(fd);
     }
+#else
+    struct EVENT_TYPE evSet;
+    EV_SET(&evSet, fd, filter, flags, 0, 0, NULL);
+
+    if (kevent(EVENT_FD, &evSet, 1, NULL, 0, NULL) == -1)
+    {
+        close(fd);
+    }
+#endif
 }
 
-std::vector<struct kevent> EventManager::getCurrentEvents()
+std::vector<struct EVENT_TYPE> EventManager::getCurrentEvents()
 {
-    /*
-    kevent는 이벤트가 발생해야 반환되는데,
-    timeout을 설정하면 이벤트가 발생하지 않아도
-    kevent함수가 반환된다.
-    */
+    struct EVENT_TYPE events[1024];
+#ifdef __linux__
+    int timeout = 1000; // 1000ms timeout
+    int numEvents = epoll_wait(kq, events, 1024, timeout);
+#else
     struct timespec timeout;
     timeout.tv_sec = 1;
     timeout.tv_nsec = 0;
 
-    /*
-     * !!수신이 감지된 이벤트를 가져온다!!
-     * events 이벤트 배열에 현재 변경이 감지된 이벤트를 저장한다.
-     * numEvents에는 배열에 담긴 이벤트의 수가 담긴다.
-     */
-    struct kevent events[1024];
-    int numEvents = kevent(kq, NULL, 0, events, 1024, &timeout);
+    int numEvents = kevent(EVENT_FD, NULL, 0, events, 1024, &timeout);
+#endif
 
     if (numEvents == -1)
     {
-        throw SysException(FAILED_TO_GET_KEVENT);
+        throw SysException(FAILED_TO_GET_EVENT);
     }
 
-    return std::vector<struct kevent>(events, events + numEvents);
+    return std::vector<struct EVENT_TYPE>(events, events + numEvents);
 }

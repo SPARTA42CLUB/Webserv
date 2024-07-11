@@ -100,8 +100,8 @@ std::string Logger::logLevelToString(const eLogLevel level) const
 
 std::string Logger::getTimeStamp() const
 {
-    std::time_t now = std::time(NULL);
-    std::tm* localtm = std::localtime(&now);
+    time_t now = time(NULL);
+    tm* localtm = localtime(&now);
     char buffer[80];
     strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", localtm);
     return std::string(buffer);

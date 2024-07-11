@@ -4,10 +4,10 @@ ConfigException::ConfigException(eConfigException exceptionType)
 : mExceptionType(exceptionType)
 {
 }
-ConfigException::~ConfigException() _NOEXCEPT
+ConfigException::~ConfigException() noexcept
 {
 }
-const char* ConfigException::what() const _NOEXCEPT
+const char* ConfigException::what() const noexcept
 {
     switch (mExceptionType)
     {

@@ -5,7 +5,7 @@ HttpException::HttpException(const int statusCode)
 : mStatusCode(statusCode)
 {
 }
-HttpException::~HttpException() _NOEXCEPT
+HttpException::~HttpException() noexcept
 {
 }
 int HttpException::getStatusCode() const
