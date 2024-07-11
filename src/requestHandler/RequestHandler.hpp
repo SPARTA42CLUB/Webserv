@@ -28,9 +28,10 @@ private:
     bool identifyCGIRequest(const std::string& reqTarget, std::map<std::string, LocationConfig>::const_iterator& locIt);
 
     int handleMethod(void);
+    void executeCGI(void);
+
     // Response (Success)
     int getRequest(void);
-    int rangeRequest(void);
     int headRequest(void);
     int postRequest(void);
     int deleteRequest(void);
@@ -44,7 +45,7 @@ private:
 
     void addContentType(void);
 
-    void executeCGI(void);
+    ResponseMessage* createResponseByStatusCode(const int statusCode);
 
 public:
     RequestHandler(std::map<int, Connection*>& connectionsMap, const int socket);
