@@ -27,10 +27,12 @@ private:
     void handleClientReadEvent(struct kevent& event);
     void handleClientWriteEvent(struct kevent& event);
     void handlePipeReadEvent(struct kevent& event);
-    void movePipeDataToParent(Connection& cgiConnection);
-    void closeCgi(Connection& connection);
     void handlePipeWriteEvent(struct kevent& event);
+    void handleProxyReadEvent(struct kevent& event);
+    void handleProxyWriteEvent(struct kevent& event);
 
+    void moveDataToParent(Connection& connection);
+    void closeCgi(Connection& connection);
     bool readData(Connection& connection);
 
     bool buildMessage(Connection& connection);
@@ -41,6 +43,8 @@ private:
 
     void closeConnection(const int socket);
     bool isConnection(const int socket);
+    bool isCgiConnection(const Connection* connection);
+    bool isProxyConnection(const Connection* connection);
     bool isServerSocket(int socket);
     void updateLastActivity(Connection& connection);
 

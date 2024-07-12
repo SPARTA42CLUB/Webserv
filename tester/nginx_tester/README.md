@@ -23,15 +23,23 @@ curl -v -X GET http://localhost:8080/cgi-bin/
 ### Using telnet
 ```bash
 telnet localhost 8080
-GET / HTTP/1.1
-Host: localhost
-
-# Press Enter twice
+GET / HTTP/1.1^M (control v + m + enter)
+Host: localhost^M
+^M
+^M
 ```
 
 ### Using netcat
 ```bash
 echo -e "GET / HTTP/1.1\r\nHost: localhost\r\n" | nc localhost 8080
+```
+
+```bash
+nc localhost 8080
+GET / HTTP/1.1^M (control v + m + enter)
+Host: localhost^M
+^M
+^M
 ```
 
 ## Useful Commands
@@ -40,3 +48,4 @@ docker exec nginx sh # Access Nginx container with shell
 nginx -s reload # Reload Nginx
 nginx -t # Test Nginx configuration
 ```
+

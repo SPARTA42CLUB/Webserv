@@ -25,5 +25,4 @@ struct Connection
     ~Connection();
 };
 
-bool isCgiConnection(Connection* connection);
-bool checkNeedClose(Connection& connection);
+bool checkNeedClose(const Connection& connection);

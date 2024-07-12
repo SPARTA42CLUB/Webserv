@@ -1,10 +1,12 @@
 #include "RequestHandler.hpp"
 #include <fcntl.h>
+#include <sys/socket.h>
 #include <ctime>
 #include <fstream>
 #include "EventManager.hpp"
 #include "FileManager.hpp"
 #include "SysException.hpp"
+#include <netdb.h>
 
 RequestHandler::RequestHandler(std::map<int, Connection*>& connectionsMap, const int fd)
 : mConnectionsMap(connectionsMap)
@@ -16,17 +18,8 @@ RequestHandler::RequestHandler(std::map<int, Connection*>& connectionsMap, const
 , mPath()
 , mQueryString()
 , mbIsCGI(false)
+, mbIsProxy(false)
 {
-}
-ResponseMessage* RequestHandler::createResponseByStatusCode(const int statusCode)
-{
-    const RequestMessage* requestMessage = mConnectionsMap[mSocket]->request;
-    mResponseMessage->setByStatusCode(statusCode, mServerConfig);
-    if (requestMessage->getRequestLine().getMethod() == "HEAD")
-    {
-        mResponseMessage->clearMessageBody();
-    }
-    return mResponseMessage;
 }
 ResponseMessage* RequestHandler::handleRequest(void)
 {
@@ -45,12 +38,14 @@ ResponseMessage* RequestHandler::handleRequest(void)
     }
 
     processRequestPath();
+    mbIsProxy = !mLocConfig.proxy_pass.empty();
 
+    /* CGI or Proxy */
     try
     {
-        if (mbIsCGI)
+        if (mbIsProxy || mbIsCGI)
         {
-            executeCGI();
+            (mbIsProxy) ? proxyRequest() : executeCGI();
             delete mResponseMessage;
             return NULL;
         }
@@ -64,12 +59,23 @@ ResponseMessage* RequestHandler::handleRequest(void)
         return createResponseByStatusCode(e.getStatusCode());
     }
 
+    /* Normal Request */
     statusCode = handleMethod();
     if (checkStatusCode(statusCode) == false)
     {
         return createResponseByStatusCode(statusCode);
     }
 
+    return mResponseMessage;
+}
+ResponseMessage* RequestHandler::createResponseByStatusCode(const int statusCode)
+{
+    const RequestMessage* requestMessage = mConnectionsMap[mSocket]->request;
+    mResponseMessage->setByStatusCode(statusCode, mServerConfig);
+    if (requestMessage->getRequestLine().getMethod() == "HEAD")
+    {
+        mResponseMessage->clearMessageBody();
+    }
     return mResponseMessage;
 }
 void RequestHandler::processRequestPath(void)
@@ -181,6 +187,42 @@ bool RequestHandler::identifyCGIRequest(const std::string& reqTarget, std::map<s
         mQueryString = reqTarget.substr(queryIdx + 1);
     }
     return true;
+}
+void RequestHandler::proxyRequest(void)
+{
+    const std::string& proxyPass = mLocConfig.proxy_pass;
+    const size_t portIdx = proxyPass.rfind(':');
+    const std::string host = proxyPass.substr(0, portIdx);
+    const int port = std::stoi(proxyPass.substr(portIdx + 1));
+
+    int fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (fd == -1)
+    {
+        throw SysException(FAILED_TO_CREATE_SOCKET);
+    }
+
+    struct addrinfo hints;
+    struct addrinfo* res;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+
+    int ret = getaddrinfo(host.c_str(), std::to_string(port).c_str(), &hints, &res);
+    if (ret != 0)
+    {
+        throw HttpException(BAD_GATEWAY);
+    }
+
+    if (connect(fd, res->ai_addr, res->ai_addrlen) == -1)
+    {
+        freeaddrinfo(res);
+        close(fd);
+        throw HttpException(BAD_GATEWAY);
+    }
+
+    mConnectionsMap[fd] = new Connection(fd, mServerConfig, mSocket, mRequestMessage->toString());
+    EventManager::getInstance().addWriteEvent(fd);
+    freeaddrinfo(res);
 }
 void RequestHandler::executeCGI(void)
 {

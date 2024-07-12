@@ -39,14 +39,7 @@ Connection::~Connection()
     }
 }
 
-bool isCgiConnection(Connection* connection)
-{
-    if (connection->parentFd != -1)
-        return true;
-    return false;
-}
-
-bool checkNeedClose(Connection& connection)
+bool checkNeedClose(const Connection& connection)
 {
     if (connection.responses.size() > 1)
         return false;

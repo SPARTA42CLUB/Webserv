@@ -269,6 +269,13 @@ Developer Network$CR
 0$CR
 $CR
 " 201
+
+"GET /proxy HTTP/1.1$CR
+Host: localhost$CR
+Connection: close$CR
+Number: 34$CR
+$CR
+" 200
 )
 
 # ---------------------------------------------------------------------------------------------------
@@ -276,11 +283,11 @@ $CR
 # 웹서버 kqueue, Conpig 설정 시간 (초)
 WEBSERVER_CREATE_TIME=1
 
-# 서버 응답 대기 시간 (초)
-RESPONSE_WAIT_TIME=0.1
+# 서버 응답 대기 시간 (초) - CGI 스크립트 처리 시간을 고려하여 적절히 설정
+RESPONSE_WAIT_TIME=0.2
 
 # netcat 명령어 타임아웃 시간 (초)
-NC_TIMEOUT=7
+NC_TIMEOUT=5
 
 # 색상 코드
 BLACK='\033[90m'
@@ -293,62 +300,64 @@ CYAN='\033[96m'
 WHITE='\033[97m'
 NC='\033[0m'
 
-# 테스트를 위한 파일 생성
-mkdir -p ../../www/permission_denied log && \
-touch ../../www/permission_denied/not_allow ../../www/permission_denied/forbidden ../../www/delete && \
-rm -f log/* && \
-chmod 000  ../../www/permission_denied/forbidden && \
-chmod 444 ../../www/permission_denied/not_allow && \
-chmod 544 ../../www/permission_denied/
+setup_test_environment() {
+    # Kill any running instances of webserv
+    killall -9 webserv > /dev/null 2>&1
+    
+    # Create necessary files and directories
+    mkdir -p ../../www/permission_denied log
+    touch ../../www/permission_denied/not_allow ../../www/permission_denied/forbidden ../../www/delete
+    rm -f log/*
+    chmod 000  ../../www/permission_denied/forbidden
+    chmod 444 ../../www/permission_denied/not_allow
+    chmod 544 ../../www/permission_denied/
+}
 
-# webserv 프로그램을 백그라운드에서 실행
-clear && echo -e "${WHITE}webserv tester$NC" && \
-echo -e "${BLUE}webserver building...$NC" && \
-make -C ../../ mem -j > /dev/null 2>&1 && \
-echo -e "${BLUE}webserver running...$NC"
+start_webserv() {
+    clear && echo -e "${WHITE}webserv tester$NC"
+    echo -e "${BLUE}webserver building...$NC"
+    make -C ../../ mem -j > /dev/null 2>&1
+    echo -e "${BLUE}webserver running...$NC"
 
-../../webserv test.conf & WEBSERV_PID=$! && sleep $WEBSERVER_CREATE_TIME
+    python3.10 app.py > /dev/null 2>&1 & APP_PID=$!
+    ../../webserv test.conf & WEBSERV_PID=$!
+    sleep $WEBSERVER_CREATE_TIME
+}
 
-# 응답을 저장할 파일을 생성 (기존 파일이 있으면 내용을 지우고 새로 생성)
-echo -n > unexpected_response.txt
+perform_tests() {
+    # Create a file to store unexpected responses
+    echo -n > unexpected_response.txt
+    
+    # Iterate over the requests and expected responses
+    for ((i=0; i<${#requests[@]}; i+=2)); do
+        request="${requests[$i]}"
+        expected_status_code="${requests[$((i+1))]}"
+        
+        # Send the request and get the response
+        response=$( (echo -ne "${request}"; sleep $RESPONSE_WAIT_TIME) | nc -w$NC_TIMEOUT localhost 8080)
+        status_code=$(echo "${response}" | awk 'NR==1 {print $2}')
+        
+        # Check if the response status code matches the expected status code
+        if [ "$status_code" -eq "$expected_status_code" ]; then
+            echo -e "${GREEN}TEST $((i/2 + 1)): PASSED${NC}"
+        else
+            echo -e "${RED}TEST $((i/2 + 1)): FAILED${NC}"
+            echo -e "Expected: ${expected_status_code}, Got: ${status_code}\nRequest:\n${request}\nResponse:\n${response}\n" >> unexpected_response.txt
+        fi
+    done
+}
 
-# 요청을 반복하면서 테스트
-for ((i=0; i<${#requests[@]}; i+=2)); do
-    request="${requests[$i]}"
-    expected_status_code="${requests[$((i+1))]}"
+clean_up() {
+    chmod -R 777 ../../www/permission_denied
+    rm -rf ../../www/permission_denied
+    rm -rf ../../www/upload/test.txt
 
-    # 정수형 변수 예약
-    declare -i status_code
+    # webserv 프로그램 종료
+    kill -9 $WEBSERV_PID > /dev/null 2>&1
+    kill -9 $APP_PID > /dev/null 2>&1
+}
 
-    # 요청을 파일로 저장 (-e 옵션으로 이스케이프 문자 처리)
-    # 네트워크 타이밍 문제:
-    # nc 명령어는 매우 빠르게 실행되는 도구입니다. 따라서 echo 명령어가 요청을 보내자마자 nc가 연결을 닫아버릴 수 있습니다. sleep을 사용하면 요청을 보낸 후 잠시 동안 연결을 유지하게 되어 서버가 응답을 전송할 시간을 확보하게 됩니다.
-    # 서버의 처리 시간:
-    # CGI 스크립트가 실행되고 응답을 생성하는 데 시간이 걸릴 수 있습니다. sleep을 통해 연결을 잠시 동안 유지하면 서버가 응답을 생성하여 클라이언트에게 전송할 시간을 가질 수 있습니다. 요청을 보내고 바로 연결을 닫으면 서버가 응답을 전송하기 전에 연결이 끊어질 수 있습니다.
-    # 버퍼링 문제:
-    # 네트워크 통신에서는 데이터가 버퍼링될 수 있습니다. sleep을 통해 약간의 시간을 주면 데이터가 완전히 전송되고 처리될 수 있습니다. 즉, 클라이언트가 데이터를 전송하고 서버가 이를 완전히 수신 및 처리할 수 있는 시간을 확보하게 됩니다.
-    # 프로세스 동기화:
-    # nc와 같은 도구는 입력을 읽고 처리하는 동안 매우 짧은 시간 안에 종료될 수 있습니다. sleep을 사용하면 입력을 보낸 후 nc가 조금 더 오래 실행되어 서버의 응답을 기다리게 됩니다. 이는 클라이언트와 서버 간의 동기화 문제를 해결하는 데 도움이 됩니다.
-    # 요약하자면, sleep을 사용하여 연결을 잠시 동안 유지하면 클라이언트가 요청을 보낸 후 서버의 응답을 받을 수 있는 충분한 시간을 확보하게 됩니다. 이는 네트워크 타이밍 문제, 서버의 처리 시간, 버퍼링 문제, 프로세스 동기화 문제 등을 해결하는 데 기여할 수 있습니다.
-    response=$((echo -ne "${request}"; sleep $RESPONSE_WAIT_TIME) | nc -w$NC_TIMEOUT localhost 8080) # nc -w 1 옵션으로 1초 대기 후 응답 없으면 종료, nc 명령어의 출력을 없애기 위함
-    status_code=$(echo "${response}" | awk 'NR==1 {print $2}') # Response의 Status Line에서 HTTP 상태 코드 추출
-
-    # 요청을 보내고 응답 코드 확인
-    if [ "$status_code" -eq "$expected_status_code" ]; then
-        echo -e "${GREEN}TEST $((i/2+1)): Success (HTTP Status: $status_code)$NC"
-    else
-        echo -e "${RED}TEST $((i/2+1)): Failed (Expected HTTP Status: $expected_status_code, HTTP Status: $status_code)$NC"
-        echo -e "Test $((i/2+1))" >> unexpected_response.txt
-        echo -e "\n--------------------------------------REQUEST--------------------------------------" >> unexpected_response.txt
-        echo -ne "${request}" >> unexpected_response.txt
-        echo -e "\n--------------------------------------RESPONSE--------------------------------------" >> unexpected_response.txt
-        echo -ne "${response}" >> unexpected_response.txt
-    fi
-done
-
-chmod -R 777 ../../www/permission_denied
-rm -rf ../../www/permission_denied
-rm -rf ../../www/upload/test.txt
-
-# webserv 프로그램 종료
-kill -9 $WEBSERV_PID > /dev/null 2>&1
+setup_test_environment
+start_webserv
+perform_tests
+clean_up

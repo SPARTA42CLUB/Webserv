@@ -19,6 +19,7 @@ private:
     std::string mPath;
     std::string mQueryString;
     bool mbIsCGI;
+    bool mbIsProxy;
 
     // Processing Request
     void processRequestPath(void);
@@ -29,6 +30,7 @@ private:
 
     int handleMethod(void);
     void executeCGI(void);
+    void proxyRequest(void);
 
     // Response (Success)
     int getRequest(void);
