@@ -19,7 +19,7 @@ A web server implemented in C++ that conforms to the HTTP/1.1 protocol.
 	```sh
 	./run.sh
 	```
-
+이미 실행 중인 웹서버가 있으면 자동으로 종료하고 재 실행
 
 ## After running
 - Stop the web server daemon by running
