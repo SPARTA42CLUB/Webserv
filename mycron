@@ -1,0 +1,2 @@
+# 매일 새벽 3시에 clean_old_logs.sh 스크립트를 실행
+0 3 * * * /usr/local/bin/clean_old_logs.sh

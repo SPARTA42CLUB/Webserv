@@ -256,7 +256,7 @@ void Server::handleClientReadEvent(struct EVENT_TYPE& event)
         if (!connection.request)
             continue;
 
-        Logger::getInstance().logHttpMessage(connection.request);
+        // Logger::getInstance().logHttpMessage(connection.request);
 
         // 요청 처리
         RequestHandler requestHandler(connectionsMap, socket);
@@ -457,7 +457,7 @@ void Server::handleClientWriteEvent(struct EVENT_TYPE& event)
 
     ResponseMessage* res = connection.responses.front();
     res->setConnection(connection);  // Client의 Connection 필드 값, 남은 responses 유무, Response의 에러 코드를 보고 res에 Connection 필드 생성
-    Logger::getInstance().logHttpMessage(res);
+    // Logger::getInstance().logHttpMessage(res);
 
     std::string data = res->toString();
     ssize_t sendSize = send(connection.fd, data.c_str(), data.length(), 0);

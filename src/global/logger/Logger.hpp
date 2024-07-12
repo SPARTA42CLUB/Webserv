@@ -27,8 +27,8 @@ public:
     void logHttpMessage(const RequestMessage* req) const;
 
 private:
-    const std::string accessLogPath;
-    const std::string errorLogPath;
+    static inline const std::string ACCESS_LOG_DIR = "log/access_log";
+    static inline const std::string ERROR_LOG_DIR = "log/error_log";
 
     // Singleton
     Logger();
@@ -40,6 +40,7 @@ private:
 
     std::string logLevelToString(const eLogLevel level) const;
     std::string getTimeStamp() const;
+    std::string getCurrentDate() const;
 };
 
 #endif

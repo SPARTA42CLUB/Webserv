@@ -19,7 +19,8 @@ Connection::Connection(const int fd, const ServerConfig& serverConfig, const int
 , last_activity(time(NULL))
 , serverConfig(serverConfig)
 {
-    Logger::getInstance().logInfo(std::to_string(fd) + " Connection created\n");
+    // accept client랑 중복이라 주석
+    // Logger::getInstance().logInfo(std::to_string(fd) + " Connection created\n");
     childFd[READ_END] = -1;
     childFd[WRITE_END] = -1;
 }
