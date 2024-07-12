@@ -61,7 +61,7 @@ clean:
 	@echo "$(FG_BLUE)Cleaned up object files$(RESET)"
 
 fclean: clean
-	@echo "$(FG_BLUE)Cleaned up executable and log files$(RESET)"
+	@echo "$(FG_BLUE)Cleaned up executable$(RESET)"
 
 re:
 	@$(MAKE) fclean
