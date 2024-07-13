@@ -4,25 +4,25 @@ SysException::SysException(enum eReason reason)
 : mReason(reason)
 {
 }
-SysException::~SysException() _NOEXCEPT
+SysException::~SysException() noexcept
 {
 }
-const char* SysException::what() const _NOEXCEPT
+const char* SysException::what() const noexcept
 {
     switch (mReason)
     {
-        case FAILED_TO_CREATE_KQUEUE:
-            return "Failed to create kqueue";
-        case FAILED_TO_ADD_READ_KEVENT:
-            return "Failed to add read kevent";
-        case FAILED_TO_ADD_WRITE_KEVENT:
-            return "Failed to add write kevent";
-        case FAILED_TO_DELETE_READ_KEVENT:
-            return "Failed to delete read kevent";
-        case FAILED_TO_DELETE_WRITE_KEVENT:
-            return "Failed to delete write kevent";
-        case FAILED_TO_GET_KEVENT:
-            return "Failed to get kevent";
+        case FAILED_TO_CREATE_EVENT:
+            return "Failed to create queue";
+        case FAILED_TO_ADD_READ_EVENT:
+            return "Failed to add read event";
+        case FAILED_TO_ADD_WRITE_EVENT:
+            return "Failed to add write event";
+        case FAILED_TO_DELETE_READ_EVENT:
+            return "Failed to delete read event";
+        case FAILED_TO_DELETE_WRITE_EVENT:
+            return "Failed to delete write event";
+        case FAILED_TO_GET_EVENT:
+            return "Failed to get event";
         case KEVENT_ERROR:
             return "Kevent error";
         case FAILED_TO_SEND:

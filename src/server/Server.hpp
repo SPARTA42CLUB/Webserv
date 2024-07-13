@@ -5,6 +5,7 @@
 #include <vector>
 #include "Config.hpp"
 #include "Connection.hpp"
+#include "EventManager.hpp"
 
 #define BUFFER_SIZE 4096
 
@@ -20,16 +21,16 @@ private:
 
     void manageTimeout();
 
-    void handleEvents(struct kevent& event);
-    void handleClientsEvent(struct kevent& event);
+    void handleEvents(struct EVENT_TYPE& event);
+    void handleClientsEvent(struct EVENT_TYPE& event);
 
     void acceptClient(int serverSocket);
-    void handleClientReadEvent(struct kevent& event);
-    void handleClientWriteEvent(struct kevent& event);
-    void handlePipeReadEvent(struct kevent& event);
+    void handleClientReadEvent(struct EVENT_TYPE& event);
+    void handleClientWriteEvent(struct EVENT_TYPE& event);
+    void handlePipeReadEvent(struct EVENT_TYPE& event);
     void movePipeDataToParent(Connection& cgiConnection);
     void closeCgi(Connection& connection);
-    void handlePipeWriteEvent(struct kevent& event);
+    void handlePipeWriteEvent(struct EVENT_TYPE& event);
 
     bool readData(Connection& connection);
 
@@ -44,7 +45,7 @@ private:
     bool isServerSocket(int socket);
     void updateLastActivity(Connection& connection);
 
-    void deleteGarbageEvent(struct kevent& event);
+    void deleteGarbageEvent(struct EVENT_TYPE& event);
 
     void pushResponse(Connection& connection, int statusCode);
 

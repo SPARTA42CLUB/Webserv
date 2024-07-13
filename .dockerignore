@@ -1,0 +1,8 @@
+.git*
+*.log
+tester
+.clang-format
+.vscode
+*.md
+webserv
+*.o

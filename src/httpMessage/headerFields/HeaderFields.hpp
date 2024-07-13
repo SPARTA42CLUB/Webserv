@@ -2,6 +2,7 @@
 #define HEADER_FIELDS_HPP
 
 #include <map>
+#include <string>
 
 #ifndef CR
 #define CR "\r"

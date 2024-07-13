@@ -1,6 +1,10 @@
 #include "Server.hpp"
 #include <arpa/inet.h>
 #include <signal.h>
+#include <cstring>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <algorithm>
 #include "EventManager.hpp"
 #include "FileManager.hpp"
 #include "HttpException.hpp"
@@ -57,7 +61,7 @@ int Server::setServerSocket(ServerConfig serverConfig)
     if (serverSocket == -1)
         throw SysException(FAILED_TO_CREATE_SOCKET);
 
-    /* 개발 편의용 세팅. 서버 소켓이 이미 사용중이더라도 실행되게끔 설정 */
+    /* 서버 소켓이 이미 사용중이더라도 실행되게끔 설정 */
     int optval = 1;
     setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
     /* ----------------------------------------------------------------- */
@@ -86,10 +90,10 @@ void Server::run()
     // 이벤트 처리 루프
     while (true)
     {
-        std::vector<struct kevent> events = EventManager::getInstance().getCurrentEvents();
-        for (std::vector<struct kevent>::iterator it = events.begin(); it != events.end(); ++it)
+        std::vector<struct EVENT_TYPE> events = EventManager::getInstance().getCurrentEvents();
+        for (std::vector<struct EVENT_TYPE>::iterator it = events.begin(); it != events.end(); ++it)
         {
-            struct kevent& event = *it;
+            struct EVENT_TYPE& event = *it;
 
             handleEvents(event);
         }
@@ -98,34 +102,34 @@ void Server::run()
     }
 }
 
-void Server::handleEvents(struct kevent& event)
+void Server::handleEvents(struct EVENT_TYPE& event)
 {
-    if (event.flags & EV_ERROR)
+    if (eventError(event))
         return;
 
-    if (isServerSocket(event.ident))
+    if (isServerSocket(eventIdent(event)))
     {
-        acceptClient(event.ident);
+        acceptClient(eventIdent(event));
     }
-    else if (isConnection(event.ident))
+    else if (isConnection(eventIdent(event)))
     {
         handleClientsEvent(event);
         deleteGarbageEvent(event);
     }
 }
 
-void Server::handleClientsEvent(struct kevent& event)
+void Server::handleClientsEvent(struct EVENT_TYPE& event)
 {
-    if (event.filter == EVFILT_READ)
+    if (eventFilter(event, READ_EVENT))
     {
-        if (isCgiConnection(connectionsMap[event.ident]))
+        if (isCgiConnection(connectionsMap[eventIdent(event)]))
             handlePipeReadEvent(event);
         else
             handleClientReadEvent(event);
     }
-    else if (event.filter == EVFILT_WRITE)
+    else if (eventFilter(event, WRITE_EVENT))
     {
-        if (isCgiConnection(connectionsMap[event.ident]))
+        if (isCgiConnection(connectionsMap[eventIdent(event)]))
             handlePipeWriteEvent(event);
         else
             handleClientWriteEvent(event);
@@ -155,11 +159,11 @@ void Server::acceptClient(int serverSocket)
     Logger::getInstance().logAccept(clientSocket, clientAddr);
 }
 
-void Server::handlePipeReadEvent(struct kevent& event)
+void Server::handlePipeReadEvent(struct EVENT_TYPE& event)
 {
-    Connection& cgiConnection = *(connectionsMap[event.ident]);
+    Connection& cgiConnection = *(connectionsMap[eventIdent(event)]);
 
-    if (event.flags & EV_EOF)
+    if (eventEOF(event))
     {
         movePipeDataToParent(cgiConnection);
         closeCgi(*connectionsMap[cgiConnection.parentFd]);
@@ -198,13 +202,13 @@ void Server::movePipeDataToParent(Connection& cgiConnection)
     }
 
     parentConnection.responses.push(response);  // 부모 커넥션의 responses에다 pipe에서 읽어 온 데이터 넣음
-    EventManager::getInstance().addWriteEvent(cgiConnection.parentFd);
+    EventManager::getInstance().modWriteEvent(cgiConnection.parentFd);
     cgiConnection.buffer.clear();  // 데이터 버퍼 클리어.
 }
 
-void Server::handlePipeWriteEvent(struct kevent& event)
+void Server::handlePipeWriteEvent(struct EVENT_TYPE& event)
 {
-    int pipe = event.ident;
+    int pipe = eventIdent(event);
 
     Connection& cgiConnection = *connectionsMap[pipe];
 
@@ -225,17 +229,17 @@ void Server::handlePipeWriteEvent(struct kevent& event)
     if (writeSize == 0 || data.empty())
     {
         int readSocket = connectionsMap[cgiConnection.parentFd]->childFd[READ_END];
-        EventManager::getInstance().addReadEvent(readSocket);
+        EventManager::getInstance().modReadEvent(readSocket);
         closeConnection(pipe);
     }
 }
 
 // 소켓에 read event 발생시 소켓에서 데이터 읽음
-void Server::handleClientReadEvent(struct kevent& event)
+void Server::handleClientReadEvent(struct EVENT_TYPE& event)
 {
-    const int socket = event.ident;
+    const int socket = eventIdent(event);
 
-    if (event.flags & EV_EOF)
+    if (eventEOF(event))
         return;
 
     Connection& connection = *connectionsMap[socket];
@@ -252,7 +256,7 @@ void Server::handleClientReadEvent(struct kevent& event)
         if (!connection.request)
             continue;
 
-        Logger::getInstance().logHttpMessage(connection.request);
+        // Logger::getInstance().logHttpMessage(connection.request);
 
         // 요청 처리
         RequestHandler requestHandler(connectionsMap, socket);
@@ -267,7 +271,8 @@ void Server::handleClientReadEvent(struct kevent& event)
             continue;
 
         connection.responses.push(res);
-        EventManager::getInstance().addWriteEvent(socket);
+        EventManager::getInstance().modWriteEvent(socket);
+
     }
 }
 
@@ -441,9 +446,9 @@ std::string Server::getChunk(Connection& connection)
 }
 
 // 보낸 데이터가 0일 때 write event 삭제
-void Server::handleClientWriteEvent(struct kevent& event)
+void Server::handleClientWriteEvent(struct EVENT_TYPE& event)
 {
-    int socket = event.ident;
+    int socket = eventIdent(event);
 
     Connection& connection = *connectionsMap[socket];
 
@@ -452,7 +457,7 @@ void Server::handleClientWriteEvent(struct kevent& event)
 
     ResponseMessage* res = connection.responses.front();
     res->setConnection(connection);  // Client의 Connection 필드 값, 남은 responses 유무, Response의 에러 코드를 보고 res에 Connection 필드 생성
-    Logger::getInstance().logHttpMessage(res);
+    // Logger::getInstance().logHttpMessage(res);
 
     std::string data = res->toString();
     ssize_t sendSize = send(connection.fd, data.c_str(), data.length(), 0);
@@ -531,7 +536,7 @@ void Server::pushResponse(Connection& connection, int statusCode)
     ResponseMessage* response = new ResponseMessage();
     response->setByStatusCode(statusCode, connection.serverConfig);
     connection.responses.push(response);
-    EventManager::getInstance().addWriteEvent(connection.fd);
+    EventManager::getInstance().modWriteEvent(connection.fd);
 }
 
 void Server::updateLastActivity(Connection& connection)
@@ -569,17 +574,17 @@ bool Server::isConnection(const int socket)
     return (it != connectionsMap.end());
 }
 
-void Server::deleteGarbageEvent(struct kevent& event)
+void Server::deleteGarbageEvent(struct EVENT_TYPE& event)
 {
-    if (isConnection(event.ident))
+    if (isConnection(eventIdent(event)))
         return;
 
-    if (event.filter == EVFILT_READ)
+    if (eventFilter(event, READ_EVENT))
     {
-        EventManager::getInstance().deleteReadEvent(event.ident);
+        EventManager::getInstance().deleteReadEvent(eventIdent(event));
     }
-    else if (event.filter == EVFILT_WRITE)
+    else if (eventFilter(event, WRITE_EVENT))
     {
-        EventManager::getInstance().deleteWriteEvent(event.ident);
+        EventManager::getInstance().deleteWriteEvent(eventIdent(event));
     }
 }

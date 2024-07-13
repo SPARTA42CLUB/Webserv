@@ -1,6 +1,7 @@
 #include "ResponseMessage.hpp"
 #include "HttpException.hpp"
 #include "Connection.hpp"
+#include <ctime>
 
 ResponseMessage::ResponseMessage()
 : mStatusLine()
@@ -256,7 +257,7 @@ void ResponseMessage::addSemanticHeaderFields(void)
     struct tm* timeinfo = localtime(&now);
     char buffer[128];
     // Date: Tue, 15 Nov 1994 08:12:31 GMT
-    std::strftime(buffer, sizeof(buffer), "%a, %d %b %Y %H:%M:%S GMT", timeinfo);
+    strftime(buffer, sizeof(buffer), "%a, %d %b %Y %H:%M:%S GMT", timeinfo);
     std::string date = buffer;
 
     addResponseHeaderField("Date", date);

@@ -46,5 +46,4 @@ diff.txt
 .python-version
 
 # log
-access.log
-error.log
+*.log

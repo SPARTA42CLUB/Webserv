@@ -2,7 +2,7 @@
 
 NAME			:= webserv
 CXX				:= c++
-CFLAGS			:= -std=c++98 -Werror -Wall -Wextra
+CFLAGS			:= -std=c++17 -Werror -Wall -Wextra
 DEBUG			:= -g
 MEMORY			:= -g3 -fsanitize=address
 
@@ -45,7 +45,6 @@ SRC				:= $(shell find $(SRC_DIR) -name "*.cpp")
 OBJ				:= $(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(SRC))
 
 all: $(NAME)
-	@mkdir log/
 	@echo "$(FG_GREEN)$(NAME) created successfully$(RESET)"
 
 $(NAME): $(OBJ)
@@ -62,8 +61,7 @@ clean:
 	@echo "$(FG_BLUE)Cleaned up object files$(RESET)"
 
 fclean: clean
-	@rm -rf $(NAME) log/
-	@echo "$(FG_BLUE)Cleaned up executable and log files$(RESET)"
+	@echo "$(FG_BLUE)Cleaned up executable$(RESET)"
 
 re:
 	@$(MAKE) fclean

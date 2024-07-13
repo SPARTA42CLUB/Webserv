@@ -2,6 +2,7 @@
 #include <arpa/inet.h>
 #include <fstream>
 #include <iostream>
+#include <filesystem>
 #include "color.hpp"
 
 Logger& Logger::getInstance()
@@ -11,8 +12,6 @@ Logger& Logger::getInstance()
 }
 
 Logger::Logger()
-: accessLogPath("log/access.log")
-, errorLogPath("log/error.log")
 {
 }
 Logger::~Logger()
@@ -68,7 +67,13 @@ void Logger::logInfo(const std::string& message) const
 
 void Logger::log(eLogLevel level, const std::string& message) const
 {
-    const std::string logPath = (level == INFO) ? accessLogPath : errorLogPath;
+    const std::string logDir = (level == INFO) ? ACCESS_LOG_DIR : ERROR_LOG_DIR;
+    const std::string logPath = logDir + "/" + getCurrentDate() + ".log";
+
+    // 디렉토리가 존재하지 않으면 생성합니다.
+    if (!std::filesystem::exists(logDir))
+        std::filesystem::create_directories(logDir);
+
     std::ofstream logFile(logPath, std::ios::app);
 
     const std::string logMessage = "[ " + logLevelToString(level) + " ] " + getTimeStamp() + '\n' + message;
@@ -100,9 +105,21 @@ std::string Logger::logLevelToString(const eLogLevel level) const
 
 std::string Logger::getTimeStamp() const
 {
-    std::time_t now = std::time(NULL);
-    std::tm* localtm = std::localtime(&now);
+    time_t now = time(NULL);
+    tm* localtm = localtime(&now);
     char buffer[80];
     strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", localtm);
+    return std::string(buffer);
+}
+
+std::string Logger::getCurrentDate() const
+{
+    // 현재 날짜와 시간을 가져옵니다.
+    std::time_t now = std::time(nullptr);
+    std::tm localtm = *std::localtime(&now);
+
+    // 날짜를 문자열로 변환합니다.
+    char buffer[80];
+    std::strftime(buffer, sizeof(buffer), "%Y-%m-%d", &localtm);
     return std::string(buffer);
 }

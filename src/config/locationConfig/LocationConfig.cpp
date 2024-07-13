@@ -2,6 +2,7 @@
 #include <sstream>
 #include "ConfigException.hpp"
 #include "parse.hpp"
+#include <algorithm>
 
 const size_t LocationConfig::implementMethodsSize = 4;
 const std::string LocationConfig::implementMethods[implementMethodsSize] = {"GET", "HEAD", "POST", "DELETE"};
@@ -71,7 +72,7 @@ void LocationConfig::parseAllowMethods(std::string& value)
     {
         if (allow_methods[method] == true)
             throw ConfigException(INVALID_LOCATION_CONFIG);
-        if (std::find(implementMethods, implementMethods + implementMethodsSize, method) == implementMethods + implementMethodsSize)
+        if (find(implementMethods, implementMethods + implementMethodsSize, method) == implementMethods + implementMethodsSize)
             throw ConfigException(INVALID_LOCATION_CONFIG);
         allow_methods[method] = true;
     }

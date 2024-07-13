@@ -5,12 +5,12 @@
 
 enum eReason
 {
-    FAILED_TO_CREATE_KQUEUE,
-    FAILED_TO_ADD_READ_KEVENT,
-    FAILED_TO_ADD_WRITE_KEVENT,
-    FAILED_TO_DELETE_READ_KEVENT,
-    FAILED_TO_DELETE_WRITE_KEVENT,
-    FAILED_TO_GET_KEVENT,
+    FAILED_TO_CREATE_EVENT,
+    FAILED_TO_ADD_READ_EVENT,
+    FAILED_TO_ADD_WRITE_EVENT,
+    FAILED_TO_DELETE_READ_EVENT,
+    FAILED_TO_DELETE_WRITE_EVENT,
+    FAILED_TO_GET_EVENT,
     KEVENT_ERROR,
     FAILED_TO_SEND,
     FAILED_TO_CREATE_SOCKET,
@@ -30,8 +30,8 @@ private:
 
 public:
     SysException(enum eReason reason);
-    virtual ~SysException() _NOEXCEPT;
-    virtual const char* what() const _NOEXCEPT;
+    virtual ~SysException() noexcept;
+    virtual const char* what() const noexcept;
 };
 
 #endif

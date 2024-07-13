@@ -1,4 +1,5 @@
 #include "parse.hpp"
+#include <algorithm>
 
 bool isWhitespace(char c)
 {
